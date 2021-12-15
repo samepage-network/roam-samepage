@@ -1,0 +1,27 @@
+name: Publish Lambda
+on:
+  push:
+    branches: main
+    paths:
+      - "lambdas/**"
+      - "package.json"
+      - ".github/workflows/lambda.yaml"
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.DEPLOY_AWS_ACCESS_KEY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOY_AWS_ACCESS_SECRET }}
+  ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 14.17.6
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.17.6
+      - name: install
+        run: npm install
+      - name: Deploy
+        run: npm run lambdas
