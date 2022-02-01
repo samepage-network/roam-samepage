@@ -17,7 +17,7 @@ const wss = new WebSocketServer({ port }, () => {
     });
     onconnect({ requestContext: { connectionId: ws.url } });
   });
-  wss.on("close", (s) => {
-    console.log("server closing...");
+  wss.on("close", (s: unknown) => {
+    console.log("server closing...", s);
   });
 });
