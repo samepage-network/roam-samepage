@@ -23,14 +23,14 @@
     "localhost-lambdas": "^0.5.5",
     "roamjs-scripts": "^0.13.3",
     "ts-node": "^10.4.0",
-    "typescript": "^4.5.4"
+    "typescript": "^4.5.4",
+    "ws": "^8.4.2"
   },
   "dependencies": {
     "aws-sdk": "^2.1066.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "roamjs-components": "^0.41.3",
-    "uuid": "^8.3.2",
-    "ws": "^8.4.2"
+    "uuid": "^8.3.2"
   }
 }

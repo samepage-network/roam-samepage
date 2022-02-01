@@ -15,7 +15,6 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSubTree from "roamjs-components/util/getSubTree";
-import WebSocket from "ws";
 
 // These RTC objects are not JSON serializable -.-
 const serialize = ({
@@ -430,18 +429,18 @@ export const setupMultiplayer = (configUid: string) => {
     enable: () => {
       if (asyncModeTree.uid) {
         const ws = new WebSocket(`wss://${process.env.WEB_SOCKET_URL}`);
-        ws.on('open', () => {
+        ws.onopen = () => {
           console.log('connected');
-        });
+        };
         
-        ws.on('close', () => {
+        ws.onclose = () => {
           console.log('disconnected');
-        });
+        };
         
-        ws.on('message', (data) => {
+        ws.onmessage = (data) => {
           console.log(`Received message on ${new Date()}`);
-          console.log(data);
-        });
+          console.log(data.data);
+        };
       } else {
         window.roamAlphaAPI.ui.commandPalette.addCommand({
           label: "Setup Multiplayer",
