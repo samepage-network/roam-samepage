@@ -9,7 +9,8 @@
     "preserver": "roamjs-scripts lambdas --build",
     "lambdas": "roamjs-scripts lambdas",
     "server": "localhost-lambdas",
-    "start": "concurrently npm:dev npm:server"
+    "start": "concurrently npm:dev npm:server",
+    "ws": "ts-node scripts/ws.ts"
   },
   "license": "MIT",
   "devDependencies": {
@@ -17,15 +18,19 @@
     "@types/react": "^17.0.37",
     "@types/react-dom": "^17.0.11",
     "@types/uuid": "^8.3.3",
+    "@types/ws": "^8.2.2",
     "concurrently": "^6.4.0",
     "localhost-lambdas": "^0.5.5",
     "roamjs-scripts": "^0.13.3",
+    "ts-node": "^10.4.0",
     "typescript": "^4.5.4"
   },
   "dependencies": {
+    "aws-sdk": "^2.1066.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "roamjs-components": "^0.35.1",
-    "uuid": "^8.3.2"
+    "roamjs-components": "^0.41.3",
+    "uuid": "^8.3.2",
+    "ws": "^8.4.2"
   }
 }

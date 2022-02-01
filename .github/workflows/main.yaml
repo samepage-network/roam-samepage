@@ -9,6 +9,9 @@ on:
 
 env:
   API_URL: https://lambda.roamjs.com
+  ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
+  ROAMJS_EMAIL: dvargas92495@gmail.com
+  ROAMJS_EXTENSION_ID: multiplayer
 
 jobs:
   deploy:

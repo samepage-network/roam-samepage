@@ -60,3 +60,33 @@ module "roamjs_lambda" {
   github_token     = var.github_token
   developer_token  = var.developer_token
 }
+
+resource "aws_dynamodb_table" "store" {
+  name           = "RoamJSMultiplayer"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "id"
+  range_key      = "entity"
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  attribute {
+    name = "entity"
+    type = "S"
+  }
+
+  global_secondary_index {
+    hash_key           = "entity"
+    name               = "entity-index"
+    non_key_attributes = []
+    projection_type    = "ALL"
+    read_capacity      = 0
+    write_capacity     = 0
+  }
+
+  tags = {
+    Application = "Roam JS Extensions"
+  }
+}

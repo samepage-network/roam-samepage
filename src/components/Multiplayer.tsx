@@ -13,6 +13,9 @@ import getGraph from "roamjs-components/util/getGraph";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
+import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
+import getSubTree from "roamjs-components/util/getSubTree";
+import WebSocket from "ws";
 
 // These RTC objects are not JSON serializable -.-
 const serialize = ({
@@ -378,8 +381,10 @@ const SetupConnect = ({ onClose, messageHandlers }: AlertProps) => {
 
 const MESSAGE_LIMIT = 15900; // 16KB minus 100b buffer for metadata
 
-export const setupMultiplayer = () => {
+export const setupMultiplayer = (configUid: string) => {
   const messageHandlers: MessageHandlers = {};
+  const tree = getBasicTreeByParentUid(configUid);
+  const asyncModeTree = getSubTree({ tree, key: "Asynchronous" });
   return {
     addGraphListener: ({
       operation,
@@ -423,24 +428,40 @@ export const setupMultiplayer = () => {
         (g) => connectedGraphs[g].status === "CONNECTED"
       ),
     enable: () => {
-      window.roamAlphaAPI.ui.commandPalette.addCommand({
-        label: "Setup Multiplayer",
-        callback: () => {
-          createOverlayRender<Omit<AlertProps, "onClose">>(
-            "multiplayer-setup",
-            SetupAlert
-          )({ messageHandlers });
-        },
-      });
-      window.roamAlphaAPI.ui.commandPalette.addCommand({
-        label: "Connect To Graph",
-        callback: () => {
-          createOverlayRender<Omit<AlertProps, "onClose">>(
-            "multiplayer-connect",
-            SetupConnect
-          )({ messageHandlers });
-        },
-      });
+      if (asyncModeTree.uid) {
+        const ws = new WebSocket(`wss://${process.env.WEB_SOCKET_URL}`);
+        ws.on('open', () => {
+          console.log('connected');
+        });
+        
+        ws.on('close', () => {
+          console.log('disconnected');
+        });
+        
+        ws.on('message', (data) => {
+          console.log(`Received message on ${new Date()}`);
+          console.log(data);
+        });
+      } else {
+        window.roamAlphaAPI.ui.commandPalette.addCommand({
+          label: "Setup Multiplayer",
+          callback: () => {
+            createOverlayRender<Omit<AlertProps, "onClose">>(
+              "multiplayer-setup",
+              SetupAlert
+            )({ messageHandlers });
+          },
+        });
+        window.roamAlphaAPI.ui.commandPalette.addCommand({
+          label: "Connect To Graph",
+          callback: () => {
+            createOverlayRender<Omit<AlertProps, "onClose">>(
+              "multiplayer-connect",
+              SetupConnect
+            )({ messageHandlers });
+          },
+        });
+      }
       const sibling = document
         .querySelector(`.rm-topbar .rm-sync`)
         .closest(".bp3-popover-wrapper");

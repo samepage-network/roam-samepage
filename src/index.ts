@@ -11,52 +11,62 @@ import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
 import { setupMultiplayer } from "./components/Multiplayer";
 import { InputTextNode } from "roamjs-components/types";
 
+const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
 const CONFIG = toConfigPageName(ID);
-runExtension(ID, () => {
-  /*const { pageUid } = */ createConfigObserver({
+runExtension(ID, async () => {
+  const { pageUid } = await createConfigObserver({
     title: CONFIG,
     config: {
-      tabs: [],
+      tabs: [{ 
+        id: "Asynchronous", 
+        toggleable: true, 
+        fields: [],
+        development: true,
+      }],
     },
   });
 
+  const multiplayerApi = setupMultiplayer(pageUid);
   const { enable, addGraphListener, sendToGraph, getConnectedGraphs } =
-    setupMultiplayer();
-  enable();
-  window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Send Page to Graphs",
-    callback: () => {
-      const uid = getCurrentPageUid();
-      const title = getPageTitleByPageUid(uid);
-      const tree = getFullTreeByParentUid(uid).children;
-      getConnectedGraphs().forEach((graph) =>
-        sendToGraph({
-          graph,
-          operation: "SEND_PAGE",
-          data: {
-            uid,
-            title,
-            tree,
-          },
-        })
-      );
-    },
-  });
-  addGraphListener({
-    operation: "SEND_PAGE",
-    handler: (e, graph) => {
-      const { uid, title, tree } = e as {
-        uid: string;
-        title: string;
-        tree: InputTextNode[];
-      };
-      createPage({ uid, title, tree });
-      createBlock({
-        parentUid: toRoamDateUid(),
-        order: getChildrenLengthByPageUid(toRoamDateUid()),
-        node: { text: `[[${graph}]] sent over page [[${title}]]` },
-      });
-    },
-  });
+    multiplayerApi;
+  if (!loadedElsewhere) {
+    enable();
+    window.roamAlphaAPI.ui.commandPalette.addCommand({
+      label: "Send Page to Graphs",
+      callback: () => {
+        const uid = getCurrentPageUid();
+        const title = getPageTitleByPageUid(uid);
+        const tree = getFullTreeByParentUid(uid).children;
+        getConnectedGraphs().forEach((graph) =>
+          sendToGraph({
+            graph,
+            operation: "SEND_PAGE",
+            data: {
+              uid,
+              title,
+              tree,
+            },
+          })
+        );
+      },
+    });
+    addGraphListener({
+      operation: "SEND_PAGE",
+      handler: (e, graph) => {
+        const { uid, title, tree } = e as {
+          uid: string;
+          title: string;
+          tree: InputTextNode[];
+        };
+        createPage({ uid, title, tree });
+        createBlock({
+          parentUid: toRoamDateUid(),
+          order: getChildrenLengthByPageUid(toRoamDateUid()),
+          node: { text: `[[${graph}]] sent over page [[${title}]]` },
+        });
+      },
+    });
+  }
+  window.roamjs.extension["multiplayer"] = multiplayerApi;
 });
