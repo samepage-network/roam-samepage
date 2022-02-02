@@ -18,19 +18,21 @@ runExtension(ID, async () => {
   const { pageUid } = await createConfigObserver({
     title: CONFIG,
     config: {
-      tabs: [{ 
-        id: "Asynchronous", 
-        toggleable: true, 
-        fields: [],
-        development: true,
-      }],
+      tabs: [
+        {
+          id: "Asynchronous",
+          toggleable: true,
+          fields: [],
+          development: true,
+        },
+      ],
     },
   });
 
   const multiplayerApi = setupMultiplayer(pageUid);
-  const { enable, addGraphListener, sendToGraph, getConnectedGraphs } =
-    multiplayerApi;
   if (!loadedElsewhere) {
+    const { enable, addGraphListener, sendToGraph, getConnectedGraphs } =
+      multiplayerApi;
     enable();
     window.roamAlphaAPI.ui.commandPalette.addCommand({
       label: "Send Page to Graphs",
