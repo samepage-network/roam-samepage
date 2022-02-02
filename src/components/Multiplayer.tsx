@@ -126,7 +126,7 @@ const connectedGraphs: {
     status: "DISCONNECTED" | "PENDING" | "CONNECTED";
   };
 } = {};
-const PEER_CONNECTION_CONFIG = {
+const PEER_CONNECTION_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 };
 
@@ -208,8 +208,10 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
       onConnect({
         e,
         channel: sendChannel,
-        callback: () =>
-          sendChannel.removeEventListener("message", connectionHandler),
+        callback: () => {
+          sendChannel.removeEventListener("message", connectionHandler);
+          onClose();
+        },
         messageHandlers,
       });
     };
@@ -234,10 +236,13 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
   }, [setLoading, connectionRef]);
   return (
     <Alert
-      loading={loading}
+      loading={!readyToRecieve || loading}
       isOpen={true}
       onConfirm={() => {
+        setLoading(true);
         const { candidates, description } = deserialize(answer);
+        //@ts-ignore
+        window.setter = connectionRef.current;
         connectionRef.current
           .setRemoteDescription(new RTCSessionDescription(description))
           .then(() =>
@@ -245,7 +250,24 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
               candidates.map((c) =>
                 connectionRef.current.addIceCandidate(new RTCIceCandidate(c))
               )
-            ).then(onClose)
+            ).then(() => {
+              const checkIce = () => {
+                if (
+                  connectionRef.current.iceConnectionState === "disconnected"
+                ) {
+                  renderToast({
+                    id: "multiplayer-failed-connection",
+                    content: "Failed to setup multiplayer connection",
+                  });
+                  onClose();
+                } else if (
+                  connectionRef.current.iceConnectionState === "checking"
+                ) {
+                  setTimeout(checkIce, 10);
+                }
+              };
+              checkIce();
+            })
           );
       }}
       canOutsideClickCancel
@@ -261,7 +283,7 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
       <p>
         <Button
           style={{ minWidth: 120 }}
-          disabled={!code}
+          disabled={!code || loading}
           onClick={() => {
             window.navigator.clipboard.writeText(code);
             setCopied(true);
@@ -279,7 +301,7 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
         Peer's Handshake Code
         <InputGroup
           value={answer}
-          disabled={!readyToRecieve}
+          disabled={!readyToRecieve || loading}
           onChange={(e) => {
             setAnswer(e.target.value);
             setLoading(!e.target.value);
@@ -291,7 +313,7 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
   );
 };
 
-const SetupConnect = ({ onClose, messageHandlers }: AlertProps) => {
+const ConnectAlert = ({ onClose, messageHandlers }: AlertProps) => {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [offer, setOffer] = useState("");
@@ -323,14 +345,16 @@ const SetupConnect = ({ onClose, messageHandlers }: AlertProps) => {
         const { candidates, description } = deserialize(offer);
         remoteConnection
           .setRemoteDescription(new RTCSessionDescription(description))
-          .then(() =>
-            Promise.all(
+          .then(() => {
+            return Promise.all(
               candidates.map((c) =>
                 remoteConnection.addIceCandidate(new RTCIceCandidate(c))
               )
-            )
-          )
-          .then(() => remoteConnection.createAnswer())
+            );
+          })
+          .then(() => {
+            return remoteConnection.createAnswer();
+          })
           .then((answer) =>
             remoteConnection.setLocalDescription(answer).then(resolve)
           );
@@ -343,6 +367,20 @@ const SetupConnect = ({ onClose, messageHandlers }: AlertProps) => {
         })
       );
       setCopied(true);
+      //@ts-ignore
+      window.setter = connectionRef.current;
+      const checkIce = () => {
+        if (connectionRef.current.iceConnectionState === "disconnected") {
+          renderToast({
+            id: "multiplayer-failed-connection",
+            content: "Failed to connect to graph",
+          });
+          onClose();
+        } else if (connectionRef.current.iceConnectionState === "checking") {
+          setTimeout(checkIce, 10);
+        }
+      };
+      checkIce();
     });
   }, [setLoading, offer, connectionRef, setCopied]);
   return (
@@ -369,6 +407,7 @@ const SetupConnect = ({ onClose, messageHandlers }: AlertProps) => {
                 setOffer(e.target.value);
                 setLoading(!e.target.value);
               }}
+              disabled={loading}
             />
           </Label>
           <p>Then, click connect below:</p>
@@ -430,13 +469,13 @@ export const setupMultiplayer = (configUid: string) => {
       if (asyncModeTree.uid) {
         const ws = new WebSocket(`wss://${process.env.WEB_SOCKET_URL}`);
         ws.onopen = () => {
-          console.log('connected');
+          console.log("connected");
         };
-        
+
         ws.onclose = () => {
-          console.log('disconnected');
+          console.log("disconnected");
         };
-        
+
         ws.onmessage = (data) => {
           console.log(`Received message on ${new Date()}`);
           console.log(data.data);
@@ -456,7 +495,7 @@ export const setupMultiplayer = (configUid: string) => {
           callback: () => {
             createOverlayRender<Omit<AlertProps, "onClose">>(
               "multiplayer-connect",
-              SetupConnect
+              ConnectAlert
             )({ messageHandlers });
           },
         });
