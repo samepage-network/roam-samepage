@@ -12,6 +12,7 @@ env:
   ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
   ROAMJS_EMAIL: dvargas92495@gmail.com
   ROAMJS_EXTENSION_ID: multiplayer
+  WEB_SOCKET_URL: ${{ secrets.WEB_SOCKET_URL }}
 
 jobs:
   deploy:

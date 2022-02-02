@@ -1,4 +1,8 @@
-import WebSocket, { WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
+import {
+  addLocalSocket,
+  removeLocalSocket,
+} from "../lambdas/common/postToConnection";
 import { handler as onconnect } from "../lambdas/onconnect";
 import { handler as ondisconnect } from "../lambdas/ondisconnect";
 import { handler as sendmessage } from "../lambdas/sendmessage";
@@ -13,8 +17,10 @@ const wss = new WebSocketServer({ port }, () => {
     });
     ws.on("close", (s) => {
       console.log("client closing...", s);
+      removeLocalSocket(ws.url);
       ondisconnect({ requestContext: { connectionId: ws.url } });
     });
+    addLocalSocket(ws.url, ws);
     onconnect({ requestContext: { connectionId: ws.url } });
   });
   wss.on("close", (s: unknown) => {

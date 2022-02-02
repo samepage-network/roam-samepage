@@ -14,6 +14,8 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 variable "aws_access_token" {
   type = string
 }
@@ -91,8 +93,88 @@ resource "aws_dynamodb_table" "store" {
   }
 }
 
-data "aws_iam_role" "roamjs_lambda_role" {
-  name = "roam-js-extensions-lambda-execution"
+resource "aws_apigatewayv2_api" "ws" {
+  name                       = "roamjs-multiplayer"
+  protocol_type              = "WEBSOCKET"
+  route_selection_expression = "$request.body.action"
+
+  tags = {
+    Application = "Roam JS Extensions"
+  }
+}
+
+data "aws_iam_policy_document" "assume_lambda_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "lambda_execution_policy" {
+  statement {
+    actions = [
+      "cloudfront:CreateInvalidation",
+      "cloudfront:GetInvalidation",
+      "cloudfront:ListDistributions",
+      "dynamodb:BatchGetItem",
+      "dynamodb:GetItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "ses:sendEmail",
+      "lambda:InvokeFunction",
+      "s3:GetObject",
+      "s3:ListBucket",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:CreateLogGroup"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "execute-api:Invoke" 
+    ]
+    resources = [
+      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.ws.id}/production/*"
+    ]
+  }
+
+  statement {
+    actions = [
+      "sts:AssumeRole"
+    ]
+    resources = [
+      "arn:aws:iam::*:role/roamjs-multiplayer-lambda-execution"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "lambda_execution_policy" {
+  name = "roamjs-multiplayer-lambda-execution"
+  policy = data.aws_iam_policy_document.lambda_execution_policy.json
+}
+
+resource "aws_iam_role" "lambda_role" {
+  name = "roamjs-multiplayer-lambda-execution"
+  assume_role_policy = data.aws_iam_policy_document.assume_lambda_policy.json
+  tags = {
+    Application = "Roam JS Extensions"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_role" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = aws_iam_policy.lambda_execution_policy.arn
 }
 
 # lambda resource requires either filename or s3... wow
@@ -103,16 +185,6 @@ data "archive_file" "dummy" {
   source {
     content   = "// TODO IMPLEMENT"
     filename  = "dummy.js"
-  }
-}
-
-resource "aws_apigatewayv2_api" "ws" {
-  name                       = "roamjs-multiplayer"
-  protocol_type              = "WEBSOCKET"
-  route_selection_expression = "$request.body.action"
-
-  tags = {
-    Application = "Roam JS Extensions"
   }
 }
 
@@ -210,4 +282,36 @@ resource "aws_lambda_permission" "sendmessage" {
   function_name = aws_lambda_function.sendmessage.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
+}
+
+resource "aws_apigatewayv2_deployment" "ws" {
+  api_id      = aws_apigatewayv2_api.ws.id
+  description = "Latest Multiplayer Deployment"
+
+  triggers = {
+    redeployment = sha1(join(",", [
+      jsonencode(aws_apigatewayv2_integration.onconnect),
+      jsonencode(aws_apigatewayv2_route.onconnect),
+      jsonencode(aws_apigatewayv2_integration.ondisconnect),
+      jsonencode(aws_apigatewayv2_route.ondisconnect),
+      jsonencode(aws_apigatewayv2_integration.sendmessage),
+      jsonencode(aws_apigatewayv2_route.sendmessage),
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_apigatewayv2_stage" "ws" {
+  api_id = aws_apigatewayv2_api.ws.id
+  name   = "production"
+  deployment_id = aws_apigatewayv2_deployment.ws.id
+}
+
+resource "github_actions_secret" "web_socket_url" {
+  repository       = "roamjs-multiplayer"
+  secret_name      = "WEB_SOCKET_URL"
+  plaintext_value  = aws_apigatewayv2_stage.ws.invoke_url
 }

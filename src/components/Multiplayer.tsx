@@ -467,7 +467,7 @@ export const setupMultiplayer = (configUid: string) => {
       ),
     enable: () => {
       if (asyncModeTree.uid) {
-        const ws = new WebSocket(`wss://${process.env.WEB_SOCKET_URL}`);
+        const ws = new WebSocket(process.env.WEB_SOCKET_URL);
         ws.onopen = () => {
           console.log("connected");
         };
