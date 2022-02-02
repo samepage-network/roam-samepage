@@ -196,7 +196,7 @@ resource "aws_apigatewayv2_route" "onconnect" {
 resource "aws_lambda_function" "onconnect" {
   filename      = "dummy.zip"
   function_name = "RoamJS_onconnect"
-  role          = data.aws_iam_role.roamjs_lambda_role.arn
+  role          = aws_iam_role.lambda_role.arn
   handler       = "onconnect.handler"
   runtime       = "nodejs14.x"
 }
@@ -228,7 +228,7 @@ resource "aws_apigatewayv2_route" "ondisconnect" {
 resource "aws_lambda_function" "ondisconnect" {
   filename      = "dummy.zip"
   function_name = "RoamJS_ondisconnect"
-  role          = data.aws_iam_role.roamjs_lambda_role.arn
+  role          = aws_iam_role.lambda_role.arn
   handler       = "ondisconnect.handler"
   runtime       = "nodejs14.x"
 }
@@ -260,7 +260,7 @@ resource "aws_apigatewayv2_route" "sendmessage" {
 resource "aws_lambda_function" "sendmessage" {
   filename      = "dummy.zip"
   function_name = "RoamJS_sendmessage"
-  role          = data.aws_iam_role.roamjs_lambda_role.arn
+  role          = aws_iam_role.lambda_role.arn
   handler       = "sendmessage.handler"
   runtime       = "nodejs14.x"
 }
