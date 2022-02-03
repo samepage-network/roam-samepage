@@ -467,19 +467,27 @@ export const setupMultiplayer = (configUid: string) => {
       ),
     enable: () => {
       if (asyncModeTree.uid) {
-        const ws = new WebSocket(process.env.WEB_SOCKET_URL);
-        ws.onopen = () => {
-          console.log("connected");
-        };
+        window.roamAlphaAPI.ui.commandPalette.addCommand({
+          label: "Setup Multiplayer",
+          callback: () => {
+            const ws = new WebSocket(process.env.WEB_SOCKET_URL);
+            ws.onopen = () => {
+              console.log("connected");
+              ws.send(
+                JSON.stringify({ action: "sendmessage", data: "hello,world" })
+              );
+            };
 
-        ws.onclose = () => {
-          console.log("disconnected");
-        };
+            ws.onclose = () => {
+              console.log("disconnected");
+            };
 
-        ws.onmessage = (data) => {
-          console.log(`Received message on ${new Date()}`);
-          console.log(data.data);
-        };
+            ws.onmessage = (data) => {
+              console.log(`Received message on ${new Date()}`);
+              console.log(data.data);
+            };
+          },
+        });
       } else {
         window.roamAlphaAPI.ui.commandPalette.addCommand({
           label: "Setup Multiplayer",
