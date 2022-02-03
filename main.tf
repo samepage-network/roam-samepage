@@ -212,7 +212,6 @@ resource "aws_lambda_permission" "onconnect" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.onconnect.function_name
   principal     = "apigateway.amazonaws.com"
- # source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
 }
 
 resource "aws_apigatewayv2_route" "onconnect" {
@@ -245,7 +244,6 @@ resource "aws_lambda_permission" "ondisconnect" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.ondisconnect.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
 }
 
 resource "aws_apigatewayv2_route" "ondisconnect" {
@@ -278,7 +276,6 @@ resource "aws_lambda_permission" "sendmessage" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.sendmessage.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
 }
 
 resource "aws_apigatewayv2_route" "sendmessage" {
