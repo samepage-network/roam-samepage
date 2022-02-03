@@ -198,7 +198,7 @@ resource "aws_lambda_function" "onconnect" {
 
 resource "aws_apigatewayv2_integration" "onconnect" {
   api_id           = aws_apigatewayv2_api.ws.id
-  integration_type = "AWS"
+  integration_type = "AWS_PROXY"
 
   connection_type           = "INTERNET"
   content_handling_strategy = "CONVERT_TO_TEXT"
@@ -220,18 +220,6 @@ resource "aws_apigatewayv2_route" "onconnect" {
   target = "integrations/${aws_apigatewayv2_integration.onconnect.id}"
 }
 
-resource "aws_apigatewayv2_integration_response" "onconnect" {
-  api_id                   = aws_apigatewayv2_api.ws.id
-  integration_id           = aws_apigatewayv2_integration.onconnect.id
-  integration_response_key = "/200/"
-}
-
-resource "aws_apigatewayv2_route_response" "onconnect" {
-  api_id             = aws_apigatewayv2_api.ws.id
-  route_id           = aws_apigatewayv2_route.onconnect.id
-  route_response_key = "$default"
-}
-
 resource "aws_lambda_function" "ondisconnect" {
   filename      = "dummy.zip"
   function_name = "RoamJS_ondisconnect"
@@ -242,7 +230,7 @@ resource "aws_lambda_function" "ondisconnect" {
 
 resource "aws_apigatewayv2_integration" "ondisconnect" {
   api_id           = aws_apigatewayv2_api.ws.id
-  integration_type = "AWS"
+  integration_type = "AWS_PROXY"
 
   connection_type           = "INTERNET"
   content_handling_strategy = "CONVERT_TO_TEXT"
@@ -274,7 +262,7 @@ resource "aws_lambda_function" "sendmessage" {
 
 resource "aws_apigatewayv2_integration" "sendmessage" {
   api_id           = aws_apigatewayv2_api.ws.id
-  integration_type = "AWS"
+  integration_type = "AWS_PROXY"
 
   connection_type           = "INTERNET"
   content_handling_strategy = "CONVERT_TO_TEXT"
@@ -302,8 +290,6 @@ resource "aws_apigatewayv2_deployment" "ws" {
 
   triggers = {
     redeployment = sha1(join(",", [
-      jsonencode(aws_apigatewayv2_route_response.onconnect),
-      jsonencode(aws_apigatewayv2_integration_response.onconnect),
       jsonencode(aws_apigatewayv2_integration.onconnect),
       jsonencode(aws_apigatewayv2_route.onconnect),
       jsonencode(aws_apigatewayv2_integration.ondisconnect),
