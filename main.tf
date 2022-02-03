@@ -190,7 +190,7 @@ data "archive_file" "dummy" {
 
 resource "aws_apigatewayv2_route" "onconnect" {
   api_id    = aws_apigatewayv2_api.ws.id
-  route_key = "$onconnect"
+  route_key = "$connect"
 }
 
 resource "aws_lambda_function" "onconnect" {
@@ -222,7 +222,7 @@ resource "aws_lambda_permission" "onconnect" {
 
 resource "aws_apigatewayv2_route" "ondisconnect" {
   api_id    = aws_apigatewayv2_api.ws.id
-  route_key = "$ondisconnect"
+  route_key = "$disconnect"
 }
 
 resource "aws_lambda_function" "ondisconnect" {
@@ -254,7 +254,7 @@ resource "aws_lambda_permission" "ondisconnect" {
 
 resource "aws_apigatewayv2_route" "sendmessage" {
   api_id    = aws_apigatewayv2_api.ws.id
-  route_key = "$sendmessage"
+  route_key = "sendmessage"
 }
 
 resource "aws_lambda_function" "sendmessage" {
