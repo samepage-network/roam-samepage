@@ -26,7 +26,7 @@ export const handler: WSHandler = (event) => {
           TableName: "RoamJSMultiplayer",
           IndexName: "entity-index",
           ExpressionAttributeNames: {
-            "#s": "status",
+            "#s": "entity",
           },
           ExpressionAttributeValues: {
             ":s": { S: toEntity("client") },

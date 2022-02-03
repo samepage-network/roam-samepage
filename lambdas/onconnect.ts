@@ -5,12 +5,11 @@ import toEntity from "./common/toEntity";
 const dynamo = new AWS.DynamoDB();
 
 export const handler: WSHandler = (event) => {
-  console.log(JSON.stringify(event, null, 4));
   return dynamo
     .putItem({
       TableName: "RoamJSMultiplayer",
       Item: {
-        id: { S: event.requestContext?.connectionId || '1' },
+        id: { S: event.requestContext.connectionId },
         entity: { S: toEntity("client") },
       },
     })
