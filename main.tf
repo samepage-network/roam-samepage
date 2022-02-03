@@ -322,6 +322,11 @@ resource "aws_apigatewayv2_stage" "ws" {
   api_id = aws_apigatewayv2_api.ws.id
   name   = "production"
   deployment_id = aws_apigatewayv2_deployment.ws.id
+  default_route_settings {
+    logging_level = "INFO"
+    throttling_burst_limit = 5000
+    throttling_rate_limit = 10000
+  }
 }
 
 resource "github_actions_secret" "web_socket_url" {
