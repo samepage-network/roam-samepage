@@ -188,11 +188,6 @@ data "archive_file" "dummy" {
   }
 }
 
-resource "aws_apigatewayv2_route" "onconnect" {
-  api_id    = aws_apigatewayv2_api.ws.id
-  route_key = "$connect"
-}
-
 resource "aws_lambda_function" "onconnect" {
   filename      = "dummy.zip"
   function_name = "RoamJS_onconnect"
@@ -220,9 +215,10 @@ resource "aws_lambda_permission" "onconnect" {
   source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
 }
 
-resource "aws_apigatewayv2_route" "ondisconnect" {
+resource "aws_apigatewayv2_route" "onconnect" {
   api_id    = aws_apigatewayv2_api.ws.id
-  route_key = "$disconnect"
+  route_key = "$connect"
+  target = "integrations/${aws_apigatewayv2_integration.onconnect.id}"
 }
 
 resource "aws_lambda_function" "ondisconnect" {
@@ -252,9 +248,10 @@ resource "aws_lambda_permission" "ondisconnect" {
   source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
 }
 
-resource "aws_apigatewayv2_route" "sendmessage" {
+resource "aws_apigatewayv2_route" "ondisconnect" {
   api_id    = aws_apigatewayv2_api.ws.id
-  route_key = "sendmessage"
+  route_key = "$disconnect"
+  target = "integrations/${aws_apigatewayv2_integration.ondisconnect.id}"
 }
 
 resource "aws_lambda_function" "sendmessage" {
@@ -282,6 +279,12 @@ resource "aws_lambda_permission" "sendmessage" {
   function_name = aws_lambda_function.sendmessage.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.ws.execution_arn}/*/*/*"
+}
+
+resource "aws_apigatewayv2_route" "sendmessage" {
+  api_id    = aws_apigatewayv2_api.ws.id
+  route_key = "sendmessage"
+  target = "integrations/${aws_apigatewayv2_integration.sendmessage.id}"
 }
 
 resource "aws_apigatewayv2_deployment" "ws" {
