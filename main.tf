@@ -229,7 +229,7 @@ resource "aws_apigatewayv2_integration_response" "onconnect" {
 resource "aws_apigatewayv2_route_response" "onconnect" {
   api_id             = aws_apigatewayv2_api.ws.id
   route_id           = aws_apigatewayv2_route.onconnect.id
-  route_response_key = "$connect"
+  route_response_key = "$default"
 }
 
 resource "aws_lambda_function" "ondisconnect" {
