@@ -8,6 +8,8 @@ type RecursivePartial<T> = {
     : T[P];
 };
 
+export type WSEvent = RecursivePartial<APIGatewayProxyEvent>;
+
 export type WSHandler = (
-  event: RecursivePartial<APIGatewayProxyEvent>
+  event: WSEvent
 ) => Promise<APIGatewayProxyResult>;

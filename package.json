@@ -9,8 +9,8 @@
     "preserver": "roamjs-scripts lambdas --build",
     "lambdas": "roamjs-scripts lambdas",
     "server": "localhost-lambdas",
-    "start": "concurrently npm:dev npm:server",
-    "ws": "ts-node scripts/ws.ts"
+    "start": "concurrently npm:dev npm:server npm:ws",
+    "ws": "ts-node --project tsconfig.json scripts/ws.ts"
   },
   "license": "MIT",
   "devDependencies": {

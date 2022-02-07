@@ -5,9 +5,17 @@ import {
   Label,
   Popover,
   Position,
+  Radio,
+  RadioGroup,
   Tooltip,
 } from "@blueprintjs/core";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import ReactDOM from "react-dom";
 import getGraph from "roamjs-components/util/getGraph";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
@@ -192,6 +200,153 @@ const onConnect = ({
   channel.onclose = onDisconnect(name);
 };
 
+const getSetupCode = ({
+  onClose,
+  ref,
+  messageHandlers,
+}: {
+  onClose: () => void;
+  messageHandlers: MessageHandlers;
+  ref: { current?: RTCPeerConnection };
+}) => {
+  const graph = getGraph();
+  const localConnection = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
+  ref.current = localConnection;
+  const sendChannel = localConnection.createDataChannel(graph);
+  const connectionHandler = (e: MessageEvent) => {
+    onConnect({
+      e,
+      channel: sendChannel,
+      callback: () => {
+        sendChannel.removeEventListener("message", connectionHandler);
+        onClose();
+      },
+      messageHandlers,
+    });
+  };
+  sendChannel.addEventListener("message", connectionHandler);
+  sendChannel.onerror = onError;
+  sendChannel.onopen = () => {
+    sendChannel.send(graph);
+  };
+  return Promise.all([
+    gatherCandidates(localConnection),
+    localConnection.createOffer().then((offer) => {
+      return localConnection.setLocalDescription(offer);
+    }),
+  ]).then(([candidates]) => {
+    return serialize({
+      candidates,
+      description: localConnection.localDescription,
+    });
+  });
+};
+
+const receiveAnswer = ({
+  onClose,
+  ref,
+  answer,
+}: {
+  onClose: () => void;
+  ref: { current?: RTCPeerConnection };
+  answer: string;
+}) => {
+  const { candidates, description } = deserialize(answer);
+
+  ref.current
+    .setRemoteDescription(new RTCSessionDescription(description))
+    .then(() =>
+      Promise.all(
+        candidates.map((c) =>
+          ref.current.addIceCandidate(new RTCIceCandidate(c))
+        )
+      ).then(() => {
+        const checkIce = () => {
+          if (ref.current.iceConnectionState === "disconnected") {
+            renderToast({
+              id: "multiplayer-failed-connection",
+              content: "Failed to setup multiplayer connection",
+            });
+            onClose();
+          } else if (ref.current.iceConnectionState === "checking") {
+            setTimeout(checkIce, 10);
+          }
+        };
+        checkIce();
+      })
+    );
+};
+
+const getConnectCode = ({
+  offer,
+  onClose,
+  ref,
+  messageHandlers,
+}: {
+  offer: string;
+  onClose: () => void;
+  messageHandlers: MessageHandlers;
+  ref: { current?: RTCPeerConnection };
+}) => {
+  const remoteConnection = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
+  ref.current = remoteConnection;
+  remoteConnection.ondatachannel = (event) => {
+    const receiveChannel = event.channel;
+    const connectionHandler = (e: MessageEvent) => {
+      onConnect({
+        e,
+        channel: receiveChannel,
+        callback: () => {
+          receiveChannel.send(getGraph());
+          receiveChannel.removeEventListener("message", connectionHandler);
+        },
+        messageHandlers,
+      });
+    };
+    receiveChannel.addEventListener("message", connectionHandler);
+    receiveChannel.onopen = onClose;
+    receiveChannel.onerror = onError;
+  };
+  return Promise.all([
+    gatherCandidates(remoteConnection),
+    new Promise<void>((resolve) => {
+      const { candidates, description } = deserialize(offer);
+      remoteConnection
+        .setRemoteDescription(new RTCSessionDescription(description))
+        .then(() => {
+          return Promise.all(
+            candidates.map((c) =>
+              remoteConnection.addIceCandidate(new RTCIceCandidate(c))
+            )
+          );
+        })
+        .then(() => {
+          return remoteConnection.createAnswer();
+        })
+        .then((answer) =>
+          remoteConnection.setLocalDescription(answer).then(resolve)
+        );
+    }),
+  ]).then(([candidates]) => {
+    const checkIce = () => {
+      if (ref.current.iceConnectionState === "disconnected") {
+        renderToast({
+          id: "multiplayer-failed-connection",
+          content: "Failed to connect to graph",
+        });
+        onClose();
+      } else if (ref.current.iceConnectionState === "checking") {
+        setTimeout(checkIce, 10);
+      }
+    };
+    checkIce();
+    return serialize({
+      candidates,
+      description: remoteConnection.localDescription,
+    });
+  });
+};
+
 const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -200,39 +355,9 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
   const [answer, setAnswer] = useState("");
   const connectionRef = useRef<RTCPeerConnection>();
   useEffect(() => {
-    const graph = getGraph();
-    const localConnection = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
-    connectionRef.current = localConnection;
-    const sendChannel = localConnection.createDataChannel(graph);
-    const connectionHandler = (e: MessageEvent) => {
-      onConnect({
-        e,
-        channel: sendChannel,
-        callback: () => {
-          sendChannel.removeEventListener("message", connectionHandler);
-          onClose();
-        },
-        messageHandlers,
-      });
-    };
-    sendChannel.addEventListener("message", connectionHandler);
-    sendChannel.onerror = onError;
-    sendChannel.onopen = () => {
-      sendChannel.send(graph);
-    };
-    Promise.all([
-      gatherCandidates(localConnection),
-      localConnection.createOffer().then((offer) => {
-        return localConnection.setLocalDescription(offer);
-      }),
-    ]).then(([candidates]) => {
-      setCode(
-        serialize({
-          candidates,
-          description: localConnection.localDescription,
-        })
-      );
-    });
+    getSetupCode({ messageHandlers, onClose, ref: connectionRef }).then(
+      setCode
+    );
   }, [setLoading, connectionRef]);
   return (
     <Alert
@@ -240,35 +365,7 @@ const SetupAlert = ({ onClose, messageHandlers }: AlertProps) => {
       isOpen={true}
       onConfirm={() => {
         setLoading(true);
-        const { candidates, description } = deserialize(answer);
-        //@ts-ignore
-        window.setter = connectionRef.current;
-        connectionRef.current
-          .setRemoteDescription(new RTCSessionDescription(description))
-          .then(() =>
-            Promise.all(
-              candidates.map((c) =>
-                connectionRef.current.addIceCandidate(new RTCIceCandidate(c))
-              )
-            ).then(() => {
-              const checkIce = () => {
-                if (
-                  connectionRef.current.iceConnectionState === "disconnected"
-                ) {
-                  renderToast({
-                    id: "multiplayer-failed-connection",
-                    content: "Failed to setup multiplayer connection",
-                  });
-                  onClose();
-                } else if (
-                  connectionRef.current.iceConnectionState === "checking"
-                ) {
-                  setTimeout(checkIce, 10);
-                }
-              };
-              checkIce();
-            })
-          );
+        receiveAnswer({ answer, onClose, ref: connectionRef });
       }}
       canOutsideClickCancel
       confirmButtonText={"Connect"}
@@ -320,67 +417,14 @@ const ConnectAlert = ({ onClose, messageHandlers }: AlertProps) => {
   const connectionRef = useRef<RTCPeerConnection>();
   const onConfirm = useCallback(() => {
     setLoading(true);
-    const remoteConnection = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
-    connectionRef.current = remoteConnection;
-    remoteConnection.ondatachannel = (event) => {
-      const receiveChannel = event.channel;
-      const connectionHandler = (e: MessageEvent) => {
-        onConnect({
-          e,
-          channel: receiveChannel,
-          callback: () => {
-            receiveChannel.send(getGraph());
-            receiveChannel.removeEventListener("message", connectionHandler);
-          },
-          messageHandlers,
-        });
-      };
-      receiveChannel.addEventListener("message", connectionHandler);
-      receiveChannel.onopen = onClose;
-      receiveChannel.onerror = onError;
-    };
-    Promise.all([
-      gatherCandidates(remoteConnection),
-      new Promise<void>((resolve) => {
-        const { candidates, description } = deserialize(offer);
-        remoteConnection
-          .setRemoteDescription(new RTCSessionDescription(description))
-          .then(() => {
-            return Promise.all(
-              candidates.map((c) =>
-                remoteConnection.addIceCandidate(new RTCIceCandidate(c))
-              )
-            );
-          })
-          .then(() => {
-            return remoteConnection.createAnswer();
-          })
-          .then((answer) =>
-            remoteConnection.setLocalDescription(answer).then(resolve)
-          );
-      }),
-    ]).then(([candidates]) => {
-      window.navigator.clipboard.writeText(
-        serialize({
-          candidates,
-          description: remoteConnection.localDescription,
-        })
-      );
+    getConnectCode({
+      ref: connectionRef,
+      offer,
+      onClose,
+      messageHandlers,
+    }).then((code) => {
+      window.navigator.clipboard.writeText(code);
       setCopied(true);
-      //@ts-ignore
-      window.setter = connectionRef.current;
-      const checkIce = () => {
-        if (connectionRef.current.iceConnectionState === "disconnected") {
-          renderToast({
-            id: "multiplayer-failed-connection",
-            content: "Failed to connect to graph",
-          });
-          onClose();
-        } else if (connectionRef.current.iceConnectionState === "checking") {
-          setTimeout(checkIce, 10);
-        }
-      };
-      checkIce();
     });
   }, [setLoading, offer, connectionRef, setCopied]);
   return (
@@ -413,6 +457,136 @@ const ConnectAlert = ({ onClose, messageHandlers }: AlertProps) => {
           <p>Then, click connect below:</p>
         </>
       )}
+    </Alert>
+  );
+};
+
+const AsyncAlert = ({ onClose, messageHandlers }: AlertProps) => {
+  const [loading, setLoading] = useState(true);
+  const [rooms, setRooms] = useState<{ id: string; code: string }[]>([]);
+  const codeById = useMemo(
+    () => Object.fromEntries(rooms.map((r) => [r.id, r.code])),
+    [rooms]
+  );
+  const [selectedRoom, setSelectedRoom] = useState("");
+  const connectionRef = useRef<RTCPeerConnection>();
+  const wsRef = useRef<WebSocket>();
+  useEffect(() => {
+    wsRef.current = new WebSocket(process.env.WEB_SOCKET_URL);
+    wsRef.current.onopen = () => {
+      wsRef.current.send(
+        JSON.stringify({
+          action: "sendmessage",
+          data: { operation: "LIST_ROOMS" },
+        })
+      );
+    };
+
+    wsRef.current.onclose = () => {
+      console.log("disconnected");
+    };
+
+    wsRef.current.onmessage = (data) => {
+      console.log(`Received message on ${new Date()}`);
+      console.log(data.data);
+      const { operation, ...props } = JSON.parse(data.data);
+      if (operation === "LIST_ROOMS") {
+        setLoading(false);
+        setRooms(props.rooms);
+      } else if (operation === "ERROR") {
+        renderToast({
+          id: "websocket-error",
+          content: props.message,
+          intent: "danger",
+        });
+      } else if (operation === "JOIN") {
+        receiveAnswer({ answer: props.code, onClose, ref: connectionRef });
+      } else {
+        renderToast({
+          id: "websocket-error",
+          content: `Unknown websocket operation: ${operation}`,
+          intent: "danger",
+        });
+      }
+    };
+  }, [connectionRef]);
+  return (
+    <Alert
+      loading={loading}
+      isOpen={true}
+      onConfirm={() => {
+        if (!selectedRoom) return;
+        onClose();
+
+        if (selectedRoom === "NEW") {
+          const closeToast = renderToast({
+            id: "multiplayer-async-setup",
+            content: "Connected to network, waiting for peers...",
+            timeout: 0,
+            position: Position.BOTTOM_RIGHT
+          });
+          getSetupCode({
+            onClose: closeToast,
+            messageHandlers,
+            ref: connectionRef,
+          }).then((code) =>
+            wsRef.current.send(
+              JSON.stringify({
+                action: "sendmessage",
+                data: {
+                  room: getGraph(),
+                  code,
+                  operation: "HOST",
+                },
+              })
+            )
+          );
+        } else {
+          const closeToast = renderToast({
+            id: "multiplayer-async-connect",
+            content: `Attempting to connect to ${selectedRoom}`,
+            timeout: 0,
+            position: Position.BOTTOM_RIGHT,
+          });
+          getConnectCode({
+            onClose: closeToast,
+            ref: connectionRef,
+            messageHandlers,
+            offer: codeById[selectedRoom],
+          }).then((code) =>
+            wsRef.current.send(
+              JSON.stringify({
+                action: "sendmessage",
+                data: {
+                  room: selectedRoom,
+                  code,
+                  operation: "JOIN",
+                },
+              })
+            )
+          );
+        }
+      }}
+      canOutsideClickCancel
+      confirmButtonText={"Connect"}
+      onCancel={onClose}
+    >
+      <h3>Multiplayer Rooms</h3>
+      <div style={{ height: 360 }}>
+        {!loading && (
+          <RadioGroup
+            selectedValue={selectedRoom}
+            onChange={(e) =>
+              setSelectedRoom((e.target as HTMLInputElement).value)
+            }
+          >
+            {rooms.map((r) => (
+              <Radio value={r.id} label={r.id} key={r.id} />
+            ))}
+            <Radio value={"NEW"} label="NEW" />
+          </RadioGroup>
+        )}
+      </div>
     </Alert>
   );
 };
@@ -470,22 +644,10 @@ export const setupMultiplayer = (configUid: string) => {
         window.roamAlphaAPI.ui.commandPalette.addCommand({
           label: "Setup Multiplayer",
           callback: () => {
-            const ws = new WebSocket(process.env.WEB_SOCKET_URL);
-            ws.onopen = () => {
-              console.log("connected");
-              ws.send(
-                JSON.stringify({ action: "sendmessage", data: "hello,world" })
-              );
-            };
-
-            ws.onclose = () => {
-              console.log("disconnected");
-            };
-
-            ws.onmessage = (data) => {
-              console.log(`Received message on ${new Date()}`);
-              console.log(data.data);
-            };
+            createOverlayRender<Omit<AlertProps, "onClose">>(
+              "multiplayer-async",
+              AsyncAlert
+            )({ messageHandlers });
           },
         });
       } else {

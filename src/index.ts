@@ -10,6 +10,7 @@ import createBlock from "roamjs-components/writes/createBlock";
 import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
 import { setupMultiplayer } from "./components/Multiplayer";
 import { InputTextNode } from "roamjs-components/types";
+import { render as renderToast } from "roamjs-components/components/Toast";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -31,8 +32,13 @@ runExtension(ID, async () => {
 
   const multiplayerApi = setupMultiplayer(pageUid);
   if (!loadedElsewhere) {
-    const { enable, addGraphListener, sendToGraph, getConnectedGraphs } =
-      multiplayerApi;
+    const {
+      enable,
+      addGraphListener,
+      sendToGraph,
+      getConnectedGraphs,
+      removeGraphListener,
+    } = multiplayerApi;
     enable();
     window.roamAlphaAPI.ui.commandPalette.addCommand({
       label: "Send Page to Graphs",
@@ -40,7 +46,7 @@ runExtension(ID, async () => {
         const uid = getCurrentPageUid();
         const title = getPageTitleByPageUid(uid);
         const tree = getFullTreeByParentUid(uid).children;
-        getConnectedGraphs().forEach((graph) =>
+        getConnectedGraphs().forEach((graph) => {
           sendToGraph({
             graph,
             operation: "SEND_PAGE",
@@ -49,8 +55,18 @@ runExtension(ID, async () => {
               title,
               tree,
             },
-          })
-        );
+          });
+          addGraphListener({
+            operation: `SEND_PAGE_RESPONSE/${uid}`,
+            handler: (_, graph) => {
+              removeGraphListener({ operation: `SEND_PAGE_RESPONSE/${uid}` });
+              renderToast({
+                id: "send-page-success",
+                content: `Successfully sent page ${title} to ${graph}!`,
+              });
+            },
+          });
+        });
       },
     });
     addGraphListener({
@@ -67,6 +83,11 @@ runExtension(ID, async () => {
           order: getChildrenLengthByPageUid(toRoamDateUid()),
           node: { text: `[[${graph}]] sent over page [[${title}]]` },
         });
+        renderToast({
+          id: "send-page-success",
+          content: `Received new page ${title} from ${graph}!`,
+        });
+        sendToGraph({ graph, operation: `SEND_PAGE_RESPONSE/${uid}` });
       },
     });
   }
