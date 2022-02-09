@@ -11,6 +11,9 @@ export const handler: WSHandler = (event) => {
       Item: {
         id: { S: event.requestContext.connectionId },
         entity: { S: toEntity("$client") },
+        date: {
+          S: new Date().toJSON(),
+        },
       },
     })
     .promise()

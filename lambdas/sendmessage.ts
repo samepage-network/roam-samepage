@@ -10,6 +10,7 @@ import { getRoamJSUser } from "roamjs-components";
 import axios from "axios";
 import removeConnection from "./common/removeConnection";
 import getClientByGraph from "./common/getClientByGraph";
+import fromEntity from "./common/fromEntity";
 
 const dynamo = new AWS.DynamoDB();
 
@@ -59,13 +60,15 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
         // TODO: CHECK USER COULD MULTIPLAYER FROM THIS GRAPH
         const oldClient = await getClientByGraph(graph);
         if (oldClient) {
-          await dynamo.deleteItem({
-            TableName: "RoamJSMultiplayer",
-            Key: {
-              id: { S: oldClient },
-              entity: { S: toEntity("$client") },
-            },
-          }).promise();
+          await dynamo
+            .deleteItem({
+              TableName: "RoamJSMultiplayer",
+              Key: {
+                id: { S: oldClient },
+                entity: { S: toEntity("$client") },
+              },
+            })
+            .promise();
         }
         return dynamo
           .updateItem({
@@ -90,6 +93,51 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           Data: JSON.stringify({ operation: "AUTHENTICATION", success: true }),
         })
       )
+      .then(() => {
+        queryById(graph)
+          .then((items) => items.map((item) => item.entity.S))
+          .then((networks) =>
+            Promise.all(
+              networks.map((network) =>
+                queryByEntity(fromEntity(network)).then((items) =>
+                  items.map((item) => item.id.S)
+                )
+              )
+            )
+          )
+          .then((graphs) => {
+            const graphSet = new Set(graphs.flat());
+            graphSet.delete(graph);
+            return Promise.all(Array.from(graphSet).map(getClientByGraph));
+          })
+          .then((clients) =>
+            Promise.all(
+              clients
+                .filter((c) => !!c)
+                .map((ConnectionId) =>
+                  postToConnection({
+                    ConnectionId,
+                    Data: JSON.stringify({
+                      operation: "INITIALIZE_P2P",
+                      to: event.requestContext.connectionId,
+                      graph,
+                    }),
+                  }).catch((e) => {
+                    console.warn(e);
+                    return dynamo
+                      .deleteItem({
+                        TableName: "RoamJSMultiplayer",
+                        Key: {
+                          id: { S: ConnectionId },
+                          entity: { S: toEntity("$client") },
+                        },
+                      })
+                      .promise();
+                  })
+                )
+            )
+          );
+      })
       .catch((e) =>
         postToConnection({
           ConnectionId: event.requestContext.connectionId,
@@ -108,7 +156,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           ConnectionId: event.requestContext.connectionId,
           Data: JSON.stringify({
             operation: "LIST_NETWORKS",
-            networks: items.map((i) => ({ id: i.entity.S })),
+            networks: items.map((i) => ({ id: fromEntity(i.entity.S || "") })),
           }),
         })
       );
@@ -128,6 +176,9 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             Item: {
               id: { S: name },
               entity: { S: toEntity("$network") },
+              date: {
+                S: new Date().toJSON(),
+              },
             },
           })
           .promise(),
@@ -194,6 +245,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
                       Data: JSON.stringify({
                         operation: `INITIALIZE_P2P`,
                         to: event.requestContext.connectionId,
+                        graph,
                       }),
                     })
                   )

@@ -8,7 +8,7 @@ import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLen
 import createPage from "roamjs-components/writes/createPage";
 import createBlock from "roamjs-components/writes/createBlock";
 import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
-import setupMultiplayer, {toggleOnAsync} from "./components/setupMultiplayer";
+import setupMultiplayer, { toggleOnAsync } from "./components/setupMultiplayer";
 import { InputTextNode } from "roamjs-components/types";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import OnlineGraphs from "./components/OnlineGraphs";
@@ -42,14 +42,15 @@ runExtension(ID, async () => {
             {
               title: "Networks",
               type: "custom",
-              description: "View all the networks that your graph is currently in",
+              description:
+                "View all the networks that your graph is currently in",
               options: {
-                component: Networks
-              }
-            }
+                component: Networks,
+              },
+            },
           ],
           onEnable: toggleOnAsync,
-          development: true,
+          development: process.env.NODE_ENV !== "development",
         },
       ],
     },
