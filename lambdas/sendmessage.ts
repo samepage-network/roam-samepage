@@ -3,80 +3,246 @@ import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
 import postToConnection from "./common/postToConnection";
 import queryByEntity from "./common/queryByEntity";
+import getGraphByClient from "./common/getGraphByClient";
+import postError from "./common/postError";
+import queryById from "./common/queryById";
+import { getRoamJSUser } from "roamjs-components";
+import axios from "axios";
+import removeConnection from "./common/removeConnection";
+import getClientByGraph from "./common/getClientByGraph";
 
 const dynamo = new AWS.DynamoDB();
 
-export const wsHandler = (event: WSEvent): Promise<unknown> => {
+// temporary until swapped with subscription
+const ensureExtensionInited = async (token: string) => {
+  const inited = await axios
+    .get(
+      `https://lambda.roamjs.com/check?extensionId=multiplayer${
+        process.env.NODE_ENV === "development" ? "&dev=true" : ""
+      }`,
+      { headers: { Authorization: token } }
+    )
+    .then((r) => r.data.success);
+  if (!inited) {
+    await axios.post(
+      `https://lambda.roamjs.com/user`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${Buffer.from(
+            `${process.env.ROAMJS_EMAIL}:${process.env.ROAMJS_DEVELOPER_TOKEN}`
+          ).toString("base64")}`,
+          "x-roamjs-token": token,
+          "x-roamjs-extension": "multiplayer",
+          ...(process.env.NODE_ENV === "development"
+            ? {
+                "x-roamjs-dev": "true",
+              }
+            : {}),
+        },
+      }
+    );
+  }
+};
+
+export const wsHandler = async (event: WSEvent): Promise<unknown> => {
   const data = event.body ? JSON.parse(event.body).data : {};
-  const { room, code, operation } = data;
-  if (operation === "HOST") {
-    return Promise.all([
-      dynamo
-        .putItem({
-          TableName: "RoamJSMultiplayer",
-          Item: {
-            id: { S: room },
-            entity: { S: toEntity("room") },
-            data: {
-              S: code,
+  const { operation, ...props } = data;
+  console.log("received operation", operation);
+  if (operation === "AUTHENTICATION") {
+    const { token, graph } = props;
+    // TODO: remove this line
+    await ensureExtensionInited(token);
+
+    return getRoamJSUser(token)
+      .then(async () => {
+        // TODO: CHECK USER COULD MULTIPLAYER FROM THIS GRAPH
+        const oldClient = await getClientByGraph(graph);
+        if (oldClient) {
+          await dynamo.deleteItem({
+            TableName: "RoamJSMultiplayer",
+            Key: {
+              id: { S: oldClient },
+              entity: { S: toEntity("$client") },
             },
-          },
-        })
-        .promise(),
-      dynamo
-        .putItem({
-          TableName: "RoamJSMultiplayer",
-          Item: {
-            id: { S: event.requestContext.connectionId },
-            entity: { S: toEntity(room) },
-            data: {
-              S: new Date().toJSON(),
+          }).promise();
+        }
+        return dynamo
+          .updateItem({
+            TableName: "RoamJSMultiplayer",
+            Key: {
+              id: { S: event.requestContext.connectionId },
+              entity: { S: toEntity("$client") },
             },
-          },
-        })
-        .promise(),
-    ]);
-  } else if (operation === "LIST_ROOMS") {
-    return queryByEntity("room").then((items) =>
-      postToConnection({
-        ConnectionId: event.requestContext.connectionId,
-        Data: JSON.stringify({
-          operation: "LIST_ROOMS",
-          rooms: items.map((i) => ({ id: i.id.S, code: i.data.S })),
-        }),
-      })
-    );
-  } else if (operation === "JOIN") {
-    return queryByEntity(room).then((items) =>
-      Promise.all([
-        ...items.map((item) =>
-          postToConnection({
-            ConnectionId: item.id.S,
-            Data: JSON.stringify({
-              operation: "JOIN",
-              code,
-            }),
+            UpdateExpression: "SET #s = :s",
+            ExpressionAttributeNames: {
+              "#s": "graph",
+            },
+            ExpressionAttributeValues: {
+              ":s": { S: graph },
+            },
           })
-        ),
-        dynamo.putItem({
-          TableName: "RoamJSMultiplayer",
-          Item: {
-            id: { S: event.requestContext.connectionId },
-            entity: { S: toEntity(room) },
-            data: {
-              S: new Date().toJSON(),
+          .promise();
+      })
+      .then(() =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: JSON.stringify({ operation: "AUTHENTICATION", success: true }),
+        })
+      )
+      .catch((e) =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: JSON.stringify({
+            operation: "AUTHENTICATION",
+            success: false,
+            reason: e.message,
+          }),
+        }).then(() => removeConnection(event))
+      );
+  } else if (operation === "LIST_NETWORKS") {
+    return getGraphByClient(event)
+      .then((graph) => queryById(graph))
+      .then((items) =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: JSON.stringify({
+            operation: "LIST_NETWORKS",
+            networks: items.map((i) => ({ id: i.entity.S })),
+          }),
+        })
+      );
+  } else if (operation === "CREATE_NETWORK") {
+    const { name } = props;
+    const existingRooms = await queryByEntity(name);
+    if (existingRooms.length)
+      return postError({
+        event,
+        Message: `A network already exists by the name of ${name}`,
+      });
+    return getGraphByClient(event).then((graph) =>
+      Promise.all([
+        dynamo
+          .putItem({
+            TableName: "RoamJSMultiplayer",
+            Item: {
+              id: { S: name },
+              entity: { S: toEntity("$network") },
             },
-          },
-        }),
-      ])
+          })
+          .promise(),
+        dynamo
+          .putItem({
+            TableName: "RoamJSMultiplayer",
+            Item: {
+              id: { S: graph },
+              entity: { S: toEntity(name) },
+              date: {
+                S: new Date().toJSON(),
+              },
+            },
+          })
+          .promise(),
+      ]).then(() =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: JSON.stringify({
+            operation: `CREATE_NETWORK_SUCCESS/${name}`,
+          }),
+        })
+      )
     );
-  } else {
+  } else if (operation === "JOIN_NETWORK") {
+    const { name } = props;
+    return Promise.all([
+      getGraphByClient(event),
+      dynamo
+        .getItem({
+          TableName: "RoamJSMultiplayer",
+          Key: {
+            id: { S: name },
+            entity: { S: toEntity("$network") },
+          },
+        })
+        .promise(),
+    ]).then(([graph, network]) =>
+      network.Item
+        ? dynamo
+            .putItem({
+              TableName: "RoamJSMultiplayer",
+              Item: {
+                id: { S: graph },
+                entity: { S: toEntity(name) },
+                date: {
+                  S: new Date().toJSON(),
+                },
+              },
+            })
+            .promise()
+            .then(() =>
+              queryByEntity(name).then((items) =>
+                Promise.all(items.map((item) => getClientByGraph(item.id.S)))
+              )
+            )
+            .then((clients) =>
+              Promise.all(
+                clients
+                  .filter((id) => id !== event.requestContext.connectionId)
+                  .map((id) =>
+                    postToConnection({
+                      ConnectionId: id,
+                      Data: JSON.stringify({
+                        operation: `INITIALIZE_P2P`,
+                        to: event.requestContext.connectionId,
+                      }),
+                    })
+                  )
+              ).then(() =>
+                postToConnection({
+                  ConnectionId: event.requestContext.connectionId,
+                  Data: JSON.stringify({
+                    operation: `JOIN_NETWORK_SUCCESS/${name}`,
+                  }),
+                })
+              )
+            )
+        : postError({
+            event,
+            Message: `There does not exist a network called ${name}`,
+          })
+    );
+  } else if (operation === "OFFER") {
+    const { to, offer } = props;
     return postToConnection({
-      ConnectionId: event.requestContext.connectionId,
+      ConnectionId: to,
       Data: JSON.stringify({
-        operation: "ERROR",
-        message: `Invalid server operation: ${operation}`,
+        operation: `OFFER`,
+        to: event.requestContext.connectionId,
+        offer,
       }),
+    });
+  } else if (operation === "ANSWER") {
+    const { to, answer } = props;
+    return postToConnection({
+      ConnectionId: to,
+      Data: JSON.stringify({
+        operation: `ANSWER`,
+        answer,
+      }),
+    });
+  } else if (operation === "PROXY") {
+    const { proxyOperation, graph, ...proxyData } = props;
+    return postToConnection({
+      ConnectionId: await getGraphByClient(graph), // get client by graph
+      Data: JSON.stringify({
+        operation: proxyOperation,
+        ...proxyData,
+      }),
+    });
+  } else {
+    return postError({
+      event,
+      Message: `Invalid server operation: ${operation}`,
     });
   }
 };
@@ -84,7 +250,15 @@ export const wsHandler = (event: WSEvent): Promise<unknown> => {
 export const handler: WSHandler = (event) =>
   wsHandler(event)
     .then(() => ({ statusCode: 200, body: "Connected" }))
-    .catch((e) => ({
-      statusCode: 500,
-      body: `Failed to connect: ${e.message}`,
-    }));
+    .catch((e) =>
+      postError({
+        event,
+        Message: `Uncaught Server Error: ${e.message}`,
+      }).then(() => {
+        console.log(e);
+        return {
+          statusCode: 500,
+          body: `Failed to connect: ${e.message}`,
+        };
+      })
+    );

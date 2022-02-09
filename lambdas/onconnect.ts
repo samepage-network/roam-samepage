@@ -10,13 +10,17 @@ export const handler: WSHandler = (event) => {
       TableName: "RoamJSMultiplayer",
       Item: {
         id: { S: event.requestContext.connectionId },
-        entity: { S: toEntity("client") },
+        entity: { S: toEntity("$client") },
       },
     })
     .promise()
     .then(() => ({ statusCode: 200, body: "Connected" }))
-    .catch((e) => ({
-      statusCode: 500,
-      body: `Failed to connect: ${e.message}`,
-    }));
+    .catch((e) => {
+      console.error("Error in onconnect handler");
+      console.error(e);
+      return {
+        statusCode: 500,
+        body: `Failed to connect: ${e.message}`,
+      };
+    });
 };

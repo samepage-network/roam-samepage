@@ -8,9 +8,11 @@ import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLen
 import createPage from "roamjs-components/writes/createPage";
 import createBlock from "roamjs-components/writes/createBlock";
 import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
-import { setupMultiplayer } from "./components/Multiplayer";
+import setupMultiplayer, {toggleOnAsync} from "./components/setupMultiplayer";
 import { InputTextNode } from "roamjs-components/types";
 import { render as renderToast } from "roamjs-components/components/Toast";
+import OnlineGraphs from "./components/OnlineGraphs";
+import Networks from "./components/Networks";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -21,10 +23,33 @@ runExtension(ID, async () => {
     config: {
       tabs: [
         {
+          id: "Synchronous",
+          fields: [
+            {
+              title: "Graphs Online",
+              type: "custom",
+              options: {
+                component: OnlineGraphs,
+              },
+              description: "Graphs that are online and directly connected to",
+            },
+          ],
+        },
+        {
           id: "Asynchronous",
           toggleable: true,
-          fields: [],
-          development: true,
+          fields: [
+            {
+              title: "Networks",
+              type: "custom",
+              description: "View all the networks that your graph is currently in",
+              options: {
+                component: Networks
+              }
+            }
+          ],
+          onEnable: toggleOnAsync,
+          // development: true,
         },
       ],
     },

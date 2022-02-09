@@ -9,14 +9,18 @@ export const handler: WSHandler = (event) => {
     .deleteItem({
       TableName: "RoamJSMultiplayer",
       Key: {
-        uuid: { S: event.requestContext.connectionId },
-        entity: { S: toEntity("client") },
+        id: { S: event.requestContext.connectionId },
+        entity: { S: toEntity("$client") },
       },
     })
     .promise()
     .then(() => ({ statusCode: 200, body: "Successfully Disconnected" }))
-    .catch((e) => ({
-      statusCode: 500,
-      body: `Failed to disconnect: ${e.message}`,
-    }));
+    .catch((e) => {
+      console.error("Error in ondisconnect handler");
+      console.error(e);
+      return {
+        statusCode: 500,
+        body: `Failed to disconnect: ${e.message}`,
+      };
+    });
 };

@@ -6,8 +6,10 @@ import {
 import { handler as onconnect } from "../lambdas/onconnect";
 import { handler as ondisconnect } from "../lambdas/ondisconnect";
 import { handler as sendmessage } from "../lambdas/sendmessage";
-import {v4} from 'uuid';
+import { v4 } from "uuid";
+import dotenv from "dotenv";
 
+dotenv.config({ path: ".env.local" });
 const port = Number(process.argv[2]) || 3010;
 process.env.NODE_ENV = process.env.NODE_ENV || "development";
 
