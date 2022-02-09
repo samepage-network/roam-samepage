@@ -493,7 +493,7 @@ export const toggleOnAsync = () => {
     const { operation, ...props } = JSON.parse(data.data);
     const handler = messageHandlers[operation];
     if (handler) handler(props, "");
-    else if (props.message === "Internal server srror")
+    else if (props.message === "Internal server error")
       renderToast({
         id: "websocket-error",
         content: `Unknown Internal Server Error. Request ID: ${props.requestId}`,
