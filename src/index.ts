@@ -49,7 +49,7 @@ runExtension(ID, async () => {
             }
           ],
           onEnable: toggleOnAsync,
-          // development: true,
+          development: true,
         },
       ],
     },
