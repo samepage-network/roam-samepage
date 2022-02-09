@@ -1,7 +1,6 @@
-import AWS from "aws-sdk";
 import WebSocket from "ws";
+import getApi from "./getApi";
 
-const api = new AWS.ApiGatewayManagementApi();
 const localSockets: Record<string, WebSocket> = {};
 
 export const addLocalSocket = (id: string, ws: WebSocket) =>
@@ -23,7 +22,7 @@ const postToConnection: (params: {
 }) => Promise<void> =
   process.env.NODE_ENV === "production"
     ? (params) =>
-        api
+        getApi()
           .postToConnection(params)
           .promise()
           .then(() => Promise.resolve())

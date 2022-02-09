@@ -1,7 +1,5 @@
-import AWS from "aws-sdk";
+import getApi from "./getApi";
 import { removeLocalSocket } from "./postToConnection";
-
-const api = new AWS.ApiGatewayManagementApi();
 
 const removeConnection = (
   event:
@@ -13,7 +11,7 @@ const removeConnection = (
   const ConnectionId =
     typeof event === "string" ? event : event.requestContext.connectionId;
   return process.env.NODE_ENV === "production"
-    ? api
+    ? getApi()
         .deleteConnection({ ConnectionId })
         .promise()
         .then(() => Promise.resolve())
