@@ -344,3 +344,9 @@ resource "github_actions_secret" "web_socket_url" {
   secret_name      = "WEB_SOCKET_URL"
   plaintext_value  = aws_apigatewayv2_stage.ws.invoke_url
 }
+
+resource "github_actions_secret" "api_gateway_id" {
+  repository       = "roamjs-multiplayer"
+  secret_name      = "API_GATEWAY_ID"
+  plaintext_value  = aws_apigatewayv2_api.ws.id
+}
