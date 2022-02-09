@@ -497,6 +497,7 @@ export const toggleOnAsync = () => {
       renderToast({
         id: "websocket-error",
         content: `Unknown Internal Server Error. Request ID: ${props.requestId}`,
+        intent: "danger",
       });
     else
       renderToast({

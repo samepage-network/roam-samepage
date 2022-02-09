@@ -174,7 +174,7 @@ data "aws_iam_policy_document" "lambda_execution_policy" {
       "execute-api:ManageConnections"
     ]
     resources = [
-      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.ws.id}/production/*/*/*"
+      "*"
     ]
   }
 
