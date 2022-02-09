@@ -140,19 +140,7 @@ data "aws_iam_policy_document" "assume_lambda_policy" {
 data "aws_iam_policy_document" "lambda_execution_policy" {
   statement {
     actions = [
-      "cloudfront:CreateInvalidation",
-      "cloudfront:GetInvalidation",
-      "cloudfront:ListDistributions",
-      "dynamodb:BatchGetItem",
-      "dynamodb:GetItem",
-      "dynamodb:Query",
-      "dynamodb:Scan",
-      "dynamodb:BatchWriteItem",
-      "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-      "dynamodb:DeleteItem",
       "ses:sendEmail",
-      "lambda:InvokeFunction",
       "s3:GetObject",
       "s3:ListBucket",
       "s3:PutObject",
@@ -166,10 +154,26 @@ data "aws_iam_policy_document" "lambda_execution_policy" {
 
   statement {
     actions = [
+      "dynamodb:BatchGetItem",
+      "dynamodb:GetItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+    ]
+    resources = [
+      aws_dynamodb_table.store.arn
+    ]
+  }
+
+  statement {
+    actions = [
       "execute-api:Invoke" 
     ]
     resources = [
-      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.ws.id}/production/*"
+      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.ws.id}/production/*/*/*"
     ]
   }
 

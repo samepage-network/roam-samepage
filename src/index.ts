@@ -21,6 +21,7 @@ runExtension(ID, async () => {
   const { pageUid } = await createConfigObserver({
     title: CONFIG,
     config: {
+      versioning: true,
       tabs: [
         {
           id: "Synchronous",
