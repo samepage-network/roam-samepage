@@ -188,6 +188,15 @@ data "aws_iam_policy_document" "lambda_execution_policy" {
 
   statement {
     actions = [
+      "apigateway:POST"
+    ]
+    resources = [
+      "*"
+    ]
+  }
+
+  statement {
+    actions = [
       "sts:AssumeRole"
     ]
     resources = [
