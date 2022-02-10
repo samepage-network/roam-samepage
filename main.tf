@@ -164,7 +164,7 @@ data "aws_iam_policy_document" "lambda_execution_policy" {
       "dynamodb:DeleteItem",
     ]
     resources = [
-      aws_dynamodb_table.store.arn
+      "${aws_dynamodb_table.store.arn}/*"
     ]
   }
 
