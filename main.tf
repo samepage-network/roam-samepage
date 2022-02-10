@@ -84,6 +84,11 @@ resource "aws_dynamodb_table" "store" {
     type = "S"
   }
 
+  attribute {
+    name = "date"
+    type = "S"
+  }
+
   global_secondary_index {
     hash_key           = "entity"
     name               = "entity-index"
@@ -106,6 +111,16 @@ resource "aws_dynamodb_table" "store" {
     hash_key           = "graph"
     range_key          = "entity"
     name               = "graph-entity-index"
+    non_key_attributes = []
+    projection_type    = "ALL"
+    read_capacity      = 0
+    write_capacity     = 0
+  }
+
+  global_secondary_index {
+    hash_key           = "entity"
+    range_key          = "date"
+    name               = "entity-date-index"
     non_key_attributes = []
     projection_type    = "ALL"
     read_capacity      = 0

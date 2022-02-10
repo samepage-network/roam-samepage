@@ -56,8 +56,9 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
     await ensureExtensionInited(token);
 
     return getRoamJSUser(token)
-      .then(async () => {
+      .then(async (user) => {
         // TODO: CHECK USER COULD MULTIPLAYER FROM THIS GRAPH
+        // Return user id
         const oldClient = await getClientByGraph(graph);
         if (oldClient) {
           await dynamo
@@ -77,12 +78,14 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
               id: { S: event.requestContext.connectionId },
               entity: { S: toEntity("$client") },
             },
-            UpdateExpression: "SET #s = :s",
+            UpdateExpression: "SET #s = :s, #u = :u",
             ExpressionAttributeNames: {
               "#s": "graph",
+              "#u": "user",
             },
             ExpressionAttributeValues: {
               ":s": { S: graph },
+              ":u": { S: user.email },
             },
           })
           .promise();
@@ -283,6 +286,12 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
       }),
     });
   } else if (operation === "PROXY") {
+    // TODO - Storing + Replaying Proxied Messages
+    // - Try posting to connection
+    // - Else - Store in dynamo as $message with timestamp
+    // - If user doesnt have a metadata replay value, set one to now
+    // - Expose a way within authenticate to grab all previous messages and return
+    // - We will probably need to handle batch processing for large messages
     const { proxyOperation, graph, ...proxyData } = props;
     return postToConnection({
       ConnectionId: await getGraphByClient(graph), // get client by graph
