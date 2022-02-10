@@ -188,15 +188,6 @@ data "aws_iam_policy_document" "lambda_execution_policy" {
 
   statement {
     actions = [
-      "apigateway:POST"
-    ]
-    resources = [
-      "*"
-    ]
-  }
-
-  statement {
-    actions = [
       "sts:AssumeRole"
     ]
     resources = [
@@ -304,6 +295,7 @@ resource "aws_lambda_function" "sendmessage" {
   role          = aws_iam_role.lambda_role.arn
   handler       = "sendmessage.handler"
   runtime       = "nodejs14.x"
+  timeout       = 10
 }
 
 resource "aws_apigatewayv2_integration" "sendmessage" {
