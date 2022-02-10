@@ -170,6 +170,15 @@ data "aws_iam_policy_document" "lambda_execution_policy" {
 
   statement {
     actions = [
+      "dynamodb:Query",
+    ]
+    resources = [
+      "${aws_dynamodb_table.store.arn}/index/*"
+    ]
+  }
+
+  statement {
+    actions = [
       "execute-api:Invoke"
     ]
     resources = [
