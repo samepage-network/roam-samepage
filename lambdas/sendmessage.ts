@@ -6,7 +6,7 @@ import queryByEntity from "./common/queryByEntity";
 import getGraphByClient from "./common/getGraphByClient";
 import postError from "./common/postError";
 import queryById from "./common/queryById";
-import { getRoamJSUser } from "roamjs-components";
+import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
 import axios from "axios";
 import removeConnection from "./common/removeConnection";
 import getClientByGraph from "./common/getClientByGraph";
