@@ -1,8 +1,17 @@
-import { Alert, Button, InputGroup, Label, Intent } from "@blueprintjs/core";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Button,
+  InputGroup,
+  Label,
+  Intent,
+  Position,
+} from "@blueprintjs/core";
+import React, { useCallback, useEffect, useState } from "react";
 import getGraph from "roamjs-components/util/getGraph";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
-import { render as renderToast } from "roamjs-components/components/Toast";
+import Toast, {
+  render as renderToast,
+} from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSubTree from "roamjs-components/util/getSubTree";
@@ -65,6 +74,43 @@ type MessageHandlers = {
 };
 type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
 
+const LoadingRemoteMessages = ({
+  onClose,
+  messages,
+}: {
+  onClose: () => void;
+  messages: string[];
+}) => {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    Promise.all(
+      messages.map(
+        (msg, index) =>
+          new Promise<void>((innerResolve) => {
+            const response = `LOAD_MESSAGE/${msg}`;
+            messageHandlers[response] = () => {
+              delete messageHandlers[response];
+              setProgress(index + 1);
+              innerResolve();
+            };
+            sendToBackend({
+              operation: "LOAD_MESSAGE",
+              data: { messageUuid: msg },
+            });
+          })
+      )
+    ).then(onClose);
+  }, [onClose, setProgress]);
+  return (
+    <Toast
+      intent={Intent.PRIMARY}
+      position={Position.BOTTOM_RIGHT}
+      onClose={onClose}
+      content={`Loaded ${progress} of ${messages.length} remote messages...`}
+    />
+  );
+};
+
 export const messageHandlers: MessageHandlers = {
   ERROR: ({ message }: { message: string }) =>
     renderToast({
@@ -72,14 +118,30 @@ export const messageHandlers: MessageHandlers = {
       content: message,
       intent: "danger",
     }),
-  AUTHENTICATION: (props: { success: boolean; reason?: string }) => {
+  AUTHENTICATION: (props: {
+    success: boolean;
+    reason?: string;
+    messages: string[];
+    graphs: string[];
+  }) => {
     if (props.success) {
       roamJsBackend.status = "CONNECTED";
-      renderToast({
-        id: "multiplayer-success",
-        content: "Successfully connected to RoamJS Multiplayer!",
-        intent: Intent.SUCCESS,
-      });
+      roamJsBackend.networkedGraphs = props.graphs;
+      updateOnlineGraphs();
+      if (props.messages.length) {
+        createOverlayRender<
+          Omit<Parameters<typeof LoadingRemoteMessages>[0], "onClose">
+        >(
+          "multiplayer-catchup",
+          LoadingRemoteMessages
+        )({ messages: props.messages });
+      } else {
+        renderToast({
+          id: "multiplayer-success",
+          content: "Successfully connected to RoamJS Multiplayer!",
+          intent: Intent.SUCCESS,
+        });
+      }
     } else {
       roamJsBackend.status = "DISCONNECTED";
       roamJsBackend.channel.close();
@@ -121,8 +183,10 @@ export const connectedGraphs: {
 export const roamJsBackend: {
   channel?: WebSocket;
   status: Status;
+  networkedGraphs: string[];
 } = {
   status: "DISCONNECTED",
+  networkedGraphs: [],
 };
 export const sendToBackend = ({
   operation,
@@ -489,10 +553,10 @@ export const toggleOnAsync = () => {
 
   roamJsBackend.channel.onmessage = (data) => {
     console.log(`Received message on ${new Date()}`);
-    console.log(data.data);
-    const { operation, ...props } = JSON.parse(data.data);
+    const { operation, graph = "", ...props } = JSON.parse(data.data);
+    console.log({ operation, graph, ...props });
     const handler = messageHandlers[operation];
-    if (handler) handler(props, "");
+    if (handler) handler(props, graph);
     else if (props.message === "Internal server error")
       renderToast({
         id: "websocket-error",
@@ -512,6 +576,10 @@ export const toggleOnAsync = () => {
 const setupMultiplayer = (configUid: string) => {
   const tree = getBasicTreeByParentUid(configUid);
   const asyncModeTree = getSubTree({ tree, key: "Asynchronous" });
+  const getConnectedGraphs = () =>
+    Object.keys(connectedGraphs).filter(
+      (g) => connectedGraphs[g].status === "CONNECTED"
+    );
   return {
     addGraphListener: ({
       operation,
@@ -564,10 +632,9 @@ const setupMultiplayer = (configUid: string) => {
         });
       }
     },
-    getConnectedGraphs: () =>
-      Object.keys(connectedGraphs).filter(
-        (g) => connectedGraphs[g].status === "CONNECTED"
-      ),
+    getConnectedGraphs,
+    getNetworkedGraphs: () =>
+      asyncModeTree.uid ? roamJsBackend.networkedGraphs : getConnectedGraphs(),
     enable: () => {
       if (asyncModeTree.uid) {
         toggleOnAsync();

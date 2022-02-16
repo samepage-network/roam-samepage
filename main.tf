@@ -100,15 +100,6 @@ resource "aws_dynamodb_table" "store" {
 
   global_secondary_index {
     hash_key           = "graph"
-    name               = "graph-index"
-    non_key_attributes = []
-    projection_type    = "ALL"
-    read_capacity      = 0
-    write_capacity     = 0
-  }
-
-  global_secondary_index {
-    hash_key           = "graph"
     range_key          = "entity"
     name               = "graph-entity-index"
     non_key_attributes = []

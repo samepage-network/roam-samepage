@@ -11,8 +11,10 @@ import axios from "axios";
 import removeConnection from "./common/removeConnection";
 import getClientByGraph from "./common/getClientByGraph";
 import fromEntity from "./common/fromEntity";
+import { v4 } from "uuid";
 
 const dynamo = new AWS.DynamoDB();
+const s3 = new AWS.S3();
 
 // temporary until swapped with subscription
 const ensureExtensionInited = async (token: string) => {
@@ -51,7 +53,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
   const { operation, ...props } = data;
   console.log("received operation", operation);
   if (operation === "AUTHENTICATION") {
-    const { token, graph } = props;
+    const { token, graph } = props as { token: string; graph: string };
     // TODO: remove this line
     await ensureExtensionInited(token);
 
@@ -88,69 +90,92 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
               ":u": { S: user.email },
             },
           })
-          .promise();
+          .promise()
+          .then(() => {
+            return dynamo
+              .query({
+                TableName: "RoamJSMultiplayer",
+                IndexName: "entity-date-index",
+                ExpressionAttributeNames: {
+                  "#s": "entity",
+                },
+                ExpressionAttributeValues: {
+                  ":s": { S: toEntity(`${graph}-$message`) },
+                },
+                KeyConditionExpression: "#s = :s",
+              })
+              .promise()
+              .then((r) => r.Items.map((i) => i.id.S));
+          });
       })
-      .then(() =>
-        postToConnection({
-          ConnectionId: event.requestContext.connectionId,
-          Data: JSON.stringify({ operation: "AUTHENTICATION", success: true }),
-        })
-      )
-      .then(() => {
+      .then((messages) =>
+        // TODO - get memberships by some other method
         queryById(graph)
           .then((items) => items.map((item) => item.entity.S))
-          .then((networks) =>
-            Promise.all(
+          .then((networks) => {
+            return Promise.all(
               networks.map((network) =>
                 queryByEntity(fromEntity(network)).then((items) =>
-                  items.map((item) => item.id.S)
+                  items.map((item) => item.graph.S)
                 )
               )
-            )
-          )
-          .then((graphs) => {
-            const graphSet = new Set(graphs.flat());
-            graphSet.delete(graph);
-            return Promise.all(Array.from(graphSet).map(getClientByGraph));
+            ).then((graphs) => {
+              const graphSet = new Set(graphs.flat());
+              graphSet.delete(graph);
+              return Array.from(graphSet);
+            });
           })
-          .then((clients) =>
-            Promise.all(
-              clients
-                .filter((c) => !!c)
-                .map((ConnectionId) =>
-                  postToConnection({
-                    ConnectionId,
-                    Data: JSON.stringify({
-                      operation: "INITIALIZE_P2P",
-                      to: event.requestContext.connectionId,
-                      graph,
-                    }),
-                  }).catch((e) => {
-                    console.warn(e);
-                    return dynamo
-                      .deleteItem({
-                        TableName: "RoamJSMultiplayer",
-                        Key: {
-                          id: { S: ConnectionId },
-                          entity: { S: toEntity("$client") },
-                        },
-                      })
-                      .promise();
+          .then((graphs) =>
+            postToConnection({
+              ConnectionId: event.requestContext.connectionId,
+              Data: JSON.stringify({
+                operation: "AUTHENTICATION",
+                success: true,
+                messages,
+                graphs,
+              }),
+            }).then(() => graphs)
+          )
+      )
+      .then((graphs) => Promise.all(graphs.map(getClientByGraph)))
+      .then((clients) =>
+        Promise.all(
+          clients
+            .filter((c) => !!c)
+            .map((ConnectionId) =>
+              postToConnection({
+                ConnectionId,
+                Data: JSON.stringify({
+                  operation: "INITIALIZE_P2P",
+                  to: event.requestContext.connectionId,
+                  graph,
+                }),
+              }).catch((e) => {
+                console.warn(e);
+                return dynamo
+                  .deleteItem({
+                    TableName: "RoamJSMultiplayer",
+                    Key: {
+                      id: { S: ConnectionId },
+                      entity: { S: toEntity("$client") },
+                    },
                   })
-                )
+                  .promise();
+              })
             )
-          );
-      })
-      .catch((e) =>
-        postToConnection({
+        )
+      )
+      .catch((e) => {
+        console.error(e);
+        return postToConnection({
           ConnectionId: event.requestContext.connectionId,
           Data: JSON.stringify({
             operation: "AUTHENTICATION",
             success: false,
             reason: e.message,
           }),
-        }).then(() => removeConnection(event))
-      );
+        }).then(() => removeConnection(event));
+      });
   } else if (operation === "LIST_NETWORKS") {
     return getGraphByClient(event)
       .then((graph) => queryById(graph))
@@ -182,6 +207,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
               date: {
                 S: new Date().toJSON(),
               },
+              graph: { S: graph },
             },
           })
           .promise(),
@@ -189,11 +215,12 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           .putItem({
             TableName: "RoamJSMultiplayer",
             Item: {
-              id: { S: graph },
+              id: { S: graph }, // TODO: v4() },
               entity: { S: toEntity(name) },
               date: {
                 S: new Date().toJSON(),
               },
+              graph: { S: graph },
             },
           })
           .promise(),
@@ -225,17 +252,18 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             .putItem({
               TableName: "RoamJSMultiplayer",
               Item: {
-                id: { S: graph },
+                id: { S: graph }, // TODO: v4() },
                 entity: { S: toEntity(name) },
                 date: {
                   S: new Date().toJSON(),
                 },
+                graph: { S: graph },
               },
             })
             .promise()
             .then(() =>
               queryByEntity(name).then((items) =>
-                Promise.all(items.map((item) => getClientByGraph(item.id.S)))
+                Promise.all(items.map((item) => getClientByGraph(item.graph.S)))
               )
             )
             .then((clients) =>
@@ -287,18 +315,109 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
     });
   } else if (operation === "PROXY") {
     // TODO - Storing + Replaying Proxied Messages
-    // - Try posting to connection
-    // - Else - Store in dynamo as $message with timestamp
-    // - If user doesnt have a metadata replay value, set one to now
-    // - Expose a way within authenticate to grab all previous messages and return
     // - We will probably need to handle batch processing for large messages
     const { proxyOperation, graph, ...proxyData } = props;
-    return postToConnection({
-      ConnectionId: await getGraphByClient(graph), // get client by graph
-      Data: JSON.stringify({
-        operation: proxyOperation,
-        ...proxyData,
-      }),
+    return Promise.all([getClientByGraph(graph), getGraphByClient(event)]).then(
+      ([ConnectionId, sourceGraph]) => {
+        const Data = JSON.stringify({
+          operation: proxyOperation,
+          graph: sourceGraph,
+          ...proxyData,
+        });
+        if (ConnectionId) {
+          return postToConnection({
+            ConnectionId,
+            Data,
+          });
+        }
+        const messageUuid = v4();
+        return dynamo
+          .putItem({
+            TableName: "RoamJSMultiplayer",
+            Item: {
+              id: { S: messageUuid },
+              entity: { S: toEntity(`${graph}-$message`) },
+              date: {
+                S: new Date().toJSON(),
+              },
+              graph: { S: sourceGraph },
+            },
+          })
+          .promise()
+          .then(() =>
+            s3
+              .upload({
+                Bucket: "roamjs-data",
+                Body: Data,
+                Key: `multiplayer/messages/${messageUuid}.json`,
+                ContentType: "application/json",
+              })
+              .promise()
+          )
+          .then(() => {});
+      }
+    );
+  } else if (operation === "LOAD_MESSAGE") {
+    const { messageUuid } = props;
+    return Promise.all([
+      s3
+        .getObject({
+          Bucket: "roamjs-data",
+          Key: `multiplayer/messages/${messageUuid}.json`,
+        })
+        .promise(),
+      getGraphByClient(event).then((graph) =>
+        dynamo
+          .getItem({
+            TableName: "RoamJSMultiplayer",
+            Key: {
+              id: { S: messageUuid },
+              entity: { S: toEntity(`${graph}-$message`) },
+            },
+          })
+          .promise()
+          .then((r) =>
+            dynamo
+              .putItem({
+                TableName: "RoamJSMultiplayer",
+                Item: {
+                  ...r.Item,
+                  entity: { S: toEntity(`${graph}-$synced`) },
+                },
+              })
+              .promise()
+              .then(() => r.Item?.graph?.S)
+          )
+          .then((sourceGraph) =>
+            dynamo
+              .deleteItem({
+                TableName: "RoamJSMultiplayer",
+                Key: {
+                  id: { S: messageUuid },
+                  entity: { S: toEntity(`${graph}-$message`) },
+                },
+              })
+              .promise()
+              .then(() => sourceGraph)
+          )
+      ),
+    ]).then(([r, sourceGraph]) => {
+      const Data = r.Body.toString();
+      return postToConnection({
+        ConnectionId: event.requestContext.connectionId,
+        Data: JSON.stringify({
+          ...JSON.parse(Data),
+          graph: sourceGraph,
+        }),
+      }).then(() =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: JSON.stringify({
+            operation: `LOAD_MESSAGE/${messageUuid}`,
+            graph: sourceGraph,
+          }),
+        })
+      );
     });
   } else {
     return postError({

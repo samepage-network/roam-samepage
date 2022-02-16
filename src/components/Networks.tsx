@@ -1,10 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Button,
-  InputGroup,
-  Intent,
-  Spinner,
-} from "@blueprintjs/core";
+import { Button, InputGroup, Intent, Spinner } from "@blueprintjs/core";
 import { sendToBackend, messageHandlers } from "./setupMultiplayer";
 
 const Network = (r: { id: string }) => {
@@ -29,16 +24,6 @@ const Network = (r: { id: string }) => {
           <span>{r.id}</span>
           {loading && <Spinner />}
         </span>
-        {/*<Tooltip content={"Connect to online graphs in network"}>
-          <Button
-            icon={"graph"}
-            minimal
-            onClick={() => {
-              setLoading(true);
-            }}
-            style={{ marginLeft: 32, minWidth: 32 }}
-          />
-        </Tooltip>*/}
       </div>
     </li>
   );
@@ -58,7 +43,9 @@ const Networks = () => {
   }, [setLoading]);
   useEffect(() => {
     setupOnError();
-    messageHandlers["LIST_NETWORKS"] = (data: { networks: typeof networks }) => {
+    messageHandlers["LIST_NETWORKS"] = (data: {
+      networks: typeof networks;
+    }) => {
       setLoading(false);
       setNetworks(data.networks);
       delete messageHandlers["LIST_NETWORKS"];
