@@ -16,50 +16,14 @@ import { v4 } from "uuid";
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
 
-// temporary until swapped with subscription
-const ensureExtensionInited = async (token: string) => {
-  const inited = await axios
-    .get(
-      `https://lambda.roamjs.com/check?extensionId=multiplayer${
-        process.env.NODE_ENV === "development" ? "&dev=true" : ""
-      }`,
-      { headers: { Authorization: token } }
-    )
-    .then((r) => r.data.success);
-  if (!inited) {
-    await axios.post(
-      `https://lambda.roamjs.com/user`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${Buffer.from(
-            `${process.env.ROAMJS_EMAIL}:${process.env.ROAMJS_DEVELOPER_TOKEN}`
-          ).toString("base64")}`,
-          "x-roamjs-token": token,
-          "x-roamjs-extension": "multiplayer",
-          ...(process.env.NODE_ENV === "development"
-            ? {
-                "x-roamjs-dev": "true",
-              }
-            : {}),
-        },
-      }
-    );
-  }
-};
-
 export const wsHandler = async (event: WSEvent): Promise<unknown> => {
   const data = event.body ? JSON.parse(event.body).data : {};
   const { operation, ...props } = data;
   console.log("received operation", operation);
   if (operation === "AUTHENTICATION") {
     const { token, graph } = props as { token: string; graph: string };
-    // TODO: remove this line
-    await ensureExtensionInited(token);
-
     return getRoamJSUser(token)
       .then(async (user) => {
-        // TODO: CHECK USER COULD MULTIPLAYER FROM THIS GRAPH
         // Return user id
         const oldClient = await getClientByGraph(graph);
         if (oldClient) {
