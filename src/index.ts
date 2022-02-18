@@ -13,9 +13,8 @@ import { InputTextNode } from "roamjs-components/types";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import OnlineGraphs from "./components/OnlineGraphs";
 import Networks from "./components/Networks";
-import addBlockCommand from "roamjs-components/dom/addBlockCommand";
 import { render as copyRender } from "./components/CopyBlockAlert";
-import { getPageUidByPageTitle } from "roamjs-components";
+import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -41,7 +40,7 @@ runExtension(ID, async () => {
         },
         {
           id: "Asynchronous",
-          toggleable: true,
+          toggleable: "premium",
           fields: [
             {
               title: "Networks",
@@ -54,7 +53,6 @@ runExtension(ID, async () => {
             },
           ],
           onEnable: toggleOnAsync,
-          development: process.env.NODE_ENV !== "development",
         },
       ],
     },
