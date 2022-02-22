@@ -30,7 +30,13 @@ export const handler: WSHandler = (event) => {
               : Promise.resolve(),
             // consider saving a $session dynamo object
           ])
-        : Promise.reject(new Error(`Disconnected non existent client`))
+        : Promise.reject(
+            new Error(
+              `Couldn't find ${toEntity("$client")} with id ${
+                event.requestContext.connectionId
+              }`
+            )
+          )
     )
     .then(() => ({ statusCode: 200, body: "Successfully Disconnected" }))
     .catch((e) =>
