@@ -13,6 +13,7 @@ import { InputTextNode } from "roamjs-components/types";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import OnlineGraphs from "./components/OnlineGraphs";
 import Networks from "./components/Networks";
+import { render as pageRender } from "./components/SendPageAlert";
 import { render as copyRender } from "./components/CopyBlockAlert";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
@@ -64,37 +65,14 @@ runExtension(ID, async () => {
       enable,
       addGraphListener,
       sendToGraph,
-      getConnectedGraphs,
-      removeGraphListener,
     } = multiplayerApi;
+    
     enable();
+
     window.roamAlphaAPI.ui.commandPalette.addCommand({
       label: "Send Page to Graphs",
       callback: () => {
-        const uid = getCurrentPageUid();
-        const title = getPageTitleByPageUid(uid);
-        const tree = getFullTreeByParentUid(uid).children;
-        getConnectedGraphs().forEach((graph) => {
-          sendToGraph({
-            graph,
-            operation: "SEND_PAGE",
-            data: {
-              uid,
-              title,
-              tree,
-            },
-          });
-          addGraphListener({
-            operation: `SEND_PAGE_RESPONSE/${uid}`,
-            handler: (_, graph) => {
-              removeGraphListener({ operation: `SEND_PAGE_RESPONSE/${uid}` });
-              renderToast({
-                id: "send-page-success",
-                content: `Successfully sent page ${title} to ${graph}!`,
-              });
-            },
-          });
-        });
+        pageRender({ pageUid: getCurrentPageUid() });
       },
     });
     addGraphListener({
@@ -115,7 +93,7 @@ runExtension(ID, async () => {
           id: "send-page-success",
           content: `Received new page ${title} from ${graph}!`,
         });
-        sendToGraph({ graph, operation: `SEND_PAGE_RESPONSE/${uid}` });
+        sendToGraph({ graph, operation: `SEND_PAGE_RESPONSE/${graph}/${uid}` });
       },
     });
 
@@ -126,7 +104,6 @@ runExtension(ID, async () => {
         copyRender({ blockUid });
       },
     });
-
     addGraphListener({
       operation: "COPY_BLOCK",
       handler: (e, graph) => {
@@ -158,5 +135,6 @@ runExtension(ID, async () => {
       },
     });
   }
+  
   window.roamjs.extension["multiplayer"] = multiplayerApi;
 });

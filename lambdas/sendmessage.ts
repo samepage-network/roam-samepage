@@ -7,7 +7,6 @@ import getGraphByClient from "./common/getGraphByClient";
 import postError from "./common/postError";
 import queryById from "./common/queryById";
 import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
-import axios from "axios";
 import removeConnection from "./common/removeConnection";
 import getClientByGraph from "./common/getClientByGraph";
 import fromEntity from "./common/fromEntity";
@@ -233,7 +232,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             .then((clients) =>
               Promise.all(
                 clients
-                  .filter((id) => id !== event.requestContext.connectionId)
+                  .filter((id) => id && id !== event.requestContext.connectionId)
                   .map((id) =>
                     postToConnection({
                       ConnectionId: id,
