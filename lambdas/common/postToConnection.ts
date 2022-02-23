@@ -1,3 +1,4 @@
+import { v4 } from "uuid";
 import WebSocket from "ws";
 import getApi from "./getApi";
 
@@ -16,20 +17,55 @@ export const removeLocalSocket = (id: string) => {
   delete localSockets[id];
 };
 
-const postToConnection: (params: {
+type SendData = {
   ConnectionId: string;
-  Data: string;
-}) => Promise<void> =
-  process.env.NODE_ENV === "production"
-    ? (params) =>
-        getApi()
-          .postToConnection(params)
-          .promise()
-          .then(() => Promise.resolve())
-    : (params) => {
-        const connection = localSockets[params.ConnectionId];
-        if (connection) return Promise.resolve(connection.send(params.Data));
-        else return Promise.reject(`No connection of id ${params.ConnectionId}`);
-      };
+  Data: Record<string, unknown>;
+};
+
+const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
+
+const getSender = (ConnectionId: string) => {
+  if (process.env.NODE_ENV === "production") {
+    const api = getApi();
+    return (params: string) =>
+      api
+        .postToConnection({ ConnectionId, Data: params })
+        .promise()
+        .then(() => Promise.resolve());
+  } else {
+    const connection = localSockets[ConnectionId];
+    return (params: string) => {
+      if (connection) return Promise.resolve(connection.send(params));
+      else return Promise.reject(`No connection of id ${ConnectionId}`);
+    };
+  }
+};
+
+const postToConnection: (params: SendData) => Promise<void> = (params) => {
+  const fullMessage = JSON.stringify(params.Data);
+  const uuid = v4();
+  const size = Buffer.from(fullMessage).length;
+  const total = Math.ceil(size / MESSAGE_LIMIT);
+  const chunkSize = Math.ceil(fullMessage.length / total);
+  const sender = getSender(params.ConnectionId);
+  return Promise.all(
+    Array(total)
+      .fill(null)
+      .map((_, chunk) => {
+        const message = fullMessage.slice(
+          chunkSize * chunk,
+          chunkSize * (chunk + 1)
+        );
+        sender(
+          JSON.stringify({
+            message,
+            uuid,
+            chunk,
+            total,
+          })
+        );
+      })
+  ).then(() => Promise.resolve());
+};
 
 export default postToConnection;

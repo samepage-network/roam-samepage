@@ -31,7 +31,7 @@
     "aws-sdk": "^2.1066.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "roamjs-components": "^0.46.3",
+    "roamjs-components": "^0.48.3",
     "uuid": "^8.3.2"
   }
 }

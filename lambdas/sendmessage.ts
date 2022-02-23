@@ -1,7 +1,7 @@
 import type { WSEvent, WSHandler } from "./common/types";
 import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
-import postToConnection from "./common/postToConnection";
+import postToConnection, { removeLocalSocket } from "./common/postToConnection";
 import queryByEntity from "./common/queryByEntity";
 import getGraphByClient from "./common/getGraphByClient";
 import postError from "./common/postError";
@@ -11,6 +11,8 @@ import removeConnection from "./common/removeConnection";
 import getClientByGraph from "./common/getClientByGraph";
 import fromEntity from "./common/fromEntity";
 import { v4 } from "uuid";
+import type { InputTextNode } from "roamjs-components/types";
+import { endClient } from "./ondisconnect";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
@@ -19,52 +21,72 @@ const messageGraph = ({
   graph,
   sourceGraph,
   data,
+  messageUuid,
 }: {
   graph: string;
   sourceGraph: string;
   data: Record<string, unknown>;
+  messageUuid: string;
 }) =>
   getClientByGraph(graph).then((ConnectionId) => {
-    const Data = JSON.stringify({
+    const Data = {
       ...data,
       graph: sourceGraph,
-    });
-    if (ConnectionId) {
-      return postToConnection({
-        ConnectionId,
-        Data,
-      });
-    }
-    const messageUuid = v4();
-    return dynamo
-      .putItem({
-        TableName: "RoamJSMultiplayer",
-        Item: {
-          id: { S: messageUuid },
-          entity: { S: toEntity(`${graph}-$message`) },
-          date: {
-            S: new Date().toJSON(),
-          },
-          graph: { S: sourceGraph },
-        },
-      })
-      .promise()
-      .then(() =>
-        s3
-          .upload({
-            Bucket: "roamjs-data",
-            Body: Data,
-            Key: `multiplayer/messages/${messageUuid}.json`,
-            ContentType: "application/json",
+    };
+    return (
+      ConnectionId
+        ? postToConnection({
+            ConnectionId,
+            Data,
+          })
+            .then(() => true)
+            .catch(() => {
+              if (process.env.NODE_ENV === "production") {
+                return endClient(ConnectionId)
+                  .then(() => false)
+                  .catch(() => false);
+              } else {
+                removeLocalSocket(ConnectionId);
+                return false;
+              }
+            })
+        : Promise.resolve(false)
+    ).then(
+      (online) =>
+        !online &&
+        dynamo
+          .putItem({
+            TableName: "RoamJSMultiplayer",
+            Item: {
+              id: { S: messageUuid },
+              entity: { S: toEntity(`${graph}-$message`) },
+              date: {
+                S: new Date().toJSON(),
+              },
+              graph: { S: sourceGraph },
+            },
           })
           .promise()
-      )
-      .then(() => Promise.resolve());
+          .then(() =>
+            s3
+              .upload({
+                Bucket: "roamjs-data",
+                Body: JSON.stringify(Data),
+                Key: `multiplayer/messages/${messageUuid}.json`,
+                ContentType: "application/json",
+              })
+              .promise()
+          )
+          .then(() => Promise.resolve())
+    );
   });
 
-export const wsHandler = async (event: WSEvent): Promise<unknown> => {
-  const data = event.body ? JSON.parse(event.body).data : {};
-  const { operation, ...props } = data;
+const dataHandler = async (
+  event: WSEvent,
+  data: string,
+  messageUuid: string
+): Promise<unknown> => {
+  const { operation, ...props } = JSON.parse(data);
   console.log("received operation", operation);
   if (operation === "AUTHENTICATION") {
     const { token, graph } = props as { token: string; graph: string };
@@ -97,7 +119,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             },
             ExpressionAttributeValues: {
               ":s": { S: graph },
-              ":u": { S: user.email },
+              ":u": { S: user.id },
             },
           })
           .promise()
@@ -138,12 +160,12 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           .then((graphs) =>
             postToConnection({
               ConnectionId: event.requestContext.connectionId,
-              Data: JSON.stringify({
+              Data: {
                 operation: "AUTHENTICATION",
                 success: true,
                 messages,
                 graphs,
-              }),
+              },
             }).then(() => graphs)
           )
       )
@@ -155,11 +177,11 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             .map((ConnectionId) =>
               postToConnection({
                 ConnectionId,
-                Data: JSON.stringify({
+                Data: {
                   operation: "INITIALIZE_P2P",
                   to: event.requestContext.connectionId,
                   graph,
-                }),
+                },
               }).catch((e) => {
                 console.warn(e);
                 return dynamo
@@ -179,11 +201,11 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
         console.error(e);
         return postToConnection({
           ConnectionId: event.requestContext.connectionId,
-          Data: JSON.stringify({
+          Data: {
             operation: "AUTHENTICATION",
             success: false,
             reason: e.message,
-          }),
+          },
         }).then(() => removeConnection(event));
       });
   } else if (operation === "LIST_NETWORKS") {
@@ -192,14 +214,14 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
       .then((items) =>
         postToConnection({
           ConnectionId: event.requestContext.connectionId,
-          Data: JSON.stringify({
+          Data: {
             operation: "LIST_NETWORKS",
             networks: items.map((i) => ({ id: fromEntity(i.entity.S || "") })),
-          }),
+          },
         })
       );
   } else if (operation === "CREATE_NETWORK") {
-    const { name } = props;
+    const { name } = props as { name: string };
     const existingRooms = await queryByEntity(name);
     if (existingRooms.length)
       return postError({
@@ -237,14 +259,14 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
       ]).then(() =>
         postToConnection({
           ConnectionId: event.requestContext.connectionId,
-          Data: JSON.stringify({
+          Data: {
             operation: `CREATE_NETWORK_SUCCESS/${name}`,
-          }),
+          },
         })
       )
     );
   } else if (operation === "JOIN_NETWORK") {
-    const { name } = props;
+    const { name } = props as { name: string };
     return Promise.all([
       getGraphByClient(event),
       dynamo
@@ -285,19 +307,19 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
                   .map((id) =>
                     postToConnection({
                       ConnectionId: id,
-                      Data: JSON.stringify({
+                      Data: {
                         operation: `INITIALIZE_P2P`,
                         to: event.requestContext.connectionId,
                         graph,
-                      }),
+                      },
                     })
                   )
               ).then(() =>
                 postToConnection({
                   ConnectionId: event.requestContext.connectionId,
-                  Data: JSON.stringify({
+                  Data: {
                     operation: `JOIN_NETWORK_SUCCESS/${name}`,
-                  }),
+                  },
                 })
               )
             )
@@ -307,28 +329,31 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           })
     );
   } else if (operation === "OFFER") {
-    const { to, offer } = props;
+    const { to, offer } = props as { to: string; offer: string };
     return postToConnection({
       ConnectionId: to,
-      Data: JSON.stringify({
+      Data: {
         operation: `OFFER`,
         to: event.requestContext.connectionId,
         offer,
-      }),
+      },
     });
   } else if (operation === "ANSWER") {
-    const { to, answer } = props;
+    const { to, answer } = props as { to: string; answer: string };
     return postToConnection({
       ConnectionId: to,
-      Data: JSON.stringify({
+      Data: {
         operation: `ANSWER`,
         answer,
-      }),
+      },
     });
   } else if (operation === "PROXY") {
     // TODO - Storing + Replaying Proxied Messages
     // - We will probably need to handle batch processing for large messages
-    const { proxyOperation, graph, ...proxyData } = props;
+    const { proxyOperation, graph, ...proxyData } = props as {
+      proxyOperation: string;
+      graph: string;
+    };
     return getGraphByClient(event).then((sourceGraph) =>
       messageGraph({
         graph,
@@ -337,17 +362,23 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           operation: proxyOperation,
           ...proxyData,
         },
+        messageUuid,
       })
     );
   } else if (operation === "LOAD_MESSAGE") {
-    const { messageUuid } = props;
+    const { messageUuid } = props as { messageUuid: string };
     return Promise.all([
       s3
         .getObject({
           Bucket: "roamjs-data",
           Key: `multiplayer/messages/${messageUuid}.json`,
         })
-        .promise(),
+        .promise()
+        .then((r) => r.Body.toString())
+        .catch(() => {
+          console.error(`Could not load message ${messageUuid}`);
+          return JSON.stringify("{}");
+        }),
       getGraphByClient(event).then((graph) =>
         dynamo
           .getItem({
@@ -383,26 +414,25 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
               .then(() => sourceGraph)
           )
       ),
-    ]).then(([r, sourceGraph]) => {
-      const Data = r.Body.toString();
+    ]).then(([Data, sourceGraph]) => {
       return postToConnection({
         ConnectionId: event.requestContext.connectionId,
-        Data: JSON.stringify({
+        Data: {
           ...JSON.parse(Data),
           graph: sourceGraph,
-        }),
+        },
       }).then(() =>
         postToConnection({
           ConnectionId: event.requestContext.connectionId,
-          Data: JSON.stringify({
+          Data: {
             operation: `LOAD_MESSAGE/${messageUuid}`,
             graph: sourceGraph,
-          }),
+          },
         })
       );
     });
   } else if (operation === "QUERY_REF") {
-    const { graph, uid } = props;
+    const { graph, uid } = props as { graph: string; uid: string };
     const dynamoId = `${graph}:${uid}`;
     return dynamo
       .getItem({
@@ -424,11 +454,16 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             .then((r) =>
               postToConnection({
                 ConnectionId: event.requestContext.connectionId,
-                Data: JSON.stringify({
-                  blocks: JSON.parse(r.Body.toString()),
-                }),
+                Data: {
+                  operation: `QUERY_REF_RESPONSE/${graph}/${uid}`,
+                  node: JSON.parse(r.Body.toString()),
+                  found: true,
+                  fromCache: true,
+                  ephemeral: true,
+                },
               })
-            );
+            )
+            .catch();
       })
       .then(() => getGraphByClient(event))
       .then((sourceGraph) =>
@@ -439,16 +474,21 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             uid,
             operation: "QUERY_REF",
           },
+          messageUuid,
         })
       );
   } else if (operation === "QUERY_REF_RESPONSE") {
-    const { found, node, graph } = props;
+    const { found, node, graph } = props as {
+      found: boolean;
+      graph: string;
+      node: InputTextNode;
+    };
     if (found) {
       await s3
         .upload({
           Bucket: "roamjs-data",
           Body: JSON.stringify(node),
-          Key: `multiplayer/references/${graph}/${node.uuid}.json`,
+          Key: `multiplayer/references/${graph}/${node.uid}.json`,
           ContentType: "application/json",
         })
         .promise();
@@ -463,6 +503,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
           found,
           ephemeral: true,
         },
+        messageUuid,
       })
     );
   } else {
@@ -471,6 +512,75 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
       Message: `Invalid server operation: ${operation}`,
     });
   }
+};
+
+export const wsHandler = async (event: WSEvent): Promise<unknown> => {
+  const chunkData = event.body ? JSON.parse(event.body).data : {};
+  const { message, uuid, chunk, total } = chunkData;
+  if (total === 1) return dataHandler(event, message, uuid);
+  else
+    return s3
+      .upload({
+        Bucket: "roamjs-data",
+        Body: message,
+        Key: `multiplayer/ongoing/${uuid}/chunk${chunk}`,
+        ContentType: "application/json",
+      })
+      .promise()
+      .then(() =>
+        dynamo
+          .updateItem({
+            TableName: "RoamJSMultiplayer",
+            Key: {
+              id: { S: uuid },
+              entity: { S: toEntity("$ongoing") },
+            },
+            UpdateExpression: "ADD #c :c",
+            ExpressionAttributeNames: {
+              "#c": "chunks",
+            },
+            ExpressionAttributeValues: {
+              ":c": { NS: [chunk.toString()] },
+            },
+            ReturnValues: "UPDATED_NEW",
+          })
+          .promise()
+      )
+      .then((item) => {
+        if (item.Attributes.chunks.NS.length === total) {
+          return Promise.all(
+            Array(total)
+              .fill(null)
+              .map((_, c) =>
+                c === chunk
+                  ? { message, chunk }
+                  : s3
+                      .getObject({
+                        Bucket: "roamjs-data",
+                        Key: `multiplayer/ongoing/${uuid}/chunk${c}`,
+                      })
+                      .promise()
+                      .then((r) => ({ message: r.Body.toString(), chunk: c }))
+                      .catch((e) => {
+                        return Promise.reject(
+                          new Error(
+                            `Failed to fetch chunk ${c} for ongoing message ${uuid}: ${e.message}`
+                          )
+                        );
+                      })
+              )
+          ).then((chunks) =>
+            dataHandler(
+              event,
+              chunks
+                .sort((a, b) => a.chunk - b.chunk)
+                .map((a) => a.message)
+                .join(""),
+              uuid
+            )
+          );
+        }
+      });
 };
 
 export const handler: WSHandler = (event) =>

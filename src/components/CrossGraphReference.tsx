@@ -26,13 +26,15 @@ const CrossGraphReference = ({
     window.roamjs.extension.multiplayer.addGraphListener({
       operation,
       handler: (e) => {
-        window.roamjs.extension.multiplayer.removeGraphListener({
-          operation,
-        });
-        const { found, node } = e as {
+        const { found, node, fromCache } = e as {
           found: boolean;
           node: InputTextNode;
+          fromCache?: true;
         };
+        if (!fromCache)
+          window.roamjs.extension.multiplayer.removeGraphListener({
+            operation,
+          });
         const newText = found ? node.text : `Reference not found`;
         if (!references[graph]) references[graph] = {};
         references[graph][uid] = newText;

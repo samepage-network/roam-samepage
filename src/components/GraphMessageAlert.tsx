@@ -90,7 +90,7 @@ const GraphMessageAlert = ({
           <div className={Classes.DIALOG_FOOTER_ACTIONS}>
             <Button text={"Cancel"} onClick={onClose} />
             <Button
-              text={"Save"}
+              text={"Send"}
               intent={Intent.PRIMARY}
               onClick={onSubmit}
               disabled={submitDisabled}

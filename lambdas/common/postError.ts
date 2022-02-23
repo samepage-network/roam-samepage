@@ -6,10 +6,10 @@ const postError = (params: {
 }) =>
   postToConnection({
     ConnectionId: params.event?.requestContext?.connectionId || "",
-    Data: JSON.stringify({
+    Data: {
       operation: "ERROR",
       message: params.Message,
-    }),
+    },
   });
 
 export default postError;

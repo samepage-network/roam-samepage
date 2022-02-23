@@ -188,6 +188,61 @@ export const roamJsBackend: {
   status: "DISCONNECTED",
   networkedGraphs: [],
 };
+
+const sendChunkedMessage = ({
+  data,
+  sender,
+}: {
+  data: { [k: string]: json };
+  sender: (data: { [k: string]: json }) => void;
+}) => {
+  const fullMessage = JSON.stringify(data);
+  const uuid = v4();
+  const size = new Blob([fullMessage]).size;
+  const total = Math.ceil(size / MESSAGE_LIMIT);
+  const chunkSize = Math.ceil(fullMessage.length / total);
+  for (let chunk = 0; chunk < total; chunk++) {
+    const message = fullMessage.slice(
+      chunkSize * chunk,
+      chunkSize * (chunk + 1)
+    );
+    sender({
+      message,
+      uuid,
+      chunk,
+      total,
+    });
+  }
+};
+
+const ongoingMessages: { [uuid: string]: string[] } = {};
+const receiveChunkedMessage = (str: string, graph?: string) => {
+  const { message, uuid, chunk, total } = JSON.parse(str);
+  if (!ongoingMessages[uuid]) {
+    ongoingMessages[uuid] = [];
+  }
+  const ongoingMessage = ongoingMessages[uuid];
+  ongoingMessage[chunk] = message;
+  if (ongoingMessage.filter((c) => !!c).length === total) {
+    delete ongoingMessages[uuid];
+    const { operation, ...props } = JSON.parse(ongoingMessage.join(""));
+    const handler = messageHandlers[operation];
+    if (handler) handler(props, graph || props.graph || '');
+    else if (props.message === "Internal server error")
+      renderToast({
+        id: "network-error",
+        content: `Unknown Internal Server Error. Request ID: ${props.requestId}`,
+        intent: "danger",
+      });
+    else if (!props.ephemeral)
+      renderToast({
+        id: "network-error",
+        content: `Unknown network operation: ${operation}`,
+        intent: "danger",
+      });
+  }
+};
+
 export const sendToBackend = ({
   operation,
   data = {},
@@ -195,12 +250,19 @@ export const sendToBackend = ({
   operation: string;
   data?: { [key: string]: json };
 }) =>
-  roamJsBackend.channel.send(
-    JSON.stringify({
-      action: "sendmessage",
-      data: { operation, ...data },
-    })
-  );
+  sendChunkedMessage({
+    data: {
+      operation,
+      ...data,
+    },
+    sender: (data) =>
+      roamJsBackend.channel.send(
+        JSON.stringify({
+          action: "sendmessage",
+          data,
+        })
+      ),
+  });
 
 type AlertProps = { onClose: () => void };
 const onError = (e: { error: Error } & Event) => {
@@ -246,22 +308,8 @@ const onConnect = ({
     status: "CONNECTED",
   };
   updateOnlineGraphs();
-  const ongoingMessages: { [uuid: string]: string[] } = {};
   channel.addEventListener("message", (e) => {
-    const { message, uuid, chunk, total } = JSON.parse(e.data);
-    if (!ongoingMessages[uuid]) {
-      ongoingMessages[uuid] = [];
-    }
-    const ongoingMessage = ongoingMessages[uuid];
-    ongoingMessage[chunk] = message;
-    if (ongoingMessage.filter((c) => !!c).length === total) {
-      console.log("Received full message");
-      delete ongoingMessages[uuid];
-      const { operation, ...data } = JSON.parse(ongoingMessage.join(""));
-      messageHandlers[operation]?.(data, name);
-    } else {
-      console.log(`Received chunk ${chunk + 1} of ${total}`);
-    }
+    receiveChunkedMessage(e.data, name)
   });
   channel.onclose = onDisconnect(name);
 };
@@ -560,21 +608,7 @@ export const toggleOnAsync = () => {
   };
 
   roamJsBackend.channel.onmessage = (data) => {
-    const { operation, graph = "", ...props } = JSON.parse(data.data);
-    const handler = messageHandlers[operation];
-    if (handler) handler(props, graph);
-    else if (props.message === "Internal server error")
-      renderToast({
-        id: "websocket-error",
-        content: `Unknown Internal Server Error. Request ID: ${props.requestId}`,
-        intent: "danger",
-      });
-    else if (!props.ephemeral)
-      renderToast({
-        id: "websocket-error",
-        content: `Unknown websocket operation: ${operation}`,
-        intent: "danger",
-      });
+    receiveChunkedMessage(data.data);
   };
   addTokenDialogCommand();
 };
@@ -609,25 +643,12 @@ const setupMultiplayer = (configUid: string) => {
       data?: { [k: string]: json };
     }) => {
       const connection = connectedGraphs[graph];
+
       if (connection?.status === "CONNECTED") {
-        const message = JSON.stringify({ operation, ...data });
-        const uuid = v4();
-        const size = new Blob([message]).size;
-        const total = Math.ceil(size / MESSAGE_LIMIT);
-        const chunkSize = Math.ceil(message.length / total);
-        for (let chunk = 0; chunk < total; chunk++) {
-          connection.channel.send(
-            JSON.stringify({
-              message: message.slice(
-                chunkSize * chunk,
-                chunkSize * (chunk + 1)
-              ),
-              uuid,
-              chunk,
-              total,
-            })
-          );
-        }
+        sendChunkedMessage({
+          data: { operation, ...data },
+          sender: (d) => connection.channel.send(JSON.stringify(d)),
+        });
       } else if (
         roamJsBackend.channel &&
         roamJsBackend.status === "CONNECTED"
