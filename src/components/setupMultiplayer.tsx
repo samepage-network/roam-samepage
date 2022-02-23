@@ -410,16 +410,24 @@ const getConnectCode = ({
 
 const receiveAnswer = ({ answer }: { answer: string }) => {
   const { candidates, description, label } = deserialize(answer);
-  const connection = connectedGraphs[label].connection;
-  connection
-    .setRemoteDescription(new RTCSessionDescription(description))
-    .then(() =>
-      Promise.all(
-        candidates.map((c) =>
-          connection.addIceCandidate(new RTCIceCandidate(c))
+  const connection = connectedGraphs[label]?.connection;
+  if (connection) {
+    connection
+      .setRemoteDescription(new RTCSessionDescription(description))
+      .then(() =>
+        Promise.all(
+          candidates.map((c) =>
+            connection.addIceCandidate(new RTCIceCandidate(c))
+          )
         )
-      )
-    );
+      );
+  } else {
+    renderToast({
+      id: "connection-answer-error",
+      intent: Intent.DANGER,
+      content: `Error: No graph setup for connection with label: ${label}`,
+    });
+  }
 };
 
 const SetupAlert = ({ onClose }: AlertProps) => {
@@ -552,9 +560,7 @@ export const toggleOnAsync = () => {
   };
 
   roamJsBackend.channel.onmessage = (data) => {
-    console.log(`Received message on ${new Date()}`);
     const { operation, graph = "", ...props } = JSON.parse(data.data);
-    console.log({ operation, graph, ...props });
     const handler = messageHandlers[operation];
     if (handler) handler(props, graph);
     else if (props.message === "Internal server error")
@@ -563,7 +569,7 @@ export const toggleOnAsync = () => {
         content: `Unknown Internal Server Error. Request ID: ${props.requestId}`,
         intent: "danger",
       });
-    else
+    else if (!props.ephemeral)
       renderToast({
         id: "websocket-error",
         content: `Unknown websocket operation: ${operation}`,

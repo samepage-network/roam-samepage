@@ -8,7 +8,10 @@ import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLen
 import createPage from "roamjs-components/writes/createPage";
 import createBlock from "roamjs-components/writes/createBlock";
 import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
-import setupMultiplayer, { toggleOnAsync } from "./components/setupMultiplayer";
+import setupMultiplayer, {
+  sendToBackend,
+  toggleOnAsync,
+} from "./components/setupMultiplayer";
 import { InputTextNode } from "roamjs-components/types";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import OnlineGraphs from "./components/OnlineGraphs";
@@ -16,6 +19,8 @@ import Networks from "./components/Networks";
 import { render as pageRender } from "./components/SendPageAlert";
 import { render as copyRender } from "./components/CopyBlockAlert";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
+import { render as referenceRender } from "./components/CrossGraphReference";
+import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -61,12 +66,9 @@ runExtension(ID, async () => {
 
   const multiplayerApi = setupMultiplayer(pageUid);
   if (!loadedElsewhere) {
-    const {
-      enable,
-      addGraphListener,
-      sendToGraph,
-    } = multiplayerApi;
-    
+    const { enable, addGraphListener, sendToGraph, getNetworkedGraphs } =
+      multiplayerApi;
+
     enable();
 
     window.roamAlphaAPI.ui.commandPalette.addCommand({
@@ -93,7 +95,13 @@ runExtension(ID, async () => {
           id: "send-page-success",
           content: `Received new page ${title} from ${graph}!`,
         });
-        sendToGraph({ graph, operation: `SEND_PAGE_RESPONSE/${graph}/${uid}` });
+        sendToGraph({
+          graph,
+          operation: `SEND_PAGE_RESPONSE/${graph}/${uid}`,
+          data: {
+            ephemeral: true,
+          },
+        });
       },
     });
 
@@ -130,11 +138,35 @@ runExtension(ID, async () => {
             sendToGraph({
               graph,
               operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
+              data: {
+                ephemeral: true,
+              },
             });
           });
       },
     });
+
+    addGraphListener({
+      operation: "QUERY_REF",
+      handler: (e, graph) => {
+        const { uid } = e as { uid: string };
+        const node = getFullTreeByParentUid(uid);
+        sendToBackend({
+          operation: "QUERY_REF_RESPONSE",
+          data: {
+            found: !!node.uid,
+            node,
+            graph,
+          },
+        });
+      },
+    });
+    createHTMLObserver({
+      callback: (s) => referenceRender(s, getNetworkedGraphs),
+      tag: "SPAN",
+      className: "rm-paren--closed",
+    });
   }
-  
+
   window.roamjs.extension["multiplayer"] = multiplayerApi;
 });

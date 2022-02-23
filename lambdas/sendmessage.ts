@@ -15,6 +15,53 @@ import { v4 } from "uuid";
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
 
+const messageGraph = ({
+  graph,
+  sourceGraph,
+  data,
+}: {
+  graph: string;
+  sourceGraph: string;
+  data: Record<string, unknown>;
+}) =>
+  getClientByGraph(graph).then((ConnectionId) => {
+    const Data = JSON.stringify({
+      ...data,
+      graph: sourceGraph,
+    });
+    if (ConnectionId) {
+      return postToConnection({
+        ConnectionId,
+        Data,
+      });
+    }
+    const messageUuid = v4();
+    return dynamo
+      .putItem({
+        TableName: "RoamJSMultiplayer",
+        Item: {
+          id: { S: messageUuid },
+          entity: { S: toEntity(`${graph}-$message`) },
+          date: {
+            S: new Date().toJSON(),
+          },
+          graph: { S: sourceGraph },
+        },
+      })
+      .promise()
+      .then(() =>
+        s3
+          .upload({
+            Bucket: "roamjs-data",
+            Body: Data,
+            Key: `multiplayer/messages/${messageUuid}.json`,
+            ContentType: "application/json",
+          })
+          .promise()
+      )
+      .then(() => Promise.resolve());
+  });
+
 export const wsHandler = async (event: WSEvent): Promise<unknown> => {
   const data = event.body ? JSON.parse(event.body).data : {};
   const { operation, ...props } = data;
@@ -232,7 +279,9 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
             .then((clients) =>
               Promise.all(
                 clients
-                  .filter((id) => id && id !== event.requestContext.connectionId)
+                  .filter(
+                    (id) => id && id !== event.requestContext.connectionId
+                  )
                   .map((id) =>
                     postToConnection({
                       ConnectionId: id,
@@ -280,45 +329,15 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
     // TODO - Storing + Replaying Proxied Messages
     // - We will probably need to handle batch processing for large messages
     const { proxyOperation, graph, ...proxyData } = props;
-    return Promise.all([getClientByGraph(graph), getGraphByClient(event)]).then(
-      ([ConnectionId, sourceGraph]) => {
-        const Data = JSON.stringify({
+    return getGraphByClient(event).then((sourceGraph) =>
+      messageGraph({
+        graph,
+        sourceGraph,
+        data: {
           operation: proxyOperation,
-          graph: sourceGraph,
           ...proxyData,
-        });
-        if (ConnectionId) {
-          return postToConnection({
-            ConnectionId,
-            Data,
-          });
-        }
-        const messageUuid = v4();
-        return dynamo
-          .putItem({
-            TableName: "RoamJSMultiplayer",
-            Item: {
-              id: { S: messageUuid },
-              entity: { S: toEntity(`${graph}-$message`) },
-              date: {
-                S: new Date().toJSON(),
-              },
-              graph: { S: sourceGraph },
-            },
-          })
-          .promise()
-          .then(() =>
-            s3
-              .upload({
-                Bucket: "roamjs-data",
-                Body: Data,
-                Key: `multiplayer/messages/${messageUuid}.json`,
-                ContentType: "application/json",
-              })
-              .promise()
-          )
-          .then(() => {});
-      }
+        },
+      })
     );
   } else if (operation === "LOAD_MESSAGE") {
     const { messageUuid } = props;
@@ -382,6 +401,70 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
         })
       );
     });
+  } else if (operation === "QUERY_REF") {
+    const { graph, uid } = props;
+    const dynamoId = `${graph}:${uid}`;
+    return dynamo
+      .getItem({
+        TableName: "RoamJSMultiplayer",
+        Key: {
+          id: { S: dynamoId },
+          entity: { S: toEntity("$reference") },
+        },
+      })
+      .promise()
+      .then((r) => {
+        if (r.Item)
+          return s3
+            .getObject({
+              Bucket: "roamjs-data",
+              Key: `multiplayer/references/${graph}/${uid}.json`,
+            })
+            .promise()
+            .then((r) =>
+              postToConnection({
+                ConnectionId: event.requestContext.connectionId,
+                Data: JSON.stringify({
+                  blocks: JSON.parse(r.Body.toString()),
+                }),
+              })
+            );
+      })
+      .then(() => getGraphByClient(event))
+      .then((sourceGraph) =>
+        messageGraph({
+          sourceGraph,
+          graph,
+          data: {
+            uid,
+            operation: "QUERY_REF",
+          },
+        })
+      );
+  } else if (operation === "QUERY_REF_RESPONSE") {
+    const { found, node, graph } = props;
+    if (found) {
+      await s3
+        .upload({
+          Bucket: "roamjs-data",
+          Body: JSON.stringify(node),
+          Key: `multiplayer/references/${graph}/${node.uuid}.json`,
+          ContentType: "application/json",
+        })
+        .promise();
+    }
+    return getGraphByClient(event).then((sourceGraph) =>
+      messageGraph({
+        graph,
+        sourceGraph,
+        data: {
+          operation: `QUERY_REF_RESPONSE/${sourceGraph}/${node.uid}`,
+          node,
+          found,
+          ephemeral: true,
+        },
+      })
+    );
   } else {
     return postError({
       event,
