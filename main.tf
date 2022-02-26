@@ -32,6 +32,10 @@ variable "github_token" {
   type = string
 }
 
+variable "password_secret_key" {
+  type = string
+}
+
 provider "aws" {
   region = "us-east-1"
   access_key = var.aws_access_token
@@ -378,4 +382,10 @@ resource "github_actions_secret" "api_gateway_id" {
   repository       = "roamjs-multiplayer"
   secret_name      = "API_GATEWAY_ID"
   plaintext_value  = aws_apigatewayv2_api.ws.id
+}
+
+resource "github_actions_secret" "password_secret_key" {
+  repository       = "roamjs-multiplayer"
+  secret_name      = "PASSWORD_SECRET_KEY"
+  plaintext_value  = var.password_secret_key
 }
