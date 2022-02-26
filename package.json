@@ -15,6 +15,8 @@
   "license": "MIT",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.88",
+    "@types/crypto-js": "^4.1.1",
+    "@types/randomstring": "^1.1.8",
     "@types/react": "^17.0.37",
     "@types/react-dom": "^17.0.11",
     "@types/uuid": "^8.3.3",
@@ -29,9 +31,11 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1066.0",
+    "crypto-js": "^4.1.1",
+    "randomstring": "^1.2.2",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "roamjs-components": "^0.48.3",
+    "roamjs-components": "^0.48.7",
     "uuid": "^8.3.2"
   }
 }

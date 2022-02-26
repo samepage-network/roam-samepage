@@ -2,7 +2,6 @@ import toConfigPageName from "roamjs-components/util/toConfigPageName";
 import runExtension from "roamjs-components/util/runExtension";
 import { createConfigObserver } from "roamjs-components/components/ConfigPage";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
-import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import createPage from "roamjs-components/writes/createPage";
@@ -21,10 +20,21 @@ import { render as copyRender } from "./components/CopyBlockAlert";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import { render as referenceRender } from "./components/CrossGraphReference";
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
+import addStyle from "roamjs-components/dom/addStyle";
+import getGraph from "roamjs-components/util/getGraph";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
 const CONFIG = toConfigPageName(ID);
+addStyle(`.roamjs-multiplayer-connected-network {
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.roamjs-multiplayer-connected-network:hover {
+  background: #33333330;
+}`);
+
 runExtension(ID, async () => {
   const { pageUid } = await createConfigObserver({
     title: CONFIG,
@@ -56,6 +66,12 @@ runExtension(ID, async () => {
               options: {
                 component: Networks,
               },
+            },
+            {
+              title: "Disable Auto Connect",
+              type: "flag",
+              description:
+                "Prevent the extension from automatically connecting to your configured networks",
             },
           ],
           onEnable: toggleOnAsync,
@@ -166,6 +182,10 @@ runExtension(ID, async () => {
       tag: "SPAN",
       className: "rm-paren--closed",
     });
+    window.roamAlphaAPI.ui.blockContextMenu.addCommand({
+      label: "Copy Cross Block Ref",
+      callback: (a) => window.navigator.clipboard.writeText(`((${getGraph()}:${a["block-uid"]}))`)
+    })
   }
 
   window.roamjs.extension["multiplayer"] = multiplayerApi;

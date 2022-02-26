@@ -3,7 +3,7 @@ import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
 import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import emailError from "roamjs-components/backend/emailError";
-import differenceInHours from "date-fns/differenceInHours";
+import differenceInMinutes from "date-fns/differenceInMinutes";
 
 const dynamo = new AWS.DynamoDB();
 
@@ -25,7 +25,7 @@ export const endClient = (id: string) => {
             r.Item.userId
               ? meterRoamJSUser(
                   r.Item.user.S,
-                  differenceInHours(new Date(), new Date(r.Item.date.S))
+                  differenceInMinutes(new Date(), new Date(r.Item.date.S))
                 )
               : Promise.resolve(),
             dynamo

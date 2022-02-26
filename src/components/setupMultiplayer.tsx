@@ -5,18 +5,19 @@ import {
   Label,
   Intent,
   Position,
+  Toast,
+  Toaster,
 } from "@blueprintjs/core";
 import React, { useCallback, useEffect, useState } from "react";
 import getGraph from "roamjs-components/util/getGraph";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
-import Toast, {
-  render as renderToast,
-} from "roamjs-components/components/Toast";
+import renderToast from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
 import { addTokenDialogCommand } from "roamjs-components/components/TokenDialog";
+import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
 // These RTC objects are not JSON serializable -.-
 const serialize = ({
@@ -74,43 +75,6 @@ type MessageHandlers = {
 };
 type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
 
-const LoadingRemoteMessages = ({
-  onClose,
-  messages,
-}: {
-  onClose: () => void;
-  messages: string[];
-}) => {
-  const [progress, setProgress] = useState(0);
-  useEffect(() => {
-    Promise.all(
-      messages.map(
-        (msg, index) =>
-          new Promise<void>((innerResolve) => {
-            const response = `LOAD_MESSAGE/${msg}`;
-            messageHandlers[response] = () => {
-              delete messageHandlers[response];
-              setProgress(index + 1);
-              innerResolve();
-            };
-            sendToBackend({
-              operation: "LOAD_MESSAGE",
-              data: { messageUuid: msg },
-            });
-          })
-      )
-    ).then(onClose);
-  }, [onClose, setProgress]);
-  return (
-    <Toast
-      intent={Intent.PRIMARY}
-      position={Position.BOTTOM_RIGHT}
-      onClose={onClose}
-      content={`Loaded ${progress} of ${messages.length} remote messages...`}
-    />
-  );
-};
-
 export const messageHandlers: MessageHandlers = {
   ERROR: ({ message }: { message: string }) =>
     renderToast({
@@ -129,12 +93,30 @@ export const messageHandlers: MessageHandlers = {
       roamJsBackend.networkedGraphs = props.graphs;
       updateOnlineGraphs();
       if (props.messages.length) {
-        createOverlayRender<
-          Omit<Parameters<typeof LoadingRemoteMessages>[0], "onClose">
-        >(
-          "multiplayer-catchup",
-          LoadingRemoteMessages
-        )({ messages: props.messages });
+        const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
+        let progress = 0;
+        toaster.show({
+          intent: Intent.PRIMARY,
+          message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
+          timeout: 0,
+        });
+        Promise.all(
+          props.messages.map(
+            (msg) =>
+              new Promise<void>((innerResolve) => {
+                const response = `LOAD_MESSAGE/${msg}`;
+                messageHandlers[response] = () => {
+                  delete messageHandlers[response];
+                  progress = progress + 1;
+                  innerResolve();
+                };
+                sendToBackend({
+                  operation: "LOAD_MESSAGE",
+                  data: { messageUuid: msg },
+                });
+              })
+          )
+        ).then(() => toaster.clear());
       } else {
         renderToast({
           id: "multiplayer-success",
@@ -142,6 +124,9 @@ export const messageHandlers: MessageHandlers = {
           intent: Intent.SUCCESS,
         });
       }
+      window.roamAlphaAPI.ui.commandPalette.removeCommand({
+        label: "Connect to RoamJS Multiplayer Networks",
+      });
     } else {
       roamJsBackend.status = "DISCONNECTED";
       roamJsBackend.channel.close();
@@ -164,6 +149,13 @@ export const messageHandlers: MessageHandlers = {
   },
   ANSWER: (props: { answer: string }) => {
     receiveAnswer({ answer: props.answer });
+  },
+  LEAVE_NETWORK: (props: { graph: string }) => {
+    roamJsBackend.networkedGraphs = roamJsBackend.networkedGraphs.filter(
+      (g) => g !== props.graph
+    );
+    delete connectedGraphs[props.graph];
+    updateOnlineGraphs();
   },
 };
 export const ONLINE_GRAPHS_ID = "roamjs-online-graphs-container";
@@ -227,13 +219,7 @@ const receiveChunkedMessage = (str: string, graph?: string) => {
     delete ongoingMessages[uuid];
     const { operation, ...props } = JSON.parse(ongoingMessage.join(""));
     const handler = messageHandlers[operation];
-    if (handler) handler(props, graph || props.graph || '');
-    else if (props.message === "Internal server error")
-      renderToast({
-        id: "network-error",
-        content: `Unknown Internal Server Error. Request ID: ${props.requestId}`,
-        intent: "danger",
-      });
+    if (handler) handler(props, graph || props.graph || "");
     else if (!props.ephemeral)
       renderToast({
         id: "network-error",
@@ -309,7 +295,7 @@ const onConnect = ({
   };
   updateOnlineGraphs();
   channel.addEventListener("message", (e) => {
-    receiveChunkedMessage(e.data, name)
+    receiveChunkedMessage(e.data, name);
   });
   channel.onclose = onDisconnect(name);
 };
@@ -587,8 +573,14 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
 };
 
 const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
+const addConnectCommand = () => {
+  window.roamAlphaAPI.ui.commandPalette.addCommand({
+    label: "Connect to RoamJS Multiplayer Networks",
+    callback: connectToBackend,
+  });
+};
 
-export const toggleOnAsync = () => {
+const connectToBackend = () => {
   roamJsBackend.status = "PENDING";
   roamJsBackend.channel = new WebSocket(process.env.WEB_SOCKET_URL);
   roamJsBackend.channel.onopen = () => {
@@ -598,18 +590,50 @@ export const toggleOnAsync = () => {
     });
   };
 
-  roamJsBackend.channel.onclose = () => {
-    roamJsBackend.status = "DISCONNECTED";
-    renderToast({
-      id: "multiplayer-success",
-      content: "Disconnected from RoamJS Multiplayer",
-      intent: Intent.WARNING,
-    });
-  };
+  roamJsBackend.channel.onclose = disconnectFromBackend;
 
   roamJsBackend.channel.onmessage = (data) => {
+    if (JSON.parse(data.data).message === "Internal server error")
+      renderToast({
+        id: "network-error",
+        content: `Unknown Internal Server Error. Request ID: ${
+          JSON.parse(data.data).requestId
+        }`,
+        intent: "danger",
+      });
+
     receiveChunkedMessage(data.data);
   };
+  window.roamAlphaAPI.ui.commandPalette.addCommand({
+    label: "Connect to RoamJS Multiplayer Networks",
+    callback: disconnectFromBackend,
+  });
+};
+
+const disconnectFromBackend = () => {
+  roamJsBackend.status = "DISCONNECTED";
+  roamJsBackend.networkedGraphs = [];
+  roamJsBackend.channel = undefined;
+  renderToast({
+    id: "multiplayer-success",
+    content: "Disconnected from RoamJS Multiplayer",
+    intent: Intent.WARNING,
+  });
+  addConnectCommand();
+};
+
+export const toggleOnAsync = () => {
+  const tree = getBasicTreeByParentUid(
+    getPageUidByPageTitle("roam/js/multiplayer")
+  );
+  const asyncModeTree = getSubTree({ tree, key: "Asynchronous" });
+  const disableAutoConnect = getSubTree({
+    tree: asyncModeTree.children,
+    key: "Disable Auto Connect",
+  }).uid;
+
+  if (!!disableAutoConnect) addConnectCommand();
+  else connectToBackend();
   addTokenDialogCommand();
 };
 
@@ -661,7 +685,12 @@ const setupMultiplayer = (configUid: string) => {
     },
     getConnectedGraphs,
     getNetworkedGraphs: () =>
-      asyncModeTree.uid ? roamJsBackend.networkedGraphs : getConnectedGraphs(),
+      asyncModeTree.uid
+        ? Array.from([
+            ...roamJsBackend.networkedGraphs,
+            ...getConnectedGraphs(),
+          ])
+        : getConnectedGraphs(),
     enable: () => {
       if (asyncModeTree.uid) {
         toggleOnAsync();

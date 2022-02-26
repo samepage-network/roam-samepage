@@ -10,14 +10,19 @@ import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
 import removeConnection from "./common/removeConnection";
 import getClientByGraph from "./common/getClientByGraph";
 import fromEntity from "./common/fromEntity";
-import { v4 } from "uuid";
 import type { InputTextNode } from "roamjs-components/types";
 import { endClient } from "./ondisconnect";
+import sha from "crypto-js/hmac-sha512";
+import Base64 from "crypto-js/enc-base64";
+import randomstring from "randomstring";
+import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
+import emailCatch from "roamjs-components/backend/emailCatch";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
 
 const messageGraph = ({
+  event,
   graph,
   sourceGraph,
   data,
@@ -27,59 +32,78 @@ const messageGraph = ({
   sourceGraph: string;
   data: Record<string, unknown>;
   messageUuid: string;
+  event: WSEvent;
 }) =>
-  getClientByGraph(graph).then((ConnectionId) => {
-    const Data = {
-      ...data,
-      graph: sourceGraph,
-    };
-    return (
-      ConnectionId
-        ? postToConnection({
-            ConnectionId,
-            Data,
-          })
-            .then(() => true)
-            .catch(() => {
-              if (process.env.NODE_ENV === "production") {
-                return endClient(ConnectionId)
-                  .then(() => false)
-                  .catch(() => false);
-              } else {
-                removeLocalSocket(ConnectionId);
-                return false;
-              }
+  getClientByGraph(graph)
+    .then((ConnectionId) => {
+      const Data = {
+        ...data,
+        graph: sourceGraph,
+      };
+      return (
+        ConnectionId
+          ? postToConnection({
+              ConnectionId,
+              Data,
             })
-        : Promise.resolve(false)
-    ).then(
-      (online) =>
-        !online &&
-        dynamo
-          .putItem({
-            TableName: "RoamJSMultiplayer",
-            Item: {
-              id: { S: messageUuid },
-              entity: { S: toEntity(`${graph}-$message`) },
-              date: {
-                S: new Date().toJSON(),
-              },
-              graph: { S: sourceGraph },
-            },
-          })
-          .promise()
-          .then(() =>
-            s3
-              .upload({
-                Bucket: "roamjs-data",
-                Body: JSON.stringify(Data),
-                Key: `multiplayer/messages/${messageUuid}.json`,
-                ContentType: "application/json",
+              .then(() => true)
+              .catch(() => {
+                if (process.env.NODE_ENV === "production") {
+                  return endClient(ConnectionId)
+                    .then(() => false)
+                    .catch(() => false);
+                } else {
+                  removeLocalSocket(ConnectionId);
+                  return false;
+                }
               })
-              .promise()
+          : Promise.resolve(false)
+      ).then(
+        (online) =>
+          !online &&
+          dynamo
+            .putItem({
+              TableName: "RoamJSMultiplayer",
+              Item: {
+                id: { S: messageUuid },
+                entity: { S: toEntity(`${graph}-$message`) },
+                date: {
+                  S: new Date().toJSON(),
+                },
+                graph: { S: sourceGraph },
+              },
+            })
+            .promise()
+            .then(() =>
+              s3
+                .upload({
+                  Bucket: "roamjs-data",
+                  Body: JSON.stringify(Data),
+                  Key: `multiplayer/messages/${messageUuid}.json`,
+                  ContentType: "application/json",
+                })
+                .promise()
+            )
+            .then(() => Promise.resolve())
+      );
+    })
+    .then(() =>
+      dynamo
+        .getItem({
+          TableName: "RoamJSMultiplayer",
+          Key: {
+            id: { S: event.requestContext.connectionId },
+            entity: { S: toEntity("$client") },
+          },
+        })
+        .promise()
+        .then((r) => meterRoamJSUser(r.Item?.user?.S))
+        .catch(
+          emailCatch(
+            `Failed to meter Multiplayer user for message ${messageUuid}`
           )
-          .then(() => Promise.resolve())
+        )
     );
-  });
 
 const dataHandler = async (
   event: WSEvent,
@@ -221,7 +245,8 @@ const dataHandler = async (
         })
       );
   } else if (operation === "CREATE_NETWORK") {
-    const { name } = props as { name: string };
+    const { name, password } = props as { name: string; password: string };
+    const salt = randomstring.generate(16);
     const existingRooms = await queryByEntity(name);
     if (existingRooms.length)
       return postError({
@@ -240,6 +265,12 @@ const dataHandler = async (
                 S: new Date().toJSON(),
               },
               graph: { S: graph },
+              password: {
+                S: Base64.stringify(
+                  sha(password + salt, process.env.PASSWORD_SECRET_KEY)
+                ),
+              },
+              salt: { S: salt },
             },
           })
           .promise(),
@@ -266,7 +297,7 @@ const dataHandler = async (
       )
     );
   } else if (operation === "JOIN_NETWORK") {
-    const { name } = props as { name: string };
+    const { name, password } = props as { name: string; password: string };
     return Promise.all([
       getGraphByClient(event),
       dynamo
@@ -278,56 +309,119 @@ const dataHandler = async (
           },
         })
         .promise(),
-    ]).then(([graph, network]) =>
-      network.Item
-        ? dynamo
-            .putItem({
-              TableName: "RoamJSMultiplayer",
-              Item: {
-                id: { S: graph }, // TODO: v4() },
-                entity: { S: toEntity(name) },
-                date: {
-                  S: new Date().toJSON(),
-                },
-                graph: { S: graph },
-              },
-            })
-            .promise()
-            .then(() =>
-              queryByEntity(name).then((items) =>
-                Promise.all(items.map((item) => getClientByGraph(item.graph.S)))
-              )
-            )
-            .then((clients) =>
-              Promise.all(
-                clients
-                  .filter(
-                    (id) => id && id !== event.requestContext.connectionId
-                  )
-                  .map((id) =>
-                    postToConnection({
-                      ConnectionId: id,
-                      Data: {
-                        operation: `INITIALIZE_P2P`,
-                        to: event.requestContext.connectionId,
-                        graph,
-                      },
-                    })
-                  )
-              ).then(() =>
+    ]).then(([graph, network]) => {
+      if (!network.Item)
+        return postError({
+          event,
+          Message: `There does not exist a network called ${name}`,
+        });
+      const passwordHash = network.Item.password.S;
+      const inputPassordHash = Base64.stringify(
+        sha(
+          password + (network.Item.salt.S || ""),
+          process.env.PASSWORD_SECRET_KEY
+        )
+      );
+      if (!passwordHash || inputPassordHash !== passwordHash)
+        return postError({
+          event,
+          Message: `Incorrect password for network ${name}`,
+        });
+      dynamo
+        .putItem({
+          TableName: "RoamJSMultiplayer",
+          Item: {
+            id: { S: graph }, // TODO: v4() },
+            entity: { S: toEntity(name) },
+            date: {
+              S: new Date().toJSON(),
+            },
+            graph: { S: graph },
+          },
+        })
+        .promise()
+        .then(() =>
+          queryByEntity(name).then((items) =>
+            Promise.all(items.map((item) => getClientByGraph(item.graph.S)))
+          )
+        )
+        .then((clients) =>
+          Promise.all(
+            clients
+              .filter((id) => id && id !== event.requestContext.connectionId)
+              .map((id) =>
                 postToConnection({
-                  ConnectionId: event.requestContext.connectionId,
+                  ConnectionId: id,
                   Data: {
-                    operation: `JOIN_NETWORK_SUCCESS/${name}`,
+                    operation: `INITIALIZE_P2P`,
+                    to: event.requestContext.connectionId,
+                    graph,
                   },
                 })
               )
-            )
-        : postError({
-            event,
-            Message: `There does not exist a network called ${name}`,
+          ).then(() =>
+            postToConnection({
+              ConnectionId: event.requestContext.connectionId,
+              Data: {
+                operation: `JOIN_NETWORK_SUCCESS/${name}`,
+              },
+            })
+          )
+        );
+    });
+  } else if (operation === "LEAVE_NETWORK") {
+    const { name } = props as { name: string };
+    return getGraphByClient(event)
+      .then((graph) =>
+        dynamo
+          .deleteItem({
+            TableName: "RoamJSMultiplayer",
+            Key: {
+              id: { S: graph }, // TODO: v4() },
+              entity: { S: toEntity(name) },
+            },
           })
-    );
+          .promise()
+          .then(() =>
+            queryByEntity(name).then((items) =>
+              Promise.all(items.map((item) => getClientByGraph(item.graph.S)))
+            )
+          )
+          .then((clients) =>
+            clients.length
+              ? Promise.all(
+                  clients
+                    .filter((id) => !!id)
+                    .map((id) =>
+                      postToConnection({
+                        ConnectionId: id,
+                        Data: {
+                          operation: `LEAVE_NETWORK`,
+                          graph,
+                        },
+                      })
+                    )
+                ).then(() => Promise.resolve())
+              : dynamo
+                  .deleteItem({
+                    TableName: "RoamJSMultiplayer",
+                    Key: {
+                      id: { S: name },
+                      entity: { S: toEntity("$network") },
+                    },
+                  })
+                  .promise()
+                  .then(() => Promise.resolve())
+          )
+      )
+      .then(() =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: {
+            operation: `LEAVE_NETWORK_SUCCESS/${name}`,
+          },
+        })
+      );
   } else if (operation === "OFFER") {
     const { to, offer } = props as { to: string; offer: string };
     return postToConnection({
@@ -356,6 +450,7 @@ const dataHandler = async (
     };
     return getGraphByClient(event).then((sourceGraph) =>
       messageGraph({
+        event,
         graph,
         sourceGraph,
         data: {
@@ -468,6 +563,7 @@ const dataHandler = async (
       .then(() => getGraphByClient(event))
       .then((sourceGraph) =>
         messageGraph({
+          event,
           sourceGraph,
           graph,
           data: {
@@ -495,6 +591,7 @@ const dataHandler = async (
     }
     return getGraphByClient(event).then((sourceGraph) =>
       messageGraph({
+        event,
         graph,
         sourceGraph,
         data: {

@@ -1,11 +1,23 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Button, InputGroup, Intent, Spinner } from "@blueprintjs/core";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Button,
+  InputGroup,
+  Intent,
+  Label,
+  Spinner,
+  Tooltip,
+} from "@blueprintjs/core";
 import { sendToBackend, messageHandlers } from "./setupMultiplayer";
+import renderToast from "roamjs-components/components/Toast";
 
-const Network = (r: { id: string }) => {
-  const [loading] = useState(false);
+const Network = (r: {
+  id: string;
+  setupOnError: () => void;
+  onDelete: (id: string) => void;
+}) => {
+  const [loading, setLoading] = useState(false);
   return (
-    <li>
+    <li className="roamjs-multiplayer-connected-network">
       <div
         style={{
           display: "flex",
@@ -22,7 +34,40 @@ const Network = (r: { id: string }) => {
           }}
         >
           <span>{r.id}</span>
-          {loading && <Spinner />}
+          <span
+            style={{
+              display: "inline-flex",
+              minWidth: "100px",
+              justifyContent: "end",
+              alignItems: "center",
+            }}
+          >
+            {loading && <Spinner size={16} />}
+            <Tooltip content={"Leave Network"}>
+              <Button
+                icon={"trash"}
+                minimal
+                onClick={() => {
+                  setLoading(true);
+                  r.setupOnError();
+                  const response = `LEAVE_NETWORK_SUCCESS/${r.id}`;
+                  messageHandlers[response] = () => {
+                    delete messageHandlers[response];
+                    r.onDelete(r.id);
+                    setLoading(false);
+                    renderToast({
+                      content: `Successfully left network ${r.id}`,
+                      id: 'network-success'
+                    })
+                  };
+                  sendToBackend({
+                    operation: "LEAVE_NETWORK",
+                    data: { name: r.id },
+                  });
+                }}
+              />
+            </Tooltip>
+          </span>
         </span>
       </div>
     </li>
@@ -33,6 +78,9 @@ const Networks = () => {
   const [loading, setLoading] = useState(true);
   const [networks, setNetworks] = useState<{ id: string }[]>([]);
   const [newNetwork, setNewNetwork] = useState("");
+  const [password, setPassword] = useState("");
+  const errorTimeout = useRef(0);
+  const [error, setError] = useState("");
   const setupOnError = useCallback(() => {
     const oldOnError = messageHandlers["ERROR"];
     messageHandlers["ERROR"] = (d, g) => {
@@ -41,17 +89,31 @@ const Networks = () => {
       messageHandlers["ERROR"] = oldOnError;
     };
   }, [setLoading]);
+  const onDelete = useCallback(
+    (i: string) => {
+      setNetworks(networks.filter((n) => n.id !== i));
+    },
+    [networks, setNetworks]
+  );
   useEffect(() => {
     setupOnError();
     messageHandlers["LIST_NETWORKS"] = (data: {
       networks: typeof networks;
     }) => {
+      clearTimeout(errorTimeout.current);
+      setError("");
       setLoading(false);
       setNetworks(data.networks);
       delete messageHandlers["LIST_NETWORKS"];
     };
     sendToBackend({ operation: "LIST_NETWORKS" });
-  }, [setLoading, setNetworks, setupOnError]);
+    errorTimeout.current = window.setTimeout(() => {
+      setError(
+        "Timed out waiting to list networks. Navigate away from this page and return to refresh"
+      );
+      setLoading(false);
+    }, 10000);
+  }, [setLoading, setNetworks, setupOnError, errorTimeout, setError]);
   return (
     <>
       <div style={{ height: 120 }}>
@@ -60,24 +122,49 @@ const Networks = () => {
         ) : networks.length ? (
           <ul>
             {networks.map((r) => (
-              <Network key={r.id} {...r} />
+              <Network
+                key={r.id}
+                {...r}
+                setupOnError={setupOnError}
+                onDelete={onDelete}
+              />
             ))}
           </ul>
         ) : (
           <p>Graph is not a member of any networks</p>
         )}
+        <p style={{ color: "darkred" }}>{error}</p>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <InputGroup
-          value={newNetwork}
-          onChange={(e) => setNewNetwork(e.target.value)}
-          disabled={loading}
-          placeholder="New Network"
-        />
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Label>
+          Network Name
+          <InputGroup
+            value={newNetwork}
+            onChange={(e) => setNewNetwork(e.target.value)}
+            disabled={loading}
+            placeholder="New Network"
+          />
+        </Label>
+        <Label>
+          Password
+          <InputGroup
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+            placeholder="************"
+            type={"password"}
+          />
+        </Label>
         <div>
           <Button
             intent={Intent.PRIMARY}
-            disabled={!newNetwork}
+            disabled={!newNetwork || !password || loading}
             text={"CREATE"}
             style={{ margin: "0 16px" }}
             onClick={() => {
@@ -89,10 +176,15 @@ const Networks = () => {
                 setNetworks([...networks, { id: newNetwork }]);
                 setLoading(false);
                 setNewNetwork("");
+                renderToast({
+                  content: `Successfully created network ${newNetwork}!`,
+                  id: 'network-success',
+                  intent: Intent.SUCCESS
+                })
               };
               sendToBackend({
                 operation: "CREATE_NETWORK",
-                data: { name: newNetwork },
+                data: { name: newNetwork, password },
               });
             }}
           />
@@ -107,13 +199,14 @@ const Networks = () => {
                 setNetworks([...networks, { id: newNetwork }]);
                 setLoading(false);
                 setNewNetwork("");
+                setPassword("");
               };
               sendToBackend({
                 operation: "JOIN_NETWORK",
-                data: { name: newNetwork },
+                data: { name: newNetwork, password },
               });
             }}
-            disabled={!newNetwork}
+            disabled={!newNetwork || !password || loading}
             intent={Intent.SUCCESS}
           />
         </div>

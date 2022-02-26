@@ -1,5 +1,6 @@
 import { v4 } from "uuid";
 import WebSocket from "ws";
+import { endClient } from "../ondisconnect";
 import getApi from "./getApi";
 
 const localSockets: Record<string, WebSocket> = {};
@@ -36,7 +37,7 @@ const getSender = (ConnectionId: string) => {
     const connection = localSockets[ConnectionId];
     return (params: string) => {
       if (connection) return Promise.resolve(connection.send(params));
-      else return Promise.reject(`No connection of id ${ConnectionId}`);
+      else endClient(ConnectionId);
     };
   }
 };
