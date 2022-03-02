@@ -22,7 +22,7 @@ export const endClient = (id: string) => {
       r.Item
         ? Promise.all([
             dynamo.deleteItem(params).promise(),
-            r.Item.userId
+            r.Item.user?.S
               ? meterRoamJSUser(
                   r.Item.user.S,
                   differenceInMinutes(new Date(), new Date(r.Item.date.S))
