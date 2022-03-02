@@ -16,10 +16,9 @@ const OnlineGraphs = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const refreshGraphs = useCallback(() => {
     return Object.fromEntries(
-      roamJsBackend.networkedGraphs.map((s) => [
-        s,
-        connectedGraphs[s]?.status || "DISCONNECTED",
-      ])
+      (window.roamjs.extension.multiplayer?.getNetworkedGraphs() || []).map(
+        (s) => [s, connectedGraphs[s]?.status || "DISCONNECTED"]
+      )
     );
   }, []);
   const [graphs, setGraphs] = useState(refreshGraphs);

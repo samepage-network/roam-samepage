@@ -33,6 +33,10 @@ addStyle(`.roamjs-multiplayer-connected-network {
 
 .roamjs-multiplayer-connected-network:hover {
   background: #33333330;
+}
+
+.bp3-alert > .bp3-dialog-header {
+  margin: -20px -20px 20px;
 }`);
 
 runExtension(ID, async () => {

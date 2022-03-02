@@ -51,12 +51,18 @@ const deserialize = (
 const gatherCandidates = (con: RTCPeerConnection) => {
   const candidates: RTCIceCandidate[] = [];
   return new Promise<RTCIceCandidate[]>((resolve) => {
-    con.onicegatheringstatechange = (e) =>
-      (e.target as RTCPeerConnection).iceGatheringState === "complete" &&
-      resolve(candidates);
+    con.onicegatheringstatechange = (e) => {
+      const state = (e.target as RTCPeerConnection).iceGatheringState;
+      if (state === "complete") {
+        resolve(candidates);
+      }
+    };
     con.onicecandidate = (c) => {
       if (c.candidate) {
         candidates.push(c.candidate);
+        if (candidates.length === 2) {
+          resolve(candidates);
+        }
       }
     };
   });
@@ -302,17 +308,17 @@ const onConnect = ({
 
 const getPeerConnection = (onClose?: () => void) => {
   const connection = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stunserver.org" },
+    ],
   });
   const disconnectStateHandler = () => {
-    if (
-      ["disconnected", "failed", "closed"].includes(
-        connection.iceConnectionState
-      )
-    ) {
+    if (["failed", "closed"].includes(connection.iceConnectionState)) {
       renderToast({
         id: "multiplayer-failed-connection",
         content: "Failed to connect to graph",
+        intent: Intent.DANGER,
       });
       onClose?.();
     }
@@ -486,6 +492,8 @@ const SetupAlert = ({ onClose }: AlertProps) => {
       onCancel={() => {
         onClose();
       }}
+      // @ts-ignore
+      title={"Setup Multiplayer Connection"}
     >
       <p>
         Click the button below to copy the handshake code and send it to your
@@ -548,6 +556,8 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
       onCancel={() => {
         onClose();
       }}
+      // @ts-ignore
+      title={"Connect to Multiplayer Host"}
     >
       {copied ? (
         <p>A response handshake code was copied! Send it to your peer.</p>
@@ -686,10 +696,9 @@ const setupMultiplayer = (configUid: string) => {
     getConnectedGraphs,
     getNetworkedGraphs: () =>
       asyncModeTree.uid
-        ? Array.from([
-            ...roamJsBackend.networkedGraphs,
-            ...getConnectedGraphs(),
-          ])
+        ? Array.from(
+            new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
+          )
         : getConnectedGraphs(),
     enable: () => {
       if (asyncModeTree.uid) {
