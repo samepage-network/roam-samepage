@@ -7,7 +7,7 @@ import differenceInMinutes from "date-fns/differenceInMinutes";
 
 const dynamo = new AWS.DynamoDB();
 
-export const endClient = (id: string) => {
+export const endClient = (id: string, source: string) => {
   const params = {
     TableName: "RoamJSMultiplayer",
     Key: {
@@ -23,31 +23,33 @@ export const endClient = (id: string) => {
         ? Promise.all([
             dynamo.deleteItem(params).promise(),
             r.Item.user?.S
-              ? meterRoamJSUser(
-                  r.Item.user.S,
-                  differenceInMinutes(new Date(), new Date(r.Item.date.S))
-                )
+              ? dynamo
+                  .putItem({
+                    TableName: params.TableName,
+                    Item: {
+                      ...r.Item,
+                      date: { S: new Date().toJSON() },
+                      entity: { S: toEntity("$session") },
+                      initiated: { S: r.Item.date.S },
+                    },
+                  })
+                  .promise()
+                  .then(() =>
+                    meterRoamJSUser(
+                      r.Item.user.S,
+                      differenceInMinutes(new Date(), new Date(r.Item.date.S))
+                    )
+                  )
               : Promise.resolve(),
-            dynamo
-              .putItem({
-                TableName: params.TableName,
-                Item: {
-                  ...r.Item,
-                  date: { S: new Date().toJSON() },
-                  entity: { S: toEntity("$session") },
-                  initiated: { S: r.Item.date.S },
-                },
-              })
-              .promise(),
           ])
         : Promise.reject(
-            new Error(`Couldn't find ${toEntity("$client")} with id ${id}`)
+            new Error(`Couldn't find ${toEntity("$client")} with id ${id} from ${source}`)
           )
     );
 };
 
 export const handler: WSHandler = (event) => {
-  return endClient(event.requestContext.connectionId)
+  return endClient(event.requestContext.connectionId, 'OnDisconnect')
     .then(() => ({ statusCode: 200, body: "Successfully Disconnected" }))
     .catch((e) =>
       emailError("Multiplayer OnDisconnect Failure", e).then((id) => {

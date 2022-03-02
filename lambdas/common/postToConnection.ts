@@ -37,7 +37,7 @@ const getSender = (ConnectionId: string) => {
     const connection = localSockets[ConnectionId];
     return (params: string) => {
       if (connection) return Promise.resolve(connection.send(params));
-      else endClient(ConnectionId);
+      else endClient(ConnectionId, "Missed Message");
     };
   }
 };

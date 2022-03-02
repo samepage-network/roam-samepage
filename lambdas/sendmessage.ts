@@ -47,9 +47,9 @@ const messageGraph = ({
               Data,
             })
               .then(() => true)
-              .catch(() => {
+              .catch((e) => {
                 if (process.env.NODE_ENV === "production") {
-                  return endClient(ConnectionId)
+                  return endClient(ConnectionId, `Missed Message (${e.message})`)
                     .then(() => false)
                     .catch(() => false);
                 } else {
