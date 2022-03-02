@@ -49,7 +49,10 @@ const messageGraph = ({
               .then(() => true)
               .catch((e) => {
                 if (process.env.NODE_ENV === "production") {
-                  return endClient(ConnectionId, `Missed Message (${e.message})`)
+                  return endClient(
+                    ConnectionId,
+                    `Missed Message (${e.message})`
+                  )
                     .then(() => false)
                     .catch(() => false);
                 } else {
@@ -97,7 +100,21 @@ const messageGraph = ({
           },
         })
         .promise()
-        .then((r) => meterRoamJSUser(r.Item?.user?.S))
+        .then((r) =>
+          r.Item
+            ? r.Item.user
+              ? meterRoamJSUser(r.Item?.user?.S)
+              : Promise.reject(
+                  new Error(
+                    `How did non-authenticated client try to send message from ${sourceGraph} to ${graph}?`
+                  )
+                )
+            : Promise.reject(
+                new Error(
+                  `How did a non-existant client ${event.requestContext.connectionId} send message from ${sourceGraph} to ${graph}?`
+                )
+              )
+        )
         .catch(
           emailCatch(
             `Failed to meter Multiplayer user for message ${messageUuid}`
