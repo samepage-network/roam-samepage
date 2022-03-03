@@ -34,25 +34,42 @@ export const endClient = (id: string, source: string) => {
                     },
                   })
                   .promise()
-                  .then(() =>
-                    meterRoamJSUser(
+                  .then(() => {
+                    const now = new Date();
+                    const quantity = differenceInMinutes(
+                      now,
+                      new Date(r.Item.date.S)
+                    );
+                    if (quantity <= 0) {
+                      return Promise.reject(
+                        `Quantity is too low for client ${id}.\nStart Time: ${r.Item.date.S}\nEnd Time: ${r.Item.date.S}`
+                      );
+                    }
+                    return meterRoamJSUser(
                       r.Item.user.S,
                       differenceInMinutes(new Date(), new Date(r.Item.date.S))
-                    )
-                  )
+                    );
+                  })
               : Promise.resolve(),
           ])
         : Promise.reject(
-            new Error(`Couldn't find ${toEntity("$client")} with id ${id} from ${source}`)
+            new Error(
+              `Couldn't find ${toEntity(
+                "$client"
+              )} with id ${id} from ${source}`
+            )
           )
     );
 };
 
 export const handler: WSHandler = (event) => {
-  return endClient(event.requestContext.connectionId, 'OnDisconnect')
+  return endClient(event.requestContext.connectionId, "OnDisconnect")
     .then(() => ({ statusCode: 200, body: "Successfully Disconnected" }))
     .catch((e) =>
-      emailError("Multiplayer OnDisconnect Failure", e).then((id) => {
+      emailError(
+        `Multiplayer OnDisconnect Failure: ${event.requestContext.connectionId}`,
+        e
+      ).then((id) => {
         return {
           statusCode: 500,
           body: `Failed to disconnect: ${id}`,

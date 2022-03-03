@@ -1,6 +1,7 @@
 import type { WSHandler } from "./common/types";
 import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
+import emailError from "roamjs-components/backend/emailError";
 
 const dynamo = new AWS.DynamoDB();
 
@@ -18,12 +19,12 @@ export const handler: WSHandler = (event) => {
     })
     .promise()
     .then(() => ({ statusCode: 200, body: "Connected" }))
-    .catch((e) => {
-      console.error("Error in onconnect handler");
-      console.error(e);
-      return {
-        statusCode: 500,
-        body: `Failed to connect: ${e.message}`,
-      };
-    });
+    .catch((e) =>
+      emailError(`Multiplayer OnConnect Failure: ${event.requestContext.connectionId}`, e).then((id) => {
+        return {
+          statusCode: 500,
+          body: `Failed to connect: ${id}`,
+        };
+      })
+    );
 };
