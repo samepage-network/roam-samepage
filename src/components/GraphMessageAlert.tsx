@@ -54,7 +54,9 @@ const GraphMessageAlert = ({
         canEscapeKeyClose
       >
         <div className={Classes.DIALOG_BODY} onKeyDown={onKeyDown}>
-          {children}
+          {allGraphs.length > 0
+            ? children
+            : `There are no graphs available to send.`}
           {allGraphs.length > 1 && (
             <Checkbox
               labelElement={<b>Select All</b>}

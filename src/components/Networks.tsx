@@ -57,8 +57,8 @@ const Network = (r: {
                     setLoading(false);
                     renderToast({
                       content: `Successfully left network ${r.id}`,
-                      id: 'network-success'
-                    })
+                      id: "network-success",
+                    });
                   };
                   sendToBackend({
                     operation: "LEAVE_NETWORK",
@@ -151,7 +151,7 @@ const Networks = () => {
             placeholder="New Network"
           />
         </Label>
-        <Label>
+        <Label style={{ marginLeft: 8 }}>
           Password
           <InputGroup
             value={password}
@@ -161,7 +161,12 @@ const Networks = () => {
             type={"password"}
           />
         </Label>
-        <div>
+        <div
+          style={{
+            display: "flex",
+            minWidth: 160,
+          }}
+        >
           <Button
             intent={Intent.PRIMARY}
             disabled={!newNetwork || !password || loading}
@@ -178,9 +183,9 @@ const Networks = () => {
                 setNewNetwork("");
                 renderToast({
                   content: `Successfully created network ${newNetwork}!`,
-                  id: 'network-success',
-                  intent: Intent.SUCCESS
-                })
+                  id: "network-success",
+                  intent: Intent.SUCCESS,
+                });
               };
               sendToBackend({
                 operation: "CREATE_NETWORK",

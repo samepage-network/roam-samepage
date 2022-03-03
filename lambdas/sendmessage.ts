@@ -263,13 +263,19 @@ const dataHandler = async (
       );
   } else if (operation === "CREATE_NETWORK") {
     const { name, password } = props as { name: string; password: string };
-    const salt = randomstring.generate(16);
+    if (!password) {
+      return postError({
+        event,
+        Message: `Must include a password of length greater than zero`,
+      });
+    }
     const existingRooms = await queryByEntity(name);
     if (existingRooms.length)
       return postError({
         event,
         Message: `A network already exists by the name of ${name}`,
       });
+    const salt = randomstring.generate(16);
     return getGraphByClient(event).then((graph) =>
       Promise.all([
         dynamo
@@ -304,17 +310,53 @@ const dataHandler = async (
             },
           })
           .promise(),
-      ]).then(() =>
-        postToConnection({
-          ConnectionId: event.requestContext.connectionId,
-          Data: {
-            operation: `CREATE_NETWORK_SUCCESS/${name}`,
-          },
-        })
-      )
+      ])
+        .then(() =>
+          postToConnection({
+            ConnectionId: event.requestContext.connectionId,
+            Data: {
+              operation: `CREATE_NETWORK_SUCCESS/${name}`,
+            },
+          })
+        )
+        .then(() =>
+          dynamo
+            .getItem({
+              TableName: "RoamJSMultiplayer",
+              Key: {
+                id: { S: event.requestContext.connectionId },
+                entity: { S: toEntity("$client") },
+              },
+            })
+            .promise()
+            .then((r) =>
+              r.Item
+                ? r.Item.user
+                  ? meterRoamJSUser(r.Item?.user?.S, 100)
+                  : Promise.reject(
+                      new Error(
+                        `How did non-authenticated client try to create network ${name}?`
+                      )
+                    )
+                : Promise.reject(
+                    new Error(
+                      `How did a non-existant client ${event.requestContext.connectionId} try to create network ${name}?`
+                    )
+                  )
+            )
+            .catch(
+              emailCatch(`Failed to meter Multiplayer user for network ${name}`)
+            )
+        )
     );
   } else if (operation === "JOIN_NETWORK") {
     const { name, password } = props as { name: string; password: string };
+    if (!password) {
+      return postError({
+        event,
+        Message: `Must include a password of length greater than zero`,
+      });
+    }
     return Promise.all([
       getGraphByClient(event),
       dynamo
@@ -326,20 +368,34 @@ const dataHandler = async (
           },
         })
         .promise(),
-    ]).then(([graph, network]) => {
+    ]).then(async ([graph, network]) => {
       if (!network.Item)
         return postError({
           event,
           Message: `There does not exist a network called ${name}`,
         });
+      const existingMembership = await dynamo
+        .getItem({
+          TableName: "RoamJSMultiplayer",
+          Key: {
+            id: { S: graph }, // TODO: v4() },
+            entity: { S: toEntity(name) },
+          },
+        })
+        .promise();
+      if (existingMembership.Item)
+        return postError({
+          event,
+          Message: `This graph is already a part of the network ${name}`,
+        });
       const passwordHash = network.Item.password.S;
-      const inputPassordHash = Base64.stringify(
+      const inputPasswordHash = Base64.stringify(
         sha(
           password + (network.Item.salt.S || ""),
           process.env.PASSWORD_SECRET_KEY
         )
       );
-      if (!passwordHash || inputPassordHash !== passwordHash)
+      if (!passwordHash || inputPasswordHash !== passwordHash)
         return postError({
           event,
           Message: `Incorrect password for network ${name}`,

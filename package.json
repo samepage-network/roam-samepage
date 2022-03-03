@@ -10,6 +10,7 @@
     "lambdas": "roamjs-scripts lambdas",
     "server": "localhost-lambdas",
     "start": "concurrently npm:dev npm:server npm:ws",
+    "ssh": "ssh -i RoamJSMultiplayer.pem ubuntu@35.173.242.123",
     "ws": "ts-node --project tsconfig.json scripts/ws.ts"
   },
   "license": "MIT",

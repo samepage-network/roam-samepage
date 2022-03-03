@@ -60,9 +60,6 @@ const gatherCandidates = (con: RTCPeerConnection) => {
     con.onicecandidate = (c) => {
       if (c.candidate) {
         candidates.push(c.candidate);
-        if (candidates.length === 2) {
-          resolve(candidates);
-        }
       }
     };
   });
@@ -96,7 +93,7 @@ export const messageHandlers: MessageHandlers = {
   }) => {
     if (props.success) {
       roamJsBackend.status = "CONNECTED";
-      roamJsBackend.networkedGraphs = props.graphs;
+      roamJsBackend.networkedGraphs = new Set(props.graphs);
       updateOnlineGraphs();
       if (props.messages.length) {
         const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
@@ -144,6 +141,7 @@ export const messageHandlers: MessageHandlers = {
     }
   },
   INITIALIZE_P2P: (props: { to: string; graph: string }) => {
+    roamJsBackend.networkedGraphs.add(props.graph);
     getSetupCode({ label: props.graph }).then((offer) =>
       sendToBackend({ operation: "OFFER", data: { to: props.to, offer } })
     );
@@ -157,9 +155,7 @@ export const messageHandlers: MessageHandlers = {
     receiveAnswer({ answer: props.answer });
   },
   LEAVE_NETWORK: (props: { graph: string }) => {
-    roamJsBackend.networkedGraphs = roamJsBackend.networkedGraphs.filter(
-      (g) => g !== props.graph
-    );
+    roamJsBackend.networkedGraphs.delete(props.graph);
     delete connectedGraphs[props.graph];
     updateOnlineGraphs();
   },
@@ -181,10 +177,10 @@ export const connectedGraphs: {
 export const roamJsBackend: {
   channel?: WebSocket;
   status: Status;
-  networkedGraphs: string[];
+  networkedGraphs: Set<string>;
 } = {
   status: "DISCONNECTED",
-  networkedGraphs: [],
+  networkedGraphs: new Set(),
 };
 
 const sendChunkedMessage = ({
@@ -310,7 +306,11 @@ const getPeerConnection = (onClose?: () => void) => {
   const connection = new RTCPeerConnection({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stunserver.org" },
+      {
+        urls: "turn:35.173.242.123:3478?transport=tcp",
+        username: "roamjs",
+        credential: "multiplayer",
+      },
     ],
   });
   const disconnectStateHandler = () => {
@@ -585,7 +585,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
 const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
 const addConnectCommand = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Connect to RoamJS Multiplayer Networks",
+    label: "Connect to RoamJS Multiplayer",
     callback: connectToBackend,
   });
 };
@@ -615,14 +615,14 @@ const connectToBackend = () => {
     receiveChunkedMessage(data.data);
   };
   window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Connect to RoamJS Multiplayer Networks",
+    label: "Disconnect from RoamJS Multiplayer",
     callback: disconnectFromBackend,
   });
 };
 
 const disconnectFromBackend = () => {
   roamJsBackend.status = "DISCONNECTED";
-  roamJsBackend.networkedGraphs = [];
+  roamJsBackend.networkedGraphs = new Set();
   roamJsBackend.channel = undefined;
   renderToast({
     id: "multiplayer-success",
