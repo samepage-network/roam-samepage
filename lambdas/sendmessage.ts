@@ -276,79 +276,78 @@ const dataHandler = async (
         Message: `A network already exists by the name of ${name}`,
       });
     const salt = randomstring.generate(16);
-    return getGraphByClient(event).then((graph) =>
-      Promise.all([
-        dynamo
-          .putItem({
-            TableName: "RoamJSMultiplayer",
-            Item: {
-              id: { S: name },
-              entity: { S: toEntity("$network") },
-              date: {
-                S: new Date().toJSON(),
-              },
-              graph: { S: graph },
-              password: {
-                S: Base64.stringify(
-                  sha(password + salt, process.env.PASSWORD_SECRET_KEY)
-                ),
-              },
-              salt: { S: salt },
-            },
-          })
-          .promise(),
-        dynamo
-          .putItem({
-            TableName: "RoamJSMultiplayer",
-            Item: {
-              id: { S: graph }, // TODO: v4() },
-              entity: { S: toEntity(name) },
-              date: {
-                S: new Date().toJSON(),
-              },
-              graph: { S: graph },
-            },
-          })
-          .promise(),
-      ])
-        .then(() =>
-          postToConnection({
-            ConnectionId: event.requestContext.connectionId,
-            Data: {
-              operation: `CREATE_NETWORK_SUCCESS/${name}`,
-            },
-          })
-        )
-        .then(() =>
+    return dynamo
+      .getItem({
+        TableName: "RoamJSMultiplayer",
+        Key: {
+          id: { S: event.requestContext.connectionId },
+          entity: { S: toEntity("$client") },
+        },
+      })
+      .promise()
+      .then((r) => ({ graph: r.Item?.graph?.S, user: r.Item?.user?.S }))
+      .then(({ graph, user }) =>
+        Promise.all([
           dynamo
-            .getItem({
+            .putItem({
               TableName: "RoamJSMultiplayer",
-              Key: {
-                id: { S: event.requestContext.connectionId },
-                entity: { S: toEntity("$client") },
+              Item: {
+                id: { S: name },
+                entity: { S: toEntity("$network") },
+                date: {
+                  S: new Date().toJSON(),
+                },
+                graph: { S: graph },
+                password: {
+                  S: Base64.stringify(
+                    sha(password + salt, process.env.PASSWORD_SECRET_KEY)
+                  ),
+                },
+                salt: { S: salt },
+                user: { S: user },
               },
             })
-            .promise()
-            .then((r) =>
-              r.Item
-                ? r.Item.user
-                  ? meterRoamJSUser(r.Item?.user?.S, 100)
-                  : Promise.reject(
-                      new Error(
-                        `How did non-authenticated client try to create network ${name}?`
-                      )
-                    )
-                : Promise.reject(
-                    new Error(
-                      `How did a non-existant client ${event.requestContext.connectionId} try to create network ${name}?`
-                    )
-                  )
-            )
-            .catch(
-              emailCatch(`Failed to meter Multiplayer user for network ${name}`)
-            )
-        )
-    );
+            .promise(),
+          dynamo
+            .putItem({
+              TableName: "RoamJSMultiplayer",
+              Item: {
+                id: { S: graph }, // TODO: v4() },
+                entity: { S: toEntity(name) },
+                date: {
+                  S: new Date().toJSON(),
+                },
+                graph: { S: graph },
+              },
+            })
+            .promise(),
+        ])
+          .then(() =>
+            postToConnection({
+              ConnectionId: event.requestContext.connectionId,
+              Data: {
+                operation: `CREATE_NETWORK_SUCCESS/${name}`,
+              },
+            })
+          )
+          .then(() =>
+            dynamo
+              .getItem({
+                TableName: "RoamJSMultiplayer",
+                Key: {
+                  id: { S: event.requestContext.connectionId },
+                  entity: { S: toEntity("$client") },
+                },
+              })
+              .promise()
+              .then((r) => meterRoamJSUser(user, 100))
+              .catch(
+                emailCatch(
+                  `Failed to meter Multiplayer user for network ${name}`
+                )
+              )
+          )
+      );
   } else if (operation === "JOIN_NETWORK") {
     const { name, password } = props as { name: string; password: string };
     if (!password) {

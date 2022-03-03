@@ -18,47 +18,41 @@ export const endClient = (id: string, source: string) => {
   return dynamo
     .getItem(params)
     .promise()
-    .then((r) =>
-      r.Item
-        ? Promise.all([
-            dynamo.deleteItem(params).promise(),
-            r.Item.user?.S
-              ? dynamo
-                  .putItem({
-                    TableName: params.TableName,
-                    Item: {
-                      ...r.Item,
-                      date: { S: new Date().toJSON() },
-                      entity: { S: toEntity("$session") },
-                      initiated: { S: r.Item.date.S },
-                    },
-                  })
-                  .promise()
-                  .then(() => {
-                    const now = new Date();
-                    const quantity = differenceInMinutes(
-                      now,
-                      new Date(r.Item.date.S)
+    .then(
+      (r) =>
+        r.Item &&
+        Promise.all([
+          dynamo.deleteItem(params).promise(),
+          r.Item.user?.S
+            ? dynamo
+                .putItem({
+                  TableName: params.TableName,
+                  Item: {
+                    ...r.Item,
+                    date: { S: new Date().toJSON() },
+                    entity: { S: toEntity("$session") },
+                    initiated: { S: r.Item.date.S },
+                  },
+                })
+                .promise()
+                .then(() => {
+                  const now = new Date();
+                  const quantity = differenceInMinutes(
+                    now,
+                    new Date(r.Item.date.S)
+                  );
+                  if (quantity <= 0) {
+                    return Promise.reject(
+                      `Quantity is too low for client ${id}.\nStart Time: ${r.Item.date.S}\nEnd Time: ${r.Item.date.S}`
                     );
-                    if (quantity <= 0) {
-                      return Promise.reject(
-                        `Quantity is too low for client ${id}.\nStart Time: ${r.Item.date.S}\nEnd Time: ${r.Item.date.S}`
-                      );
-                    }
-                    return meterRoamJSUser(
-                      r.Item.user.S,
-                      differenceInMinutes(new Date(), new Date(r.Item.date.S))
-                    );
-                  })
-              : Promise.resolve(),
-          ])
-        : Promise.reject(
-            new Error(
-              `Couldn't find ${toEntity(
-                "$client"
-              )} with id ${id} from ${source}`
-            )
-          )
+                  }
+                  return meterRoamJSUser(
+                    r.Item.user.S,
+                    differenceInMinutes(new Date(), new Date(r.Item.date.S))
+                  );
+                })
+            : Promise.resolve(),
+        ])
     );
 };
 

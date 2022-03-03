@@ -19,6 +19,8 @@ import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeade
 import { addTokenDialogCommand } from "roamjs-components/components/TokenDialog";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
+const FAILED_STATES = ["failed", "closed"];
+
 // These RTC objects are not JSON serializable -.-
 const serialize = ({
   candidates,
@@ -265,13 +267,15 @@ const onError = (e: { error: Error } & Event) => {
   }
 };
 const onDisconnect = (graph: string) => () => {
-  renderToast({
-    id: "multiplayer-disconnect",
-    content: `Disconnected from graph ${graph}`,
-    intent: "warning",
-  });
-  connectedGraphs[graph].status = "DISCONNECTED";
-  updateOnlineGraphs();
+  if (connectedGraphs[graph].status !== "DISCONNECTED") {
+    renderToast({
+      id: "multiplayer-disconnect",
+      content: `Disconnected from graph ${graph}`,
+      intent: "warning",
+    });
+    connectedGraphs[graph].status = "DISCONNECTED";
+    updateOnlineGraphs();
+  }
 };
 const onConnect = ({
   e,
@@ -300,6 +304,11 @@ const onConnect = ({
     receiveChunkedMessage(e.data, name);
   });
   channel.onclose = onDisconnect(name);
+  connection.addEventListener("connectionstatechange", () => {
+    if (FAILED_STATES.includes(connection.connectionState)) {
+      onDisconnect(name)();
+    }
+  });
 };
 
 const getPeerConnection = (onClose?: () => void) => {
@@ -314,7 +323,7 @@ const getPeerConnection = (onClose?: () => void) => {
     ],
   });
   const disconnectStateHandler = () => {
-    if (["failed", "closed"].includes(connection.iceConnectionState)) {
+    if (FAILED_STATES.includes(connection.iceConnectionState)) {
       renderToast({
         id: "multiplayer-failed-connection",
         content: "Failed to connect to graph",
@@ -329,11 +338,12 @@ const getPeerConnection = (onClose?: () => void) => {
   );
   return {
     connection,
-    cleanup: () =>
+    cleanup: () => {
       connection.removeEventListener(
         "iceconnectionstatechange",
         disconnectStateHandler
-      ),
+      );
+    },
   };
 };
 

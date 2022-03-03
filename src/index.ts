@@ -92,7 +92,7 @@ runExtension(ID, async () => {
     enable();
 
     window.roamAlphaAPI.ui.commandPalette.addCommand({
-      label: "Send Page to Graphs",
+      label: "Send Page to Graph",
       callback: () => {
         pageRender({ pageUid: getCurrentPageUid() });
       },
@@ -186,10 +186,13 @@ runExtension(ID, async () => {
       tag: "SPAN",
       className: "rm-paren--closed",
     });
-    window.roamAlphaAPI.ui.blockContextMenu.addCommand({
-      label: "Copy Cross Block Ref",
-      callback: (a) => window.navigator.clipboard.writeText(`((${getGraph()}:${a["block-uid"]}))`)
-    })
+    window.roamAlphaAPI.ui.commandPalette.addCommand({
+      label: "Copy Cross Graph Block Reference",
+      callback: () => {
+        const blockUid = window.roamAlphaAPI.ui.getFocusedBlock()["block-uid"];
+        window.navigator.clipboard.writeText(`((${getGraph()}:${blockUid}))`);
+      },
+    });
   }
 
   window.roamjs.extension["multiplayer"] = multiplayerApi;
