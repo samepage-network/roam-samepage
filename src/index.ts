@@ -35,6 +35,11 @@ addStyle(`.roamjs-multiplayer-connected-network {
   background: #33333330;
 }
 
+.roamjs-multiplayer-status-indicator {
+  min-width: 12px;
+  margin-right: 8px
+}
+
 .bp3-alert > .bp3-dialog-header {
   margin: -20px -20px 20px;
 }`);

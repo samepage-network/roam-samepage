@@ -7,8 +7,14 @@ import {
   Spinner,
   Tooltip,
 } from "@blueprintjs/core";
-import { sendToBackend, messageHandlers } from "./setupMultiplayer";
+import {
+  sendToBackend,
+  messageHandlers,
+  roamJsBackend,
+  ONLINE_GRAPHS_ID,
+} from "./setupMultiplayer";
 import renderToast from "roamjs-components/components/Toast";
+import StatusIndicator from "./StatusIndicator";
 
 const Network = (r: {
   id: string;
@@ -96,6 +102,8 @@ const Networks = () => {
     },
     [networks, setNetworks]
   );
+  const [status, setStatus] = useState(roamJsBackend.status);
+  const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setupOnError();
     messageHandlers["LIST_NETWORKS"] = (data: {
@@ -114,11 +122,22 @@ const Networks = () => {
       );
       setLoading(false);
     }, 10000);
+    containerRef.current.addEventListener("roamjs:multiplayer:graphs", () => {
+      setStatus(roamJsBackend.status);
+    });
     return () => clearTimeout(errorTimeout.current);
-  }, [setLoading, setNetworks, setupOnError, errorTimeout, setError]);
+  }, [
+    setLoading,
+    setNetworks,
+    setupOnError,
+    errorTimeout,
+    setError,
+    containerRef,
+    setStatus,
+  ]);
   return (
     <>
-      <div style={{ height: 120 }}>
+      <div style={{ height: 120, position: "relative" }}>
         {loading ? (
           <Spinner />
         ) : networks.length ? (
@@ -138,12 +157,15 @@ const Networks = () => {
         <p style={{ color: "darkred" }}>{error}</p>
       </div>
       <div
+        id={ONLINE_GRAPHS_ID}
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
         }}
+        ref={containerRef}
       >
+        <StatusIndicator status={status} />
         <Label>
           Network Name
           <InputGroup

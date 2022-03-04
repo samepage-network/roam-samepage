@@ -1,16 +1,14 @@
 import React, {
   useCallback,
-  useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { Tooltip } from "@blueprintjs/core";
 import {
   connectedGraphs,
   ONLINE_GRAPHS_ID,
-  roamJsBackend,
 } from "./setupMultiplayer";
+import StatusIndicator from "./StatusIndicator";
 
 const OnlineGraphs = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,21 +43,7 @@ const OnlineGraphs = () => {
               }}
             >
               <span>{g}</span>{" "}
-              <Tooltip content={graphs[g]}>
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    background:
-                      graphs[g] === "CONNECTED"
-                        ? "#0F9960"
-                        : graphs[g] === "PENDING"
-                        ? "#d9822b"
-                        : "#99280f",
-                    borderRadius: 6,
-                  }}
-                />
-              </Tooltip>
+              <StatusIndicator status={graphs[g]}/>
             </li>
           ))}
         </ul>

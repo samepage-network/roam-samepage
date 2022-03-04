@@ -76,7 +76,7 @@ export type json =
 type MessageHandlers = {
   [operation: string]: (data: json, graph: string) => void;
 };
-type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
+export type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
 
 export const messageHandlers: MessageHandlers = {
   ERROR: ({ message }: { message: string }) =>
@@ -135,10 +135,11 @@ export const messageHandlers: MessageHandlers = {
       renderToast({
         id: "multiplayer-failure",
         content: `Failed to connect to RoamJS Multiplayer: ${
-          props.reason.includes("401") ? "Missing RoamJS Token" : props.reason
+          props.reason.includes("401") ? "Incorrect RoamJS Token" : props.reason
         }`,
         intent: Intent.DANGER,
       });
+      updateOnlineGraphs();
     }
   },
   INITIALIZE_P2P: (props: { to: string; graph: string }) => {
@@ -643,6 +644,7 @@ const connectToBackend = () => {
   };
 
   roamJsBackend.channel.onclose = disconnectFromBackend;
+  roamJsBackend.channel.onerror = onError;
 
   roamJsBackend.channel.onmessage = (data) => {
     if (JSON.parse(data.data).message === "Internal server error")
@@ -656,6 +658,7 @@ const connectToBackend = () => {
 
     receiveChunkedMessage(data.data);
   };
+  updateOnlineGraphs();
 };
 
 const disconnectFromBackend = () => {
@@ -668,6 +671,7 @@ const disconnectFromBackend = () => {
       content: "Disconnected from RoamJS Multiplayer",
       intent: Intent.WARNING,
     });
+    updateOnlineGraphs();
   }
   addConnectCommand();
 };
