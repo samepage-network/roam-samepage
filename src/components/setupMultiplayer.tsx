@@ -16,7 +16,6 @@ import { v4 } from "uuid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
-import { addTokenDialogCommand } from "roamjs-components/components/TokenDialog";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
 const FAILED_STATES = ["failed", "closed"];
@@ -138,7 +137,7 @@ export const messageHandlers: MessageHandlers = {
       roamJsBackend.channel.close();
       renderToast({
         id: "multiplayer-failure",
-        content: `Failed to connect to RoamJS Multiplayer: ${props.reason}`,
+        content: `Failed to connect to RoamJS Multiplayer: ${props.reason.includes('401') ? 'Missing RoamJS Token' : props.reason}`,
         intent: Intent.DANGER,
       });
     }
@@ -667,7 +666,6 @@ export const toggleOnAsync = () => {
 
   if (!!disableAutoConnect) addConnectCommand();
   else connectToBackend();
-  addTokenDialogCommand();
 };
 
 const setupMultiplayer = (configUid: string) => {
