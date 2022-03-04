@@ -681,9 +681,8 @@ export const toggleOnAsync = () => {
     tree: asyncModeTree.children,
     key: "Disable Auto Connect",
   }).uid;
-
-  if (!!disableAutoConnect) addConnectCommand();
-  else connectToBackend();
+  addConnectCommand();
+  if (!disableAutoConnect) connectToBackend();
 };
 
 const setupMultiplayer = (configUid: string) => {
