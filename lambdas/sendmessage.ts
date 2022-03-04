@@ -268,7 +268,6 @@ const dataHandler = async (
           })
         );
       })
-      .then(() => getGraphByClient(event));
   } else if (operation === "CREATE_NETWORK") {
     const { name, password } = props as { name: string; password: string };
     if (!password) {
@@ -762,6 +761,13 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
 
 export const handler: WSHandler = (event) =>
   wsHandler(event)
+    // THIS IS CRAZY
+    // If `postToConnection` is the final call of `dataHandler`
+    // the message doesn't actually get sent unless there's another
+    // request that comes after it! I need to do some more testing around this
+    // but for now, this is good enough for launch. Fingers crossed 🤞
+    .then(() => getGraphByClient(event))
+    // END of THIS IS CRAZY
     .then(() => ({ statusCode: 200, body: "Success" }))
     .catch((e) =>
       postError({
@@ -771,7 +777,7 @@ export const handler: WSHandler = (event) =>
         console.log(e);
         return {
           statusCode: 500,
-          body: `Failed to connect: ${e.message}`,
+          body: `Uncaught Server Error: ${e.message}`,
         };
       })
     );
