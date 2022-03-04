@@ -632,7 +632,7 @@ const connectToBackend = () => {
 
 const disconnectFromBackend = () => {
   roamJsBackend.status = "DISCONNECTED";
-  roamJsBackend.networkedGraphs = new Set();
+  roamJsBackend.networkedGraphs.clear();
   roamJsBackend.channel = undefined;
   renderToast({
     id: "multiplayer-success",
@@ -735,13 +735,20 @@ const setupMultiplayer = (configUid: string) => {
       }
     },
     disable: () => {
-      window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Connect To Graph",
-      });
-      window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Setup Multiplayer",
-      });
-      Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
+      if (asyncModeTree.uid) {
+        disconnectFromBackend();
+        window.roamAlphaAPI.ui.commandPalette.removeCommand({
+          label: "Connect to RoamJS Multiplayer",
+        });
+      } else {
+        window.roamAlphaAPI.ui.commandPalette.removeCommand({
+          label: "Connect To Graph",
+        });
+        window.roamAlphaAPI.ui.commandPalette.removeCommand({
+          label: "Setup Multiplayer",
+        });
+        Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
+      }
     },
   };
 };

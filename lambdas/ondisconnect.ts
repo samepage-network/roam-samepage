@@ -37,13 +37,14 @@ export const endClient = (id: string, source: string) => {
                 .promise()
                 .then(() => {
                   const now = new Date();
-                  const quantity = differenceInMinutes(
-                    now,
-                    new Date(r.Item.date.S)
+                  const quantity = Math.ceil(
+                    differenceInMinutes(now, new Date(r.Item.date.S))
                   );
                   if (quantity <= 0) {
                     return Promise.reject(
-                      `Quantity is too low for client ${id}.\nStart Time: ${r.Item.date.S}\nEnd Time: ${r.Item.date.S}`
+                      new Error(
+                        `Quantity is too low for client ${id}.\nStart Time: ${r.Item.date.S}\nEnd Time: ${r.Item.date.S}`
+                      )
                     );
                   }
                   return meterRoamJSUser(
