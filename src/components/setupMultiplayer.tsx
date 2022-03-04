@@ -622,7 +622,7 @@ const removeConnectCommand = () => {
 const addDisconnectCommand = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Disconnect from RoamJS Multiplayer",
-    callback: connectToBackend,
+    callback: disconnectFromBackend,
   });
 };
 
