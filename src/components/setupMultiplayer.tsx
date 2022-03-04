@@ -5,7 +5,6 @@ import {
   Label,
   Intent,
   Position,
-  Toast,
   Toaster,
 } from "@blueprintjs/core";
 import React, { useCallback, useEffect, useState } from "react";
@@ -137,7 +136,9 @@ export const messageHandlers: MessageHandlers = {
       roamJsBackend.channel.close();
       renderToast({
         id: "multiplayer-failure",
-        content: `Failed to connect to RoamJS Multiplayer: ${props.reason.includes('401') ? 'Missing RoamJS Token' : props.reason}`,
+        content: `Failed to connect to RoamJS Multiplayer: ${
+          props.reason.includes("401") ? "Missing RoamJS Token" : props.reason
+        }`,
         intent: Intent.DANGER,
       });
     }
@@ -226,7 +227,7 @@ const receiveChunkedMessage = (str: string, graph?: string) => {
     if (handler) handler(props, graph || props.graph || "");
     else if (!props.ephemeral)
       renderToast({
-        id: "network-error",
+        id: `network-error-${operation}`,
         content: `Unknown network operation: ${operation}`,
         intent: "danger",
       });
@@ -643,14 +644,16 @@ const connectToBackend = () => {
 };
 
 const disconnectFromBackend = () => {
-  roamJsBackend.status = "DISCONNECTED";
-  roamJsBackend.networkedGraphs.clear();
-  roamJsBackend.channel = undefined;
-  renderToast({
-    id: "multiplayer-success",
-    content: "Disconnected from RoamJS Multiplayer",
-    intent: Intent.WARNING,
-  });
+  if (roamJsBackend.status !== "DISCONNECTED") {
+    roamJsBackend.status = "DISCONNECTED";
+    roamJsBackend.networkedGraphs.clear();
+    roamJsBackend.channel = undefined;
+    renderToast({
+      id: "multiplayer-disconnect",
+      content: "Disconnected from RoamJS Multiplayer",
+      intent: Intent.WARNING,
+    });
+  }
   addConnectCommand();
 };
 

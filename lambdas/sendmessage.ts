@@ -133,7 +133,6 @@ const dataHandler = async (
     const { token, graph } = props as { token: string; graph: string };
     return getRoamJSUser(token)
       .then(async (user) => {
-        // Return user id
         const oldClient = await getClientByGraph(graph);
         if (oldClient) {
           await dynamo
@@ -250,24 +249,26 @@ const dataHandler = async (
         }).then(() => removeConnection(event));
       });
   } else if (operation === "LIST_NETWORKS") {
-    return getGraphByClient(event).then((graph) => {
-      if (!graph)
-        return postError({
-          event,
-          Message: "Cannot query networks until you've been authenticated",
-        });
-      return queryById(graph).then((items) =>
-        postToConnection({
-          ConnectionId: event.requestContext.connectionId,
-          Data: {
-            operation: "LIST_NETWORKS",
-            networks: items.map((i) => ({
-              id: fromEntity(i.entity.S || ""),
-            })),
-          },
-        })
-      );
-    });
+    return getGraphByClient(event)
+      .then((graph) => {
+        if (!graph)
+          return postError({
+            event,
+            Message: "Cannot query networks until you've been authenticated",
+          });
+        return queryById(graph).then((items) =>
+          postToConnection({
+            ConnectionId: event.requestContext.connectionId,
+            Data: {
+              operation: "LIST_NETWORKS",
+              networks: items.map((i) => ({
+                id: fromEntity(i.entity.S || ""),
+              })),
+            },
+          })
+        );
+      })
+      .then(() => getGraphByClient(event));
   } else if (operation === "CREATE_NETWORK") {
     const { name, password } = props as { name: string; password: string };
     if (!password) {
@@ -761,7 +762,7 @@ export const wsHandler = async (event: WSEvent): Promise<unknown> => {
 
 export const handler: WSHandler = (event) =>
   wsHandler(event)
-    .then(() => ({ statusCode: 200, body: "Connected" }))
+    .then(() => ({ statusCode: 200, body: "Success" }))
     .catch((e) =>
       postError({
         event,

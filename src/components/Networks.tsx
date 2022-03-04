@@ -113,6 +113,7 @@ const Networks = () => {
       );
       setLoading(false);
     }, 10000);
+    return () => clearTimeout(errorTimeout.current);
   }, [setLoading, setNetworks, setupOnError, errorTimeout, setError]);
   return (
     <>
@@ -181,6 +182,7 @@ const Networks = () => {
                 setNetworks([...networks, { id: newNetwork }]);
                 setLoading(false);
                 setNewNetwork("");
+                setPassword("");
                 renderToast({
                   content: `Successfully created network ${newNetwork}!`,
                   id: "network-success",
