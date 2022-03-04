@@ -250,6 +250,7 @@ resource "aws_lambda_function" "onconnect" {
   role          = aws_iam_role.lambda_role.arn
   handler       = "onconnect.handler"
   runtime       = "nodejs14.x"
+  timeout       = 10
 }
 
 resource "aws_apigatewayv2_integration" "onconnect" {
@@ -282,6 +283,7 @@ resource "aws_lambda_function" "ondisconnect" {
   role          = aws_iam_role.lambda_role.arn
   handler       = "ondisconnect.handler"
   runtime       = "nodejs14.x"
+  timeout       = 10
 }
 
 resource "aws_apigatewayv2_integration" "ondisconnect" {

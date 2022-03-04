@@ -249,25 +249,24 @@ const dataHandler = async (
         }).then(() => removeConnection(event));
       });
   } else if (operation === "LIST_NETWORKS") {
-    return getGraphByClient(event)
-      .then((graph) => {
-        if (!graph)
-          return postError({
-            event,
-            Message: "Cannot query networks until you've been authenticated",
-          });
-        return queryById(graph).then((items) =>
-          postToConnection({
-            ConnectionId: event.requestContext.connectionId,
-            Data: {
-              operation: "LIST_NETWORKS",
-              networks: items.map((i) => ({
-                id: fromEntity(i.entity.S || ""),
-              })),
-            },
-          })
-        );
-      })
+    return getGraphByClient(event).then((graph) => {
+      if (!graph)
+        return postError({
+          event,
+          Message: "Cannot query networks until you've been authenticated",
+        });
+      return queryById(graph).then((items) =>
+        postToConnection({
+          ConnectionId: event.requestContext.connectionId,
+          Data: {
+            operation: "LIST_NETWORKS",
+            networks: items.map((i) => ({
+              id: fromEntity(i.entity.S || ""),
+            })),
+          },
+        })
+      );
+    });
   } else if (operation === "CREATE_NETWORK") {
     const { name, password } = props as { name: string; password: string };
     if (!password) {
@@ -292,9 +291,16 @@ const dataHandler = async (
         },
       })
       .promise()
-      .then((r) => ({ graph: r.Item?.graph?.S, user: r.Item?.user?.S }))
-      .then(({ graph, user }) =>
-        Promise.all([
+      .then((r) => {
+        const graph = r.Item?.graph?.S;
+        const user = r.Item?.user?.S;
+        if (!graph || !user) {
+          return postError({
+            event,
+            Message: "Cannot create a network until you've been authenticated",
+          });
+        }
+        return Promise.all([
           dynamo
             .putItem({
               TableName: "RoamJSMultiplayer",
@@ -347,14 +353,15 @@ const dataHandler = async (
                 },
               })
               .promise()
-              .then((r) => meterRoamJSUser(user, 100))
+              .then(() => meterRoamJSUser(user, 100))
               .catch(
                 emailCatch(
                   `Failed to meter Multiplayer user for network ${name}`
                 )
               )
           )
-      );
+          .then(() => Promise.resolve());
+      });
   } else if (operation === "JOIN_NETWORK") {
     const { name, password } = props as { name: string; password: string };
     if (!password) {
@@ -773,11 +780,19 @@ export const handler: WSHandler = (event) =>
       postError({
         event,
         Message: `Uncaught Server Error: ${e.message}`,
-      }).then(() => {
-        console.log(e);
-        return {
-          statusCode: 500,
-          body: `Uncaught Server Error: ${e.message}`,
-        };
       })
+        // THIS IS CRAZY
+        // If `postToConnection` is the final call of `dataHandler`
+        // the message doesn't actually get sent unless there's another
+        // request that comes after it! I need to do some more testing around this
+        // but for now, this is good enough for launch. Fingers crossed 🤞
+        .then(() => getGraphByClient(event))
+        // END of THIS IS CRAZY
+        .then(() => {
+          console.log(e);
+          return {
+            statusCode: 500,
+            body: `Uncaught Server Error: ${e.message}`,
+          };
+        })
     );

@@ -82,13 +82,14 @@ const Networks = () => {
   const errorTimeout = useRef(0);
   const [error, setError] = useState("");
   const setupOnError = useCallback(() => {
+    setError("");
     const oldOnError = messageHandlers["ERROR"];
     messageHandlers["ERROR"] = (d, g) => {
       oldOnError(d, g);
       setLoading(false);
       messageHandlers["ERROR"] = oldOnError;
     };
-  }, [setLoading]);
+  }, [setLoading, setError]);
   const onDelete = useCallback(
     (i: string) => {
       setNetworks(networks.filter((n) => n.id !== i));

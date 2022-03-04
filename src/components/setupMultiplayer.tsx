@@ -128,9 +128,7 @@ export const messageHandlers: MessageHandlers = {
           intent: Intent.SUCCESS,
         });
       }
-      window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Connect to RoamJS Multiplayer Networks",
-      });
+      removeConnectCommand();
     } else {
       roamJsBackend.status = "DISCONNECTED";
       roamJsBackend.channel.close();
@@ -606,9 +604,30 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
 
 const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
 const addConnectCommand = () => {
+  removeDisconnectCommand();
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Connect to RoamJS Multiplayer",
     callback: connectToBackend,
+  });
+};
+
+const removeConnectCommand = () => {
+  addDisconnectCommand();
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({
+    label: "Connect to RoamJS Multiplayer",
+  });
+};
+
+const addDisconnectCommand = () => {
+  window.roamAlphaAPI.ui.commandPalette.addCommand({
+    label: "Disconnect from RoamJS Multiplayer",
+    callback: connectToBackend,
+  });
+};
+
+const removeDisconnectCommand = () => {
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({
+    label: "Disconnect from RoamJS Multiplayer",
   });
 };
 
@@ -637,10 +656,6 @@ const connectToBackend = () => {
 
     receiveChunkedMessage(data.data);
   };
-  window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Disconnect from RoamJS Multiplayer",
-    callback: disconnectFromBackend,
-  });
 };
 
 const disconnectFromBackend = () => {
@@ -751,9 +766,8 @@ const setupMultiplayer = (configUid: string) => {
     disable: () => {
       if (asyncModeTree.uid) {
         disconnectFromBackend();
-        window.roamAlphaAPI.ui.commandPalette.removeCommand({
-          label: "Connect to RoamJS Multiplayer",
-        });
+        removeConnectCommand();
+        removeDisconnectCommand();
       } else {
         window.roamAlphaAPI.ui.commandPalette.removeCommand({
           label: "Connect To Graph",
