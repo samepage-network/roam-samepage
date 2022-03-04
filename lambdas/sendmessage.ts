@@ -250,17 +250,24 @@ const dataHandler = async (
         }).then(() => removeConnection(event));
       });
   } else if (operation === "LIST_NETWORKS") {
-    return getGraphByClient(event)
-      .then((graph) => queryById(graph))
-      .then((items) =>
+    return getGraphByClient(event).then((graph) => {
+      if (!graph)
+        return postError({
+          event,
+          Message: "Cannot query networks until you've been authenticated",
+        });
+      return queryById(graph).then((items) =>
         postToConnection({
           ConnectionId: event.requestContext.connectionId,
           Data: {
             operation: "LIST_NETWORKS",
-            networks: items.map((i) => ({ id: fromEntity(i.entity.S || "") })),
+            networks: items.map((i) => ({
+              id: fromEntity(i.entity.S || ""),
+            })),
           },
         })
       );
+    });
   } else if (operation === "CREATE_NETWORK") {
     const { name, password } = props as { name: string; password: string };
     if (!password) {

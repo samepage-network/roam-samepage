@@ -15,6 +15,6 @@ const getGraphByClient = (event: {
       },
     })
     .promise()
-    .then((r) => r.Item.graph?.S || '');
+    .then((r) => r.Item?.graph?.S || '');
 
 export default getGraphByClient;

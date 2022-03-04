@@ -96,6 +96,7 @@ export const messageHandlers: MessageHandlers = {
     if (props.success) {
       roamJsBackend.status = "CONNECTED";
       roamJsBackend.networkedGraphs = new Set(props.graphs);
+      document.body.dispatchEvent(new Event("roamjs:multiplayer:connected"));
       updateOnlineGraphs();
       if (props.messages.length) {
         const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
@@ -236,23 +237,34 @@ const receiveChunkedMessage = (str: string, graph?: string) => {
 export const sendToBackend = ({
   operation,
   data = {},
+  unauthenticated = false,
 }: {
   operation: string;
   data?: { [key: string]: json };
-}) =>
-  sendChunkedMessage({
-    data: {
-      operation,
-      ...data,
-    },
-    sender: (data) =>
-      roamJsBackend.channel.send(
-        JSON.stringify({
-          action: "sendmessage",
-          data,
-        })
-      ),
-  });
+  unauthenticated?: boolean;
+}) => {
+  const send = () =>
+    sendChunkedMessage({
+      data: {
+        operation,
+        ...data,
+      },
+      sender: (data) =>
+        roamJsBackend.channel.send(
+          JSON.stringify({
+            action: "sendmessage",
+            data,
+          })
+        ),
+    });
+  if (unauthenticated || roamJsBackend.status === "CONNECTED") send();
+  else
+    document.body.addEventListener(
+      "roamjs:multiplayer:connected",
+      () => send(),
+      { once: true }
+    );
+};
 
 type AlertProps = { onClose: () => void };
 const onError = (e: { error: Error } & Event) => {
@@ -607,6 +619,7 @@ const connectToBackend = () => {
     sendToBackend({
       operation: "AUTHENTICATION",
       data: { token: getAuthorizationHeader(), graph: getGraph() },
+      unauthenticated: true,
     });
   };
 
