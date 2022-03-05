@@ -8,9 +8,7 @@ import postError from "./common/postError";
 import queryById from "./common/queryById";
 import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
 import removeConnection from "./common/removeConnection";
-import getClientByGraph, {
-  getClientObjectByGraph,
-} from "./common/getClientByGraph";
+import getClientsByGraph from "./common/getClientsByGraph";
 import fromEntity from "./common/fromEntity";
 import type { InputTextNode } from "roamjs-components/types";
 import { endClient, saveSession } from "./ondisconnect";
@@ -36,32 +34,36 @@ const messageGraph = ({
   messageUuid: string;
   event: WSEvent;
 }) =>
-  getClientByGraph(graph)
-    .then((ConnectionId) => {
+  getClientsByGraph(graph)
+    .then((ConnectionIds) => {
       const Data = {
         ...data,
         graph: sourceGraph,
       };
       return (
-        ConnectionId
-          ? postToConnection({
-              ConnectionId,
-              Data,
-            })
-              .then(() => true)
-              .catch((e) => {
-                if (process.env.NODE_ENV === "production") {
-                  return endClient(
-                    ConnectionId,
-                    `Missed Message (${e.message})`
-                  )
-                    .then(() => false)
-                    .catch(() => false);
-                } else {
-                  removeLocalSocket(ConnectionId);
-                  return false;
-                }
-              })
+        ConnectionIds.length
+          ? Promise.all(
+              ConnectionIds.map((ConnectionId) =>
+                postToConnection({
+                  ConnectionId,
+                  Data,
+                })
+                  .then(() => true)
+                  .catch((e) => {
+                    if (process.env.NODE_ENV === "production") {
+                      return endClient(
+                        ConnectionId,
+                        `Missed Message (${e.message})`
+                      )
+                        .then(() => false)
+                        .catch(() => false);
+                    } else {
+                      removeLocalSocket(ConnectionId);
+                      return false;
+                    }
+                  })
+              )
+            ).then((all) => all.every((i) => i))
           : Promise.resolve(false)
       ).then(
         (online) =>
@@ -140,13 +142,6 @@ const dataHandler = async (
     const { token, graph } = props as { token: string; graph: string };
     return getRoamJSUser(token)
       .then(async (user) => {
-        const oldClient = await getClientObjectByGraph(graph);
-        if (oldClient) {
-          await saveSession({
-            item: oldClient,
-            source: "Authentication Cleanup",
-          });
-        }
         return dynamo
           .updateItem({
             TableName: "RoamJSMultiplayer",
@@ -211,10 +206,11 @@ const dataHandler = async (
             }).then(() => graphs)
           )
       )
-      .then((graphs) => Promise.all(graphs.map(getClientByGraph)))
+      .then((graphs) => Promise.all(graphs.map(getClientsByGraph)))
       .then((clients) =>
         Promise.all(
           clients
+            .flat()
             .filter((c) => !!c)
             .map((ConnectionId) =>
               postToConnection({
@@ -389,6 +385,11 @@ const dataHandler = async (
           event,
           Message: `There does not exist a network called ${name}`,
         });
+      if (!graph)
+        return postError({
+          event,
+          Message: "Cannot join a network until you've been authenticated",
+        });
       const existingMembership = await dynamo
         .getItem({
           TableName: "RoamJSMultiplayer",
@@ -430,12 +431,13 @@ const dataHandler = async (
         .promise()
         .then(() =>
           queryByEntity(name).then((items) =>
-            Promise.all(items.map((item) => getClientByGraph(item.graph.S)))
+            Promise.all(items.map((item) => getClientsByGraph(item.graph.S)))
           )
         )
         .then((clients) =>
           Promise.all(
             clients
+              .flat()
               .filter((id) => id && id !== event.requestContext.connectionId)
               .map((id) =>
                 postToConnection({
@@ -472,7 +474,9 @@ const dataHandler = async (
           .promise()
           .then(() =>
             queryByEntity(name).then((items) =>
-              Promise.all(items.map((item) => getClientByGraph(item.graph.S)))
+              Promise.all(
+                items.map((item) => getClientsByGraph(item.graph.S))
+              ).then((c) => c.flat())
             )
           )
           .then((clients) =>

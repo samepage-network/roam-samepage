@@ -633,32 +633,34 @@ const removeDisconnectCommand = () => {
 };
 
 const connectToBackend = () => {
-  roamJsBackend.status = "PENDING";
-  roamJsBackend.channel = new WebSocket(process.env.WEB_SOCKET_URL);
-  roamJsBackend.channel.onopen = () => {
-    sendToBackend({
-      operation: "AUTHENTICATION",
-      data: { token: getAuthorizationHeader(), graph: getGraph() },
-      unauthenticated: true,
-    });
-  };
-
-  roamJsBackend.channel.onclose = disconnectFromBackend;
-  roamJsBackend.channel.onerror = onError;
-
-  roamJsBackend.channel.onmessage = (data) => {
-    if (JSON.parse(data.data).message === "Internal server error")
-      renderToast({
-        id: "network-error",
-        content: `Unknown Internal Server Error. Request ID: ${
-          JSON.parse(data.data).requestId
-        }`,
-        intent: "danger",
+  if (roamJsBackend.status === "DISCONNECTED") {
+    roamJsBackend.status = "PENDING";
+    roamJsBackend.channel = new WebSocket(process.env.WEB_SOCKET_URL);
+    roamJsBackend.channel.onopen = () => {
+      sendToBackend({
+        operation: "AUTHENTICATION",
+        data: { token: getAuthorizationHeader(), graph: getGraph() },
+        unauthenticated: true,
       });
+    };
 
-    receiveChunkedMessage(data.data);
-  };
-  updateOnlineGraphs();
+    roamJsBackend.channel.onclose = disconnectFromBackend;
+    roamJsBackend.channel.onerror = onError;
+
+    roamJsBackend.channel.onmessage = (data) => {
+      if (JSON.parse(data.data).message === "Internal server error")
+        renderToast({
+          id: "network-error",
+          content: `Unknown Internal Server Error. Request ID: ${
+            JSON.parse(data.data).requestId
+          }`,
+          intent: "danger",
+        });
+
+      receiveChunkedMessage(data.data);
+    };
+    updateOnlineGraphs();
+  }
 };
 
 const disconnectFromBackend = () => {
