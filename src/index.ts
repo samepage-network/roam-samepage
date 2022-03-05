@@ -110,23 +110,41 @@ runExtension(ID, async () => {
           title: string;
           tree: InputTextNode[];
         };
-        createPage({ uid, title, tree });
-        createBlock({
-          parentUid: toRoamDateUid(),
-          order: getChildrenLengthByPageUid(toRoamDateUid()),
-          node: { text: `[[${graph}]] sent over page [[${title}]]` },
-        });
-        renderToast({
-          id: "send-page-success",
-          content: `Received new page ${title} from ${graph}!`,
-        });
-        sendToGraph({
-          graph,
-          operation: `SEND_PAGE_RESPONSE/${graph}/${uid}`,
-          data: {
-            ephemeral: true,
-          },
-        });
+        const existingUid = getPageUidByPageTitle(title);
+        const order = existingUid ? 0 : getChildrenLengthByPageUid(existingUid);
+        return (
+          existingUid
+            ? Promise.all(
+                tree.map((node, i) =>
+                  createBlock({
+                    node,
+                    order: order + i,
+                    parentUid: existingUid,
+                  })
+                )
+              )
+            : createPage({ uid, title, tree })
+        )
+          .then(() =>
+            createBlock({
+              parentUid: toRoamDateUid(),
+              order: getChildrenLengthByPageUid(toRoamDateUid()),
+              node: { text: `[[${graph}]] sent over page [[${title}]]` },
+            })
+          )
+          .then(() => {
+            renderToast({
+              id: "send-page-success",
+              content: `Received new page ${title} from ${graph}!`,
+            });
+            sendToGraph({
+              graph,
+              operation: `SEND_PAGE_RESPONSE/${graph}/${uid}`,
+              data: {
+                ephemeral: true,
+              },
+            });
+          });
       },
     });
 
