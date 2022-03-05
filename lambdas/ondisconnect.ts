@@ -32,6 +32,7 @@ export const endClient = (id: string, source: string) => {
                     date: { S: new Date().toJSON() },
                     entity: { S: toEntity("$session") },
                     initiated: { S: r.Item.date.S },
+                    disconnectedBy: { S: source },
                   },
                 })
                 .promise()
