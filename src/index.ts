@@ -111,7 +111,7 @@ runExtension(ID, async () => {
           tree: InputTextNode[];
         };
         const existingUid = getPageUidByPageTitle(title);
-        const order = existingUid ? 0 : getChildrenLengthByPageUid(existingUid);
+        const order = existingUid ? getChildrenLengthByPageUid(existingUid) : 0;
         return (
           existingUid
             ? Promise.all(
