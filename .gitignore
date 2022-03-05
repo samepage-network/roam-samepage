@@ -4,3 +4,4 @@ dist
 out
 .env.local
 RoamJSMultiplayer.pem
+a.js
