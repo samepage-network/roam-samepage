@@ -42,7 +42,13 @@ export const saveSession = ({
             const quantity = Math.ceil(
               differenceInMinutes(now, new Date(item.date.S))
             );
-            if (quantity <= 0) {
+            if (quantity > 0) {
+              return meterRoamJSUser(
+                item.user.S,
+                differenceInMinutes(new Date(), new Date(item.date.S))
+              );
+            } else {
+              /* Is this a problem?
               return Promise.reject(
                 new Error(
                   `Quantity is too low for client ${item.id.S}.\nStart Time: ${
@@ -50,11 +56,8 @@ export const saveSession = ({
                   }\nEnd Time: ${now.toJSON()}`
                 )
               );
+              */
             }
-            return meterRoamJSUser(
-              item.user.S,
-              differenceInMinutes(new Date(), new Date(item.date.S))
-            );
           })
       : Promise.resolve(),
   ]);
