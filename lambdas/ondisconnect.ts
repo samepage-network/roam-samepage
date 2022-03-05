@@ -7,55 +7,74 @@ import differenceInMinutes from "date-fns/differenceInMinutes";
 
 const dynamo = new AWS.DynamoDB();
 
+export const saveSession = ({
+  item,
+  source,
+}: {
+  item: AWS.DynamoDB.AttributeMap;
+  source: string;
+}) => {
+  const now = new Date();
+  return Promise.all([
+    dynamo
+      .deleteItem({
+        TableName: "RoamJSMultiplayer",
+        Key: {
+          id: { S: item.id.S },
+          entity: { S: toEntity("$client") },
+        },
+      })
+      .promise(),
+    item.user?.S
+      ? dynamo
+          .putItem({
+            TableName: "RoamJSMultiplayer",
+            Item: {
+              ...item,
+              date: { S: now.toJSON() },
+              entity: { S: toEntity("$session") },
+              initiated: { S: item.date.S },
+              disconnectedBy: { S: source },
+            },
+          })
+          .promise()
+          .then(() => {
+            const quantity = Math.ceil(
+              differenceInMinutes(now, new Date(item.date.S))
+            );
+            if (quantity <= 0) {
+              return Promise.reject(
+                new Error(
+                  `Quantity is too low for client ${item.id.S}.\nStart Time: ${
+                    item.date.S
+                  }\nEnd Time: ${now.toJSON()}`
+                )
+              );
+            }
+            return meterRoamJSUser(
+              item.user.S,
+              differenceInMinutes(new Date(), new Date(item.date.S))
+            );
+          })
+      : Promise.resolve(),
+  ]);
+};
+
 export const endClient = (id: string, source: string) => {
-  const params = {
-    TableName: "RoamJSMultiplayer",
-    Key: {
-      id: { S: id },
-      entity: { S: toEntity("$client") },
-    },
-  };
   return dynamo
-    .getItem(params)
+    .getItem({
+      TableName: "RoamJSMultiplayer",
+      Key: {
+        id: { S: id },
+        entity: { S: toEntity("$client") },
+      },
+    })
     .promise()
-    .then(
-      (r) =>
-        r.Item &&
-        Promise.all([
-          dynamo.deleteItem(params).promise(),
-          r.Item.user?.S
-            ? dynamo
-                .putItem({
-                  TableName: params.TableName,
-                  Item: {
-                    ...r.Item,
-                    date: { S: new Date().toJSON() },
-                    entity: { S: toEntity("$session") },
-                    initiated: { S: r.Item.date.S },
-                    disconnectedBy: { S: source },
-                  },
-                })
-                .promise()
-                .then(() => {
-                  const now = new Date();
-                  const quantity = Math.ceil(
-                    differenceInMinutes(now, new Date(r.Item.date.S))
-                  );
-                  if (quantity <= 0) {
-                    return Promise.reject(
-                      new Error(
-                        `Quantity is too low for client ${id}.\nStart Time: ${r.Item.date.S}\nEnd Time: ${r.Item.date.S}`
-                      )
-                    );
-                  }
-                  return meterRoamJSUser(
-                    r.Item.user.S,
-                    differenceInMinutes(new Date(), new Date(r.Item.date.S))
-                  );
-                })
-            : Promise.resolve(),
-        ])
-    );
+    .then((r) => {
+      if (r.Item) {
+        return saveSession({ item: r.Item, source });
+      }
+    });
 };
 
 export const handler: WSHandler = (event) => {

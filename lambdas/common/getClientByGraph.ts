@@ -3,7 +3,7 @@ import toEntity from "./toEntity";
 
 const dynamo = new AWS.DynamoDB();
 
-const getClientByGraph = (graph: string) =>
+export const getClientObjectByGraph = (graph: string) =>
   dynamo
     .query({
       TableName: "RoamJSMultiplayer",
@@ -19,6 +19,9 @@ const getClientByGraph = (graph: string) =>
       KeyConditionExpression: "#s = :s AND #g = :g",
     })
     .promise()
-    .then((r) => r.Items[0]?.id?.S);
+    .then((r) => r.Items[0]);
+
+const getClientByGraph = (graph: string) =>
+  getClientObjectByGraph(graph).then((r) => r?.id?.S);
 
 export default getClientByGraph;

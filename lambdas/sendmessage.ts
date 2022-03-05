@@ -8,10 +8,12 @@ import postError from "./common/postError";
 import queryById from "./common/queryById";
 import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
 import removeConnection from "./common/removeConnection";
-import getClientByGraph from "./common/getClientByGraph";
+import getClientByGraph, {
+  getClientObjectByGraph,
+} from "./common/getClientByGraph";
 import fromEntity from "./common/fromEntity";
 import type { InputTextNode } from "roamjs-components/types";
-import { endClient } from "./ondisconnect";
+import { endClient, saveSession } from "./ondisconnect";
 import sha from "crypto-js/hmac-sha512";
 import Base64 from "crypto-js/enc-base64";
 import randomstring from "randomstring";
@@ -133,17 +135,12 @@ const dataHandler = async (
     const { token, graph } = props as { token: string; graph: string };
     return getRoamJSUser(token)
       .then(async (user) => {
-        const oldClient = await getClientByGraph(graph);
+        const oldClient = await getClientObjectByGraph(graph);
         if (oldClient) {
-          await dynamo
-            .deleteItem({
-              TableName: "RoamJSMultiplayer",
-              Key: {
-                id: { S: oldClient },
-                entity: { S: toEntity("$client") },
-              },
-            })
-            .promise();
+          await saveSession({
+            item: oldClient,
+            source: "Authentication Cleanup",
+          });
         }
         return dynamo
           .updateItem({
