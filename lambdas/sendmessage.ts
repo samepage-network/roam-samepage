@@ -130,7 +130,12 @@ const dataHandler = async (
   messageUuid: string
 ): Promise<unknown> => {
   const { operation, ...props } = JSON.parse(data);
-  console.log("received operation", operation);
+  console.log(
+    "received operation",
+    operation,
+    "from client",
+    event.requestContext.connectionId
+  );
   if (operation === "AUTHENTICATION") {
     const { token, graph } = props as { token: string; graph: string };
     return getRoamJSUser(token)
