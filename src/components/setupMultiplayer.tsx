@@ -488,6 +488,8 @@ const receiveAnswer = ({ answer }: { answer: string }) => {
       intent: Intent.DANGER,
       content: `Error: No graph setup for connection with label: ${label}`,
     });
+    console.error("Available labels:");
+    console.error(Object.keys(connectedGraphs));
   }
 };
 
@@ -739,11 +741,9 @@ const setupMultiplayer = (configUid: string) => {
     },
     getConnectedGraphs,
     getNetworkedGraphs: () =>
-      asyncModeTree.uid
-        ? Array.from(
-            new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
-          )
-        : getConnectedGraphs(),
+      Array.from(
+        new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
+      ),
     enable: () => {
       if (asyncModeTree.uid) {
         toggleOnAsync();
