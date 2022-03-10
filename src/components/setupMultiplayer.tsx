@@ -747,41 +747,39 @@ const setupMultiplayer = (configUid: string) => {
     enable: () => {
       if (asyncModeTree.uid) {
         toggleOnAsync();
-      } else {
-        window.roamAlphaAPI.ui.commandPalette.addCommand({
-          label: "Setup Multiplayer",
-          callback: () => {
-            createOverlayRender<Omit<AlertProps, "onClose">>(
-              "multiplayer-setup",
-              SetupAlert
-            )({ messageHandlers });
-          },
-        });
-        window.roamAlphaAPI.ui.commandPalette.addCommand({
-          label: "Connect To Graph",
-          callback: () => {
-            createOverlayRender<Omit<AlertProps, "onClose">>(
-              "multiplayer-connect",
-              ConnectAlert
-            )({ messageHandlers });
-          },
-        });
       }
+      window.roamAlphaAPI.ui.commandPalette.addCommand({
+        label: "Setup Multiplayer",
+        callback: () => {
+          createOverlayRender<Omit<AlertProps, "onClose">>(
+            "multiplayer-setup",
+            SetupAlert
+          )({ messageHandlers });
+        },
+      });
+      window.roamAlphaAPI.ui.commandPalette.addCommand({
+        label: "Connect To Graph",
+        callback: () => {
+          createOverlayRender<Omit<AlertProps, "onClose">>(
+            "multiplayer-connect",
+            ConnectAlert
+          )({ messageHandlers });
+        },
+      });
     },
     disable: () => {
       if (asyncModeTree.uid) {
         disconnectFromBackend();
         removeConnectCommand();
         removeDisconnectCommand();
-      } else {
-        window.roamAlphaAPI.ui.commandPalette.removeCommand({
-          label: "Connect To Graph",
-        });
-        window.roamAlphaAPI.ui.commandPalette.removeCommand({
-          label: "Setup Multiplayer",
-        });
-        Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
       }
+      window.roamAlphaAPI.ui.commandPalette.removeCommand({
+        label: "Connect To Graph",
+      });
+      window.roamAlphaAPI.ui.commandPalette.removeCommand({
+        label: "Setup Multiplayer",
+      });
+      Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
     },
   };
 };
