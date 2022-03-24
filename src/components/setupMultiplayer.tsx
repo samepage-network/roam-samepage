@@ -16,6 +16,7 @@ import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByPar
 import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
+import { isSafari } from "mobile-device-detect";
 
 const FAILED_STATES = ["failed", "closed"];
 
@@ -518,26 +519,35 @@ const SetupAlert = ({ onClose }: AlertProps) => {
       // @ts-ignore
       title={"Setup Multiplayer Connection"}
     >
-      <p>
-        Click the button below to copy the handshake code and send it to your
-        peer:
-      </p>
-      <p>
-        <Button
-          style={{ minWidth: 120 }}
-          disabled={!code || loading}
-          onClick={() => {
-            window.navigator.clipboard.writeText(code);
-            setCopied(true);
-            setTimeout(() => {
-              setReadyToRecieve(true);
-              setCopied(false);
-            }, 3000);
-          }}
-        >
-          {copied ? "Copied!" : "Copy"}
-        </Button>
-      </p>
+      {isSafari ? (
+        <>
+          <p>
+            Click the button below to copy the handshake code and send it to
+            your peer:
+          </p>
+          <p>
+            <Button
+              style={{ minWidth: 120 }}
+              disabled={!code || loading}
+              onClick={() => {
+                window.navigator.clipboard.writeText(code);
+                setCopied(true);
+                setTimeout(() => {
+                  setReadyToRecieve(true);
+                  setCopied(false);
+                }, 3000);
+              }}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </p>
+        </>
+      ) : (
+        <>
+          <p>Copy the handshake code and send it to your peer:</p>
+          <pre>{code}</pre>
+        </>
+      )}
       <p>Then, enter the handshake code sent by your peer:</p>
       <Label>
         Peer's Handshake Code
@@ -559,6 +569,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [offer, setOffer] = useState("");
+  const [code, setCode] = useState("");
   const onConfirm = useCallback(() => {
     setLoading(true);
     getConnectCode({
@@ -567,8 +578,9 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
     }).then((code) => {
       window.navigator.clipboard.writeText(code);
       setCopied(true);
+      setCode(code);
     });
-  }, [setLoading, offer, setCopied]);
+  }, [setLoading, offer, setCopied, setCode]);
   return (
     <Alert
       loading={loading}
@@ -583,7 +595,16 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
       title={"Connect to Multiplayer Host"}
     >
       {copied ? (
-        <p>A response handshake code was copied! Send it to your peer.</p>
+        isSafari ? (
+          <p>A response handshake code was copied! Send it to your peer.</p>
+        ) : (
+          <>
+            <p>
+              Now copy the handshake code below and send it back to your peer.
+            </p>
+            <pre>{code}</pre>
+          </>
+        )
       ) : (
         <>
           <p>Enter the handshake code sent by your peer:</p>
