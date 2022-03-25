@@ -519,7 +519,7 @@ const SetupAlert = ({ onClose }: AlertProps) => {
       // @ts-ignore
       title={"Setup Multiplayer Connection"}
     >
-      {isSafari ? (
+      {!isSafari ? (
         <>
           <p>
             Click the button below to copy the handshake code and send it to
@@ -595,7 +595,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
       title={"Connect to Multiplayer Host"}
     >
       {copied ? (
-        isSafari ? (
+        !isSafari ? (
           <p>A response handshake code was copied! Send it to your peer.</p>
         ) : (
           <>
