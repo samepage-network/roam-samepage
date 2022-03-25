@@ -497,7 +497,7 @@ const receiveAnswer = ({ answer }: { answer: string }) => {
 const SetupAlert = ({ onClose }: AlertProps) => {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [readyToRecieve, setReadyToRecieve] = useState(false);
+  const [readyToRecieve, setReadyToRecieve] = useState(isSafari);
   const [code, setCode] = useState("");
   const [answer, setAnswer] = useState("");
   useEffect(() => {
@@ -516,6 +516,7 @@ const SetupAlert = ({ onClose }: AlertProps) => {
       onCancel={() => {
         onClose();
       }}
+      style={isSafari ? { minWidth: 800 } : {}}
       // @ts-ignore
       title={"Setup Multiplayer Connection"}
     >
@@ -558,6 +559,7 @@ const SetupAlert = ({ onClose }: AlertProps) => {
             setAnswer(e.target.value);
             setLoading(!e.target.value);
           }}
+          style={{ wordBreak: "keep-all" }}
         />
       </Label>
       <p>Finally, click connect below:</p>
@@ -591,6 +593,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
       onCancel={() => {
         onClose();
       }}
+      style={isSafari ? { minWidth: 800 } : {}}
       // @ts-ignore
       title={"Connect to Multiplayer Host"}
     >
@@ -614,9 +617,9 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
               value={offer}
               onChange={(e) => {
                 setOffer(e.target.value);
-                setLoading(!e.target.value);
               }}
               disabled={loading}
+              style={{ wordBreak: "keep-all" }}
             />
           </Label>
           <p>Then, click connect below:</p>
