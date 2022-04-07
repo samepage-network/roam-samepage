@@ -107,7 +107,7 @@ const messageGraph = ({
         .then((r) =>
           r.Item
             ? r.Item.user
-              ? meterRoamJSUser(r.Item?.user?.S)
+              ? meterRoamJSUser(r.Item?.user?.S, 5)
               : Promise.reject(
                   new Error(
                     `How did non-authenticated client try to send message from ${sourceGraph} to ${graph}?`
@@ -360,7 +360,7 @@ const dataHandler = async (
                 },
               })
               .promise()
-              .then(() => meterRoamJSUser(user, 100))
+              .then(() => meterRoamJSUser(user, 500))
               .catch(
                 emailCatch(
                   `Failed to meter Multiplayer user for network ${name}`
