@@ -40,23 +40,14 @@ export const saveSession = ({
           .promise()
           .then(() => {
             const quantity = Math.ceil(
-              differenceInMinutes(now, new Date(item.date.S))
+              differenceInMinutes(now, new Date(item.date.S)) / 5 
+              // not charging if it's less than 5 minutes, timeouts are usually 10.
             );
             if (quantity > 0) {
               return meterRoamJSUser(
                 item.user.S,
                 differenceInMinutes(new Date(), new Date(item.date.S))
               );
-            } else {
-              /* Is this a problem?
-              return Promise.reject(
-                new Error(
-                  `Quantity is too low for client ${item.id.S}.\nStart Time: ${
-                    item.date.S
-                  }\nEnd Time: ${now.toJSON()}`
-                )
-              );
-              */
             }
           })
       : Promise.resolve(),
