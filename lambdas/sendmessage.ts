@@ -203,7 +203,21 @@ const dataHandler = async (
                 messages,
                 graphs,
               },
-            }).then(() => graphs)
+            })
+              .then(() => graphs)
+              .catch((e) => {
+                console.error(e);
+                return postToConnection({
+                  ConnectionId: event.requestContext.connectionId,
+                  Data: {
+                    operation: "AUTHENTICATION",
+                    success: false,
+                    reason: e.message,
+                  },
+                })
+                  .then(() => removeConnection(event))
+                  .then(() => []);
+              })
           )
       )
       .then((graphs) => Promise.all(graphs.map(getClientsByGraph)))
@@ -234,18 +248,7 @@ const dataHandler = async (
               })
             )
         )
-      )
-      .catch((e) => {
-        console.error(e);
-        return postToConnection({
-          ConnectionId: event.requestContext.connectionId,
-          Data: {
-            operation: "AUTHENTICATION",
-            success: false,
-            reason: e.message,
-          },
-        }).then(() => removeConnection(event));
-      });
+      );
   } else if (operation === "LIST_NETWORKS") {
     return getGraphByClient(event).then((graph) => {
       if (!graph)

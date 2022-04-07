@@ -317,6 +317,7 @@ resource "aws_lambda_function" "sendmessage" {
   handler       = "sendmessage.handler"
   runtime       = "nodejs14.x"
   timeout       = 10
+  memory_size   = 5120
 }
 
 resource "aws_apigatewayv2_integration" "sendmessage" {
