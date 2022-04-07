@@ -682,7 +682,22 @@ const dataHandler = async (
           Key: `multiplayer/references/${graph}/${node.uid}.json`,
           ContentType: "application/json",
         })
-        .promise();
+        .promise()
+        .then(() =>
+          dynamo
+            .putItem({
+              TableName: "RoamJSMultiplayer",
+              Item: {
+                id: { S:  `${graph}:${node.uid}` },
+                entity: { S: toEntity(`$reference`) },
+                date: {
+                  S: new Date().toJSON(),
+                },
+                graph: { S: graph },
+              },
+            })
+            .promise()
+        );
     }
     return getGraphByClient(event).then((sourceGraph) =>
       messageGraph({
