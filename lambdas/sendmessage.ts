@@ -180,7 +180,11 @@ const dataHandler = async (
       .then((messages) =>
         // TODO - get memberships by some other method
         queryById(graph)
-          .then((items) => items.map((item) => item.entity.S))
+          .then((items) =>
+            items
+              .map((item) => item.entity.S)
+              .filter((id) => !id.includes("$network"))
+          )
           .then((networks) => {
             return Promise.all(
               networks.map((network) =>
@@ -261,9 +265,11 @@ const dataHandler = async (
           ConnectionId: event.requestContext.connectionId,
           Data: {
             operation: "LIST_NETWORKS",
-            networks: items.map((i) => ({
-              id: fromEntity(i.entity.S || ""),
-            })),
+            networks: items
+              .map((i) => ({
+                id: fromEntity(i.entity.S || ""),
+              }))
+              .filter(({ id }) => !id.includes("$network")),
           },
         })
       );
@@ -688,7 +694,7 @@ const dataHandler = async (
             .putItem({
               TableName: "RoamJSMultiplayer",
               Item: {
-                id: { S:  `${graph}:${node.uid}` },
+                id: { S: `${graph}:${node.uid}` },
                 entity: { S: toEntity(`$reference`) },
                 date: {
                   S: new Date().toJSON(),
