@@ -22,6 +22,7 @@ import { render as referenceRender } from "./components/CrossGraphReference";
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import addStyle from "roamjs-components/dom/addStyle";
 import getGraph from "roamjs-components/util/getGraph";
+import UsageChart from "./components/UsageChart";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -81,6 +82,15 @@ runExtension(ID, async () => {
               type: "flag",
               description:
                 "Prevent the extension from automatically connecting to your configured networks",
+            },
+            {
+              title: "Usage",
+              type: "custom",
+              description:
+                "Displays how much the user has used Multiplayer this month",
+                options: {
+                  component: UsageChart,
+                }
             },
           ],
           onEnable: toggleOnAsync,

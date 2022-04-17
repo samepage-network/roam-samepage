@@ -140,7 +140,7 @@ const dataHandler = async (
   );
   if (operation === "AUTHENTICATION") {
     const { token, graph } = props as { token: string; graph: string };
-    return getRoamJSUser(token)
+    return getRoamJSUser({token})
       .then(async (user) => {
         return dynamo
           .updateItem({
