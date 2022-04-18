@@ -15,7 +15,6 @@ const UsageChart = () => {
   }, [setStats, setLoading, setError]);
   return (
     <div>
-      <h4>This Tab Is Under Development, Stay Tuned!</h4>
       <div style={loading ? { opacity: 0.5 } : {}}>
         <div
           style={{

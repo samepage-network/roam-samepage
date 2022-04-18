@@ -17,9 +17,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         params: { expand: "period" },
       })
         .then((u) => {
-          const { start } = u;
-          const startDate = new Date((start as number) * 1000);
-          const startDateJson = startDate.toJSON();
+          const { start, end } = u;
+          const endDate = new Date((end as number) * 1000);
+          const startDate = new Date((start as number) * 1000).toJSON();
 
           const queryAll = (
             entity: string,
@@ -35,7 +35,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                 },
                 ExpressionAttributeValues: {
                   ":s": { S: toEntity(entity) },
-                  ":d": { S: startDateJson },
+                  ":d": { S: startDate },
                 },
                 KeyConditionExpression: "#s = :s and #d >= :d",
                 ExclusiveStartKey,
@@ -85,7 +85,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               ),
               messages: messages.length,
               networks: networks.length,
-              date: format(startDate, "MMMM do, yyyy"),
+              date: format(endDate, "MMMM do, yyyy"),
             }),
             headers,
           }));
