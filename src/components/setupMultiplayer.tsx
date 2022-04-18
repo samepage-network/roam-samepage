@@ -808,4 +808,9 @@ const setupMultiplayer = (configUid: string) => {
   };
 };
 
+export type MessageLoaderProps = Pick<
+  ReturnType<typeof setupMultiplayer>,
+  "addGraphListener" | "sendToGraph" | "getNetworkedGraphs"
+>;
+
 export default setupMultiplayer;

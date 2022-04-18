@@ -4,13 +4,13 @@ import { Button, Checkbox, Classes, Dialog, Intent } from "@blueprintjs/core";
 const GraphMessageAlert = ({
   onClose,
   children,
-  disabled,
+  disabled = false,
   onSubmitToGraph,
   title,
 }: {
   onClose: () => void;
   children?: React.ReactNode;
-  disabled: boolean;
+  disabled?: boolean;
   onSubmitToGraph: (graph: string) => void;
   title: string;
 }) => {
