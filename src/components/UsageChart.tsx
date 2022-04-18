@@ -6,7 +6,7 @@ import getGraph from "roamjs-components/util/getGraph";
 const UsageChart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [stats, setStats] = useState({ networks: 0, minutes: 0, messages: 0 });
+  const [stats, setStats] = useState({ networks: 0, minutes: 0, messages: 0, date: '' });
   useEffect(() => {
     apiPost("multiplayer", { method: "usage", graph: getGraph() })
       .then((r) => setStats(r.data))
@@ -60,9 +60,7 @@ const UsageChart = () => {
         >
           <span>Messages Sent</span>
           <span>
-            <span style={{ minWidth: 80, display: "inline-block" }}>
-              $0.01
-            </span>
+            <span style={{ minWidth: 80, display: "inline-block" }}>$0.01</span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
               {stats.messages}
             </span>
@@ -80,14 +78,12 @@ const UsageChart = () => {
         >
           <span>Networks Owned</span>
           <span>
-            <span style={{ minWidth: 80, display: "inline-block" }}>
-              $1
-            </span>
+            <span style={{ minWidth: 80, display: "inline-block" }}>$1</span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
               {stats.networks}
             </span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
-              ${stats.minutes.toFixed(2)}
+              ${stats.networks.toFixed(2)}
             </span>
           </span>
         </div>
@@ -99,13 +95,18 @@ const UsageChart = () => {
             alignItems: "center",
           }}
         >
-          <b>Total</b>
-          <span>
+          <span><b>Total</b> {stats.date && `(Billed: ${stats.date})`}</span>
+          <span style={{ display: "flex", alignItems: "center" }}>
             <span style={{ minWidth: 160 }}>
               {loading && <Spinner size={16} />}
             </span>
             <b style={{ minWidth: 80, display: "inline-block" }}>
-              ${(stats.minutes * 0.002 + stats.messages * 0.01 + stats.networks).toFixed(2)}
+              $
+              {(
+                stats.minutes * 0.002 +
+                stats.messages * 0.01 +
+                stats.networks
+              ).toFixed(2)}
             </b>
           </span>
         </div>

@@ -4,6 +4,7 @@ import headers from "roamjs-components/backend/headers";
 import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
 import differenceInMinutes from "date-fns/differenceInMinutes";
+import format from "date-fns/format";
 
 const dynamo = new AWS.DynamoDB();
 
@@ -17,7 +18,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       })
         .then((u) => {
           const { start } = u;
-          const startDate = new Date((start as number) * 1000).toJSON();
+          const startDate = new Date((start as number) * 1000);
+          const startDateJson = startDate.toJSON();
 
           const queryAll = (
             entity: string,
@@ -33,7 +35,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                 },
                 ExpressionAttributeValues: {
                   ":s": { S: toEntity(entity) },
-                  ":d": { S: startDate },
+                  ":d": { S: startDateJson },
                 },
                 KeyConditionExpression: "#s = :s and #d >= :d",
                 ExclusiveStartKey,
@@ -68,26 +70,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               })
               .promise()
               .then((r) => r.Items),
-          ]);
+          ]).then(([sessions, messages, networks]) => ({
+            statusCode: 200,
+            body: JSON.stringify({
+              minutes: sessions.reduce(
+                (p, c) =>
+                  differenceInMinutes(
+                    new Date(c.date.S),
+                    new Date(c.initiated.S)
+                  ) /
+                    5 +
+                  p,
+                0
+              ),
+              messages: messages.length,
+              networks: networks.length,
+              date: format(startDate, "MMMM do, yyyy"),
+            }),
+            headers,
+          }));
         })
-        .then(([sessions, messages, networks]) => ({
-          statusCode: 200,
-          body: JSON.stringify({
-            minutes: sessions.reduce(
-              (p, c) =>
-                differenceInMinutes(
-                  new Date(c.date.S),
-                  new Date(c.initiated.S)
-                ) /
-                  5 +
-                p,
-              0
-            ),
-            messages: messages.length,
-            networks: networks.length,
-          }),
-          headers,
-        }))
         .catch((e) => ({
           statusCode: 500,
           body: e.message,
