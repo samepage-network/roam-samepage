@@ -1,35 +1,120 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
-import { v4 } from "uuid";
+import createBlock from "roamjs-components/writes/createBlock";
+import deleteBlock from "roamjs-components/writes/deleteBlock";
+import rejectSharePageResponse from "../actions/rejectSharePageResponse";
+import acceptSharePageResponse from "../actions/acceptSharePageResponse";
+import getSubTree from "roamjs-components/util/getSubTree";
+import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
+import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
+import getSettingValueFromTree from 'roamjs-components/util/getSettingValueFromTree';
 
 const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
 
-type Notification = {
-  uuid: string;
-  date: number;
-  title: string;
-  description: string;
-  actions: { label: string; callback: () => Promise<unknown> }[];
+const actions = {
+  "reject share page response": rejectSharePageResponse,
+  "accept share page response": acceptSharePageResponse,
 };
 
-const NotificationContainer = () => {
+type Notification = {
+  uid: string;
+  title: string;
+  description: string;
+  actions: {
+    label: string;
+    method: keyof typeof actions;
+    args: Record<string, string>;
+  }[];
+};
+
+type Props = { configUid: string };
+
+const KEY = "Notifications";
+
+const NotificationContainer = ({ configUid }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, _setNotificatons] = useState<Notification[]>([]);
+  const [notifications, _setNotificatons] = useState<Notification[]>(() => {
+    const tree = getBasicTreeByParentUid(configUid);
+    const notificationTree = getSubTree({ tree, key: KEY });
+    return notificationTree.children.map((node) => ({
+      title: node.text,
+      uid: node.uid,
+      description: getSettingValueFromTree({
+        tree: node.children,
+        key: "Description",
+      }),
+      actions: getSubTree({ tree: node.children, key: "Actions" }).children.map(
+        (act) => ({
+          label: act.text,
+          method: getSettingValueFromTree({
+            tree: act.children,
+            key: "Method",
+          }) as keyof typeof actions,
+          args: Object.fromEntries(
+            getSubTree({ key: "Args", tree: act.children }).children.map(
+              (arg) => [arg.text, arg.children[0]?.text]
+            )
+          ),
+        })
+      ),
+    }));
+  });
   const notificationsRef = useRef<Notification[]>([]);
   const addNotificaton = useCallback(
     (not: Notification) => {
-      notificationsRef.current.push(not);
-      _setNotificatons(notificationsRef.current);
+      const parentUid = getSubTree({
+        parentUid: configUid,
+        key: KEY,
+      }).uid;
+      (parentUid
+        ? Promise.resolve(parentUid)
+        : createBlock({ parentUid, order: 10, node: { text: KEY } })
+      )
+        .then((parentUid) =>
+          createBlock({
+            parentUid,
+            order: getChildrenLengthByPageUid(parentUid),
+            node: {
+              uid: not.uid,
+              text: not.title,
+              children: [
+                { text: "Description", children: [{ text: not.description }] },
+                {
+                  text: "Actions",
+                  children: not.actions.map((a) => ({
+                    text: a.label,
+                    children: [
+                      { text: "Method", children: [{ text: a.method }] },
+                      {
+                        text: "Args",
+                        children: Object.entries(a.args).map((arg) => ({
+                          text: arg[0],
+                          children: [{ text: arg[1] }],
+                        })),
+                      },
+                    ],
+                  })),
+                },
+              ],
+            },
+          })
+        )
+        .then(() => {
+          notificationsRef.current.push(not);
+          _setNotificatons(notificationsRef.current);
+        });
     },
-    [_setNotificatons, notificationsRef]
+    [_setNotificatons, notificationsRef, configUid]
   );
   const removeNotificaton = useCallback(
     (not: Notification) => {
-      notificationsRef.current = notificationsRef.current.filter(
-        (n) => n.uuid !== not.uuid
-      );
-      _setNotificatons(notificationsRef.current);
+      deleteBlock(not.uid).then(() => {
+        notificationsRef.current = notificationsRef.current.filter(
+          (n) => n.uid !== not.uid
+        );
+        _setNotificatons(notificationsRef.current);
+      });
     },
     [_setNotificatons, notificationsRef]
   );
@@ -76,7 +161,7 @@ const NotificationContainer = () => {
           </div>
           <div>
             {notifications.map((not) => (
-              <div key={not.uuid}>
+              <div key={not.uid}>
                 <h5>{not.title}</h5>
                 <p>{not.description}</p>
                 <div style={{ gap: 8 }}>
@@ -85,7 +170,9 @@ const NotificationContainer = () => {
                       key={action.label}
                       text={action.label}
                       onClick={() =>
-                        action.callback().then(() => removeNotificaton(not))
+                        actions[action.method]?.(action.args).then(() =>
+                          removeNotificaton(not)
+                        )
                       }
                     />
                   ))}
@@ -107,14 +194,14 @@ const NotificationContainer = () => {
   );
 };
 
-export const notify = (detail: Omit<Notification, "uuid" | "date">) =>
+export const notify = (detail: Omit<Notification, "uid">) =>
   document.body.dispatchEvent(
     new CustomEvent(NOTIFICATION_EVENT, {
-      detail: { ...detail, uuid: v4(), date: new Date().valueOf() },
+      detail: { ...detail, uid: window.roamAlphaAPI.util.generateUID() },
     })
   );
 
-export const render = createOverlayRender(
+export const render = createOverlayRender<Props>(
   "multiplayer-notifications",
   NotificationContainer
 );

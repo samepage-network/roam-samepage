@@ -87,7 +87,7 @@ runExtension(ID, async () => {
     },
   });
 
-  render({});
+  render({ configUid: pageUid });
 
   const multiplayerApi = setupMultiplayer(pageUid);
   const { enable, ...api } = multiplayerApi;

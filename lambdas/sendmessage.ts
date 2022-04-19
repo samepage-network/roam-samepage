@@ -17,6 +17,7 @@ import Base64 from "crypto-js/enc-base64";
 import randomstring from "randomstring";
 import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import emailCatch from "roamjs-components/backend/emailCatch";
+import listNetworks from "./common/listNetworks";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
@@ -140,7 +141,7 @@ const dataHandler = async (
   );
   if (operation === "AUTHENTICATION") {
     const { token, graph } = props as { token: string; graph: string };
-    return getRoamJSUser({token})
+    return getRoamJSUser({ token })
       .then(async (user) => {
         return dynamo
           .updateItem({
@@ -179,12 +180,7 @@ const dataHandler = async (
       })
       .then((messages) =>
         // TODO - get memberships by some other method
-        queryById(graph)
-          .then((items) =>
-            items
-              .map((item) => item.entity.S)
-              .filter((id) => !id.includes("$network"))
-          )
+        listNetworks(graph)
           .then((networks) => {
             return Promise.all(
               networks.map((network) =>
@@ -260,16 +256,12 @@ const dataHandler = async (
           event,
           Message: "Cannot query networks until you've been authenticated",
         });
-      return queryById(graph).then((items) =>
+      return listNetworks(graph).then((networks) =>
         postToConnection({
           ConnectionId: event.requestContext.connectionId,
           Data: {
             operation: "LIST_NETWORKS",
-            networks: items
-              .map((i) => ({
-                id: fromEntity(i.entity.S || ""),
-              }))
-              .filter(({ id }) => !id.includes("$network")),
+            networks,
           },
         })
       );

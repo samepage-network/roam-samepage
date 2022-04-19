@@ -8,17 +8,18 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import {
-  sendToBackend,
   messageHandlers,
   roamJsBackend,
   ONLINE_GRAPHS_ID,
 } from "./setupMultiplayer";
 import renderToast from "roamjs-components/components/Toast";
 import StatusIndicator from "./StatusIndicator";
+import apiPost from "roamjs-components/util/apiPost";
+import getGraph from "roamjs-components/util/getGraph";
 
 const Network = (r: {
   id: string;
-  setupOnError: () => void;
+  setError: (s: string) => void;
   onDelete: (id: string) => void;
 }) => {
   const [loading, setLoading] = useState(false);
@@ -55,21 +56,14 @@ const Network = (r: {
                 minimal
                 onClick={() => {
                   setLoading(true);
-                  r.setupOnError();
-                  const response = `LEAVE_NETWORK_SUCCESS/${r.id}`;
-                  messageHandlers[response] = () => {
-                    delete messageHandlers[response];
-                    r.onDelete(r.id);
-                    setLoading(false);
-                    renderToast({
-                      content: `Successfully left network ${r.id}`,
-                      id: "network-success",
-                    });
-                  };
-                  sendToBackend({
-                    operation: "LEAVE_NETWORK",
-                    data: { name: r.id },
-                  });
+                  apiPost(`multiplayer`, {
+                    method: "leave-network",
+                    graph: getGraph(),
+                    name: r.id,
+                  })
+                    .then(() => r.onDelete(r.id))
+                    .catch((e) => r.setError(e.message))
+                    .finally(() => setLoading(false));
                 }}
               />
             </Tooltip>
@@ -87,15 +81,6 @@ const Networks = () => {
   const [password, setPassword] = useState("");
   const errorTimeout = useRef(0);
   const [error, setError] = useState("");
-  const setupOnError = useCallback(() => {
-    setError("");
-    const oldOnError = messageHandlers["ERROR"];
-    messageHandlers["ERROR"] = (d, g) => {
-      oldOnError(d, g);
-      setLoading(false);
-      messageHandlers["ERROR"] = oldOnError;
-    };
-  }, [setLoading, setError]);
   const onDelete = useCallback(
     (i: string) => {
       setNetworks(networks.filter((n) => n.id !== i));
@@ -105,36 +90,19 @@ const Networks = () => {
   const [status, setStatus] = useState(roamJsBackend.status);
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    setupOnError();
-    messageHandlers["LIST_NETWORKS"] = (data: {
-      networks: typeof networks;
-    }) => {
-      clearTimeout(errorTimeout.current);
-      setError("");
-      setLoading(false);
-      setNetworks(data.networks);
-      delete messageHandlers["LIST_NETWORKS"];
-    };
-    sendToBackend({ operation: "LIST_NETWORKS" });
-    errorTimeout.current = window.setTimeout(() => {
-      setError(
-        "Timed out waiting to list networks. Navigate away from this page and return to refresh"
-      );
-      setLoading(false);
-    }, 10000);
     containerRef.current.addEventListener("roamjs:multiplayer:graphs", () => {
       setStatus(roamJsBackend.status);
     });
+
+    apiPost(`multiplayer`, {
+      method: "list-networks",
+      graph: getGraph(),
+    })
+      .then((r) => setNetworks(r.data.networks))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
     return () => clearTimeout(errorTimeout.current);
-  }, [
-    setLoading,
-    setNetworks,
-    setupOnError,
-    errorTimeout,
-    setError,
-    containerRef,
-    setStatus,
-  ]);
+  }, [setLoading, setNetworks, setError, setStatus]);
   return (
     <>
       <div style={{ height: 120, position: "relative" }}>
@@ -146,7 +114,7 @@ const Networks = () => {
               <Network
                 key={r.id}
                 {...r}
-                setupOnError={setupOnError}
+                setError={setError}
                 onDelete={onDelete}
               />
             ))}
@@ -198,43 +166,48 @@ const Networks = () => {
             style={{ margin: "0 16px" }}
             onClick={() => {
               setLoading(true);
-              setupOnError();
-              const response = `CREATE_NETWORK_SUCCESS/${newNetwork}`;
-              messageHandlers[response] = () => {
-                delete messageHandlers[response];
-                setNetworks([...networks, { id: newNetwork }]);
-                setLoading(false);
-                setNewNetwork("");
-                setPassword("");
-                renderToast({
-                  content: `Successfully created network ${newNetwork}!`,
-                  id: "network-success",
-                  intent: Intent.SUCCESS,
-                });
-              };
-              sendToBackend({
-                operation: "CREATE_NETWORK",
-                data: { name: newNetwork, password },
-              });
+              apiPost(`multiplayer`, {
+                method: "create-network",
+                graph: getGraph(),
+                name: newNetwork,
+                password,
+              })
+                .then(() => {
+                  setNetworks([...networks, { id: newNetwork }]);
+                  setNewNetwork("");
+                  setPassword("");
+                  renderToast({
+                    content: `Successfully created network ${newNetwork}!`,
+                    id: "network-success",
+                    intent: Intent.SUCCESS,
+                  });
+                })
+                .catch((e) => e.setError(e.message))
+                .finally(() => setLoading(false));
             }}
           />
           <Button
             text={"JOIN"}
             onClick={() => {
               setLoading(true);
-              setupOnError();
-              const response = `JOIN_NETWORK_SUCCESS/${newNetwork}`;
-              messageHandlers[response] = () => {
-                delete messageHandlers[response];
-                setNetworks([...networks, { id: newNetwork }]);
-                setLoading(false);
-                setNewNetwork("");
-                setPassword("");
-              };
-              sendToBackend({
-                operation: "JOIN_NETWORK",
-                data: { name: newNetwork, password },
-              });
+              apiPost(`multiplayer`, {
+                method: "join-network",
+                graph: getGraph(),
+                name: newNetwork,
+                password,
+              })
+                .then(() => {
+                  setNetworks([...networks, { id: newNetwork }]);
+                  setNewNetwork("");
+                  setPassword("");
+                  renderToast({
+                    content: `Successfully joined network ${newNetwork}!`,
+                    id: "network-success",
+                    intent: Intent.SUCCESS,
+                  });
+                })
+                .catch((e) => e.setError(e.message))
+                .finally(() => setLoading(false));
             }}
             disabled={!newNetwork || !password || loading}
             intent={Intent.SUCCESS}

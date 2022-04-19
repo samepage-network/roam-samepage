@@ -12,13 +12,12 @@ import type { InputTextNode } from "roamjs-components/types";
 import { notify } from "../components/NotificationContainer";
 import { MessageLoaderProps } from "../components/setupMultiplayer";
 import { render } from "../components/SharePageAlert";
-import { v4 } from "uuid";
 
 const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Share Page With Graph",
     callback: () => {
-      if (false) render({ pageUid: getCurrentPageUid() });
+      if (true) render({ pageUid: getCurrentPageUid() });
       else
         renderToast({
           content: "Feature is still in development. Coming Soon!",
@@ -29,10 +28,9 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   addGraphListener({
     operation: "SHARE_PAGE",
     handler: (e, graph) => {
-      const { uid, title, tree, isPage } = e as {
+      const { uid, title, isPage } = e as {
         uid: string;
         title: string;
-        tree: InputTextNode[];
         isPage: boolean;
       };
       notify({
@@ -41,79 +39,18 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
         actions: [
           {
             label: "Accept",
-            callback: async () => {
-              const localTitle = isPage
-                ? getPageTitleByPageUid(uid)
-                : getTextByBlockUid(uid);
-              return (
-                localTitle
-                  ? Promise.all(
-                      tree.map((node, order) =>
-                        createBlock({ node, parentUid: uid, order })
-                      )
-                    ).then(() =>
-                      sendToGraph({
-                        graph,
-                        operation: `SHARE_PAGE_RESPONSE`,
-                        data: {
-                          success: true,
-                          tree: getFullTreeByParentUid(uid),
-                          existing: true,
-                          title: localTitle,
-                          uid,
-                          isPage,
-                        },
-                      })
-                    )
-                  : (isPage
-                      ? createPage({ uid, title })
-                      : Promise.resolve(toRoamDateUid()).then((parentUid) =>
-                          createBlock({
-                            node: { text: title },
-                            parentUid,
-                            order: getChildrenLengthByPageUid(parentUid),
-                          })
-                        )
-                    )
-                      .then(() =>
-                        Promise.all(
-                          tree.map((node, order) =>
-                            createBlock({ node, parentUid: uid, order })
-                          )
-                        )
-                      )
-                      .then(() =>
-                        sendToGraph({
-                          graph,
-                          operation: `SHARE_PAGE_RESPONSE`,
-                          data: {
-                            success: true,
-                            existing: false,
-                            uid,
-                            isPage,
-                          },
-                        })
-                      )
-              ).then(() =>
-                renderToast({
-                  id: "share-page-success",
-                  content: `Successfully shared page ${uid}`,
-                  intent: Intent.SUCCESS,
-                })
-              );
+            method: "accept share page response",
+            args: {
+              isPage: `${isPage}`,
+              uid,
+              graph,
+              title,
             },
           },
           {
             label: "Reject",
-            callback: async () => {
-              sendToGraph({
-                graph,
-                operation: `SHARE_PAGE_RESPONSE`,
-                data: {
-                  success: false,
-                },
-              });
-            },
+            method: "reject share page response",
+            args: { graph },
           },
         ],
       });
