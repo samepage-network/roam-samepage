@@ -47,26 +47,6 @@ provider "github" {
     token = var.github_token
 }
 
-module "roamjs_lambda" {
-  source = "dvargas92495/lambda/roamjs"
-  providers = {
-    aws = aws
-    github = github
-  }
-
-  name = "multiplayer"
-  lambdas = [
-    { 
-      path = "multiplayer", 
-      method = "post"
-    },
-  ]
-  aws_access_token = var.aws_access_token
-  aws_secret_token = var.aws_secret_token
-  github_token     = var.github_token
-  developer_token  = var.developer_token
-}
-
 resource "aws_dynamodb_table" "store" {
   name           = "RoamJSMultiplayer"
   billing_mode   = "PAY_PER_REQUEST"
@@ -226,6 +206,27 @@ resource "aws_iam_role" "lambda_role" {
   tags = {
     Application = "Roam JS Extensions"
   }
+}
+
+module "roamjs_lambda" {
+  source = "dvargas92495/lambda/roamjs"
+  providers = {
+    aws = aws
+    github = github
+  }
+
+  name = "multiplayer"
+  lambdas = [
+    { 
+      path = "multiplayer", 
+      method = "post"
+    },
+  ]
+  aws_access_token = var.aws_access_token
+  aws_secret_token = var.aws_secret_token
+  github_token     = var.github_token
+  developer_token  = var.developer_token
+  role_arn         = aws_iam_role.lambda_role.arn
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_role" {

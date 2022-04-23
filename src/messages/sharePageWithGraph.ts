@@ -1,10 +1,3 @@
-import createBlock from "roamjs-components/writes/createBlock";
-import createPage from "roamjs-components/writes/createPage";
-import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
-import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
-import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
 import { Intent } from "@blueprintjs/core";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
@@ -17,7 +10,7 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Share Page With Graph",
     callback: () => {
-      if (true) render({ pageUid: getCurrentPageUid() });
+      if (false) render({ pageUid: getCurrentPageUid() });
       else
         renderToast({
           content: "Feature is still in development. Coming Soon!",

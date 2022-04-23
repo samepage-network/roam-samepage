@@ -268,7 +268,10 @@ export const sendToBackend = ({
 
 type AlertProps = { onClose: () => void };
 const onError = (e: { error: Error } & Event) => {
-  if (!e.error.message.includes("Transport channel closed")) {
+  if (
+    !e.error.message.includes("Transport channel closed") &&
+    !e.error.message.includes("User-Initiated Abort, reason=Close called")
+  ) {
     // handled in disconnect
     console.error(e);
     renderToast({

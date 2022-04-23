@@ -158,10 +158,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               queryByEntity(name).then((items) =>
                 Promise.all(
                   items.map((item) => getClientsByGraph(item.graph.S))
-                ).then((c) => c.flat())
+                ).then((c) => ({ items, clients: c.flat() }))
               )
             )
-            .then((clients) =>
+            .then(({ clients, items }) =>
               clients.length
                 ? Promise.all(
                     clients
@@ -176,7 +176,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                         })
                       )
                   ).then(() => Promise.resolve())
-                : dynamo
+                : !items.length
+                ? dynamo
                     .deleteItem({
                       TableName: "RoamJSMultiplayer",
                       Key: {
@@ -186,6 +187,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                     })
                     .promise()
                     .then(() => Promise.resolve())
+                : Promise.resolve()
             )
             .then(() => ({
               statusCode: 200,
@@ -372,23 +374,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               },
             })
             .promise()
-            .then(() =>
-              queryByEntity(name).then((items) =>
-                Promise.all(
-                  items.map((item) => getClientsByGraph(item.graph.S))
-                )
-              )
-            )
-            .then((clients) =>
-              Promise.all(
+            .then(() => {
+              return queryByEntity(name).then((items) => {
+                return Promise.all(
+                  items.map((item) =>
+                    getClientsByGraph(item.graph.S).catch((e) => {
+                      console.log("error thrown querying item", item);
+                      console.log(e);
+                      return [];
+                    })
+                  )
+                );
+              });
+            })
+            .then((clients) => {
+              return Promise.all(
                 clients
                   .flat()
                   .filter(
                     (id) => id && id !== event.requestContext.connectionId
                   )
-                  .map((id) =>
+                  .map((ConnectionId) =>
                     postToConnection({
-                      ConnectionId: id,
+                      ConnectionId,
                       Data: {
                         operation: `INITIALIZE_P2P`,
                         to: event.requestContext.connectionId,
@@ -396,12 +404,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                       },
                     })
                   )
-              ).then(() => ({
-                statusCode: 200,
-                body: JSON.stringify({ success: true }),
-                headers,
-              }))
-            );
+              ).then(() => {
+                return {
+                  statusCode: 200,
+                  body: JSON.stringify({ success: true }),
+                  headers,
+                };
+              });
+            });
         })
         .catch(emailCatch("Failed to join Multiplayer network"));
     }
@@ -413,3 +423,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
   }
 };
+
+if (process.env.NODE_ENV === "development") {
+  import("../scripts/ws").then(() => console.log("ws running..."));
+}

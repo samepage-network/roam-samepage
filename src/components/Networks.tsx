@@ -61,7 +61,14 @@ const Network = (r: {
                     graph: getGraph(),
                     name: r.id,
                   })
-                    .then(() => r.onDelete(r.id))
+                    .then(() => {
+                      r.onDelete(r.id);
+                      renderToast({
+                        id: "network-success",
+                        content: `Successfully left network ${r.id}`,
+                        intent: Intent.SUCCESS,
+                      });
+                    })
                     .catch((e) => r.setError(e.message))
                     .finally(() => setLoading(false));
                 }}
@@ -98,7 +105,7 @@ const Networks = () => {
       method: "list-networks",
       graph: getGraph(),
     })
-      .then((r) => setNetworks(r.data.networks))
+      .then((r) => setNetworks(r.data.networks.map((id: string) => ({ id }))))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
     return () => clearTimeout(errorTimeout.current);
@@ -206,7 +213,7 @@ const Networks = () => {
                     intent: Intent.SUCCESS,
                   });
                 })
-                .catch((e) => e.setError(e.message))
+                .catch((e) => setError(e.message))
                 .finally(() => setLoading(false));
             }}
             disabled={!newNetwork || !password || loading}

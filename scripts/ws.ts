@@ -11,7 +11,7 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 const port = Number(process.argv[2]) || 3010;
-process.env.NODE_ENV = process.env.NODE_ENV || "development";
+process.env['NODE_ENV'] = process.env.NODE_ENV || "development";
 
 const wss = new WebSocketServer({ port }, () => {
   console.log("server started on port:", port);

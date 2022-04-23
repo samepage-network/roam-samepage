@@ -43,7 +43,7 @@ const UsageChart = () => {
               $0.002
             </span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
-              {stats.minutes}
+              {stats.minutes.toFixed(2)}
             </span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
               ${(stats.minutes * 0.002).toFixed(2)}
@@ -61,7 +61,7 @@ const UsageChart = () => {
           <span>
             <span style={{ minWidth: 80, display: "inline-block" }}>$0.01</span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
-              {stats.messages}
+              {stats.messages.toFixed(2)}
             </span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
               ${(stats.messages * 0.01).toFixed(2)}
