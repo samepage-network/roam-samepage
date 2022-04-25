@@ -264,21 +264,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               .promise(),
           ])
             .then(() =>
-              dynamo
-                .getItem({
-                  TableName: "RoamJSMultiplayer",
-                  Key: {
-                    id: { S: event.requestContext.connectionId },
-                    entity: { S: toEntity("$client") },
-                  },
-                })
-                .promise()
-                .then(() => meterRoamJSUser(user.id, 100))
-                .catch(
-                  emailCatch(
-                    `Failed to meter Multiplayer user for network ${name}`
-                  )
+              meterRoamJSUser(user.id, 100).catch(
+                emailCatch(
+                  `Failed to meter Multiplayer user for network ${name}`
                 )
+              )
             )
             .then(() => ({
               statusCode: 200,
