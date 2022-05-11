@@ -4,63 +4,83 @@ import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import createPage from "roamjs-components/writes/createPage";
 import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
-import createBlock from "roamjs-components/writes/createBlock";
+import createBlock, {
+  gatherActions,
+} from "roamjs-components/writes/createBlock";
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import { Intent } from "@blueprintjs/core";
+import apiPost from "roamjs-components/util/apiPost";
+import { sharedPages } from "../messages/sharePageWithGraph";
+import type { Action } from "../../lambdas/multiplayer_post";
+import { TreeNode } from "roamjs-components/types";
 
 const acceptSharePageResponse = async ({
   isPage,
   uid,
   graph,
   title,
+  id,
 }: Record<string, string>) => {
   const localTitle = isPage
     ? getPageTitleByPageUid(uid)
     : getTextByBlockUid(uid);
   return (
     localTitle
-      ? Promise.resolve(
+      ? Promise.resolve(getFullTreeByParentUid(uid).children)
+      : isPage === "true"
+      ? createPage({ uid, title }).then(() => [] as TreeNode[])
+      : Promise.resolve(toRoamDateUid())
+          .then((parentUid) =>
+            createBlock({
+              node: { text: title },
+              parentUid,
+              order: getChildrenLengthByPageUid(parentUid),
+            })
+          )
+          .then(() => [] as TreeNode[])
+  )
+    .then((nodes) => {
+      sharedPages[uid] = { localIndex: 0, };
+      return apiPost("multiplayer", { method: "join-shared-page", id })
+        .then((r) =>
+          (r.data as { log: Action[] }).log
+            .map((a) => () => window.roamAlphaAPI[a.action](a.params))
+            .reduce((p, c) => p.then(c), Promise.resolve())
+        )
+        .then(() =>
+          apiPost("multiplayer", {
+            method: "update-shared-page",
+            graph,
+            uid,
+            log: nodes
+              .flatMap((node, order) =>
+                gatherActions({ node, order, parentUid: uid })
+              )
+              .map((params) => ({ params, action: "createBlock" })),
+          })
+        )
+        .then((r) => {
+          sharedPages[uid] = {
+            localIndex: r.data.newIndex,
+          };
           window.roamjs.extension.multiplayer.sendToGraph({
             graph,
             operation: `SHARE_PAGE_RESPONSE`,
             data: {
               success: true,
-              tree: getFullTreeByParentUid(uid),
-              existing: true,
-              title: localTitle,
               uid,
-              isPage,
+              id,
             },
-          })
-        )
-      : (isPage === "true"
-          ? createPage({ uid, title })
-          : Promise.resolve(toRoamDateUid()).then((parentUid) =>
-              createBlock({
-                node: { text: title },
-                parentUid,
-                order: getChildrenLengthByPageUid(parentUid),
-              })
-            )
-        ).then(() =>
-          window.roamjs.extension.multiplayer.sendToGraph({
-            graph,
-            operation: `SHARE_PAGE_RESPONSE`,
-            data: {
-              success: true,
-              existing: false,
-              uid,
-              isPage,
-            },
-          })
-        )
-  ).then(() =>
-    renderToast({
-      id: "share-page-success",
-      content: `Successfully shared page ${uid}`,
-      intent: Intent.SUCCESS,
+          });
+        });
     })
-  );
+    .then(() =>
+      renderToast({
+        id: "share-page-success",
+        content: `Successfully shared page ${uid}`,
+        intent: Intent.SUCCESS,
+      })
+    );
 };
 
 export default acceptSharePageResponse;

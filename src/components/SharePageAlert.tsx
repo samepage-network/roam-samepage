@@ -1,35 +1,59 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback } from "react";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import GraphMessageAlert from "./GraphMessageAlert";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+import apiPost from "roamjs-components/util/apiPost";
+import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
+import { gatherActions } from "roamjs-components/writes/createBlock";
+import { SharedPages } from "../types";
 
 type Props = {
   pageUid: string;
+  sharedPages: SharedPages;
 };
 
 const SharePageAlert = ({
   onClose,
   pageUid,
+  sharedPages,
 }: { onClose: () => void } & Props) => {
-  const tree = useMemo(
-    () => getFullTreeByParentUid(pageUid).children,
-    [pageUid]
-  );
   const onSubmit = useCallback(
     (graph: string) => {
-      const title = getPageTitleByPageUid(pageUid);
-      window.roamjs.extension.multiplayer.sendToGraph({
+      apiPost("multiplayer", {
+        method: "init-shared-page",
         graph,
-        operation: "SHARE_PAGE",
-        data: {
-          uid: pageUid,
-          title: title || getTextByBlockUid(pageUid),
-          isPage: !!title,
-          tree,
-        },
-      });
+        uid: pageUid,
+      })
+        .then((r) => {
+          sharedPages[pageUid] = {
+            localIndex: 0,
+          };
+          const title = getPageTitleByPageUid(pageUid);
+          window.roamjs.extension.multiplayer.sendToGraph({
+            graph,
+            operation: "SHARE_PAGE",
+            data: {
+              id: r.data.id,
+              uid: pageUid,
+              title: title || getTextByBlockUid(pageUid),
+              isPage: !!title,
+            },
+          });
+          const tree = getFullTreeByParentUid(pageUid);
+          const log = tree.children
+            .flatMap((node, order) =>
+              gatherActions({ node, order, parentUid: pageUid })
+            )
+            .map((params) => ({ params, action: "createBlock" }));
+          sharedPages[pageUid].localIndex = log.length;
+          return apiPost("multiplayer", {
+            method: "update-shared-page",
+            graph,
+            uid: pageUid,
+            log,
+          });
+        });
     },
     [pageUid]
   );

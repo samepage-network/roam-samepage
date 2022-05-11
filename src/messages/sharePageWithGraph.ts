@@ -2,15 +2,20 @@ import { Intent } from "@blueprintjs/core";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
 import type { InputTextNode } from "roamjs-components/types";
+import apiPost from "roamjs-components/util/apiPost";
+import type { Action } from "../../lambdas/multiplayer_post";
 import { notify } from "../components/NotificationContainer";
 import { MessageLoaderProps } from "../components/setupMultiplayer";
 import { render } from "../components/SharePageAlert";
+import { SharedPages } from "../types";
+
+export const sharedPages: SharedPages = {};
 
 const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Share Page With Graph",
     callback: () => {
-      if (false) render({ pageUid: getCurrentPageUid() });
+      if (false) render({ pageUid: getCurrentPageUid(), sharedPages });
       else
         renderToast({
           content: "Feature is still in development. Coming Soon!",
@@ -58,17 +63,21 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
       const { success, uid } = data as {
         success: boolean;
         uid: string;
-        tree: InputTextNode[];
-        existing: boolean;
-        title: string;
-        isPage: boolean;
       };
       if (success)
-        renderToast({
-          id: "share-page-success",
-          content: `Successfully shared ${uid} with ${graph}!`,
-          intent: Intent.SUCCESS,
-        });
+        apiPost("multiplayer", { method: "get-shared-page" })
+          .then((r) =>
+            (r.data as { log: Action[] }).log
+              .map((a) => () => window.roamAlphaAPI[a.action](a.params))
+              .reduce((p, c) => p.then(c), Promise.resolve())
+          )
+          .then(() =>
+            renderToast({
+              id: "share-page-success",
+              content: `Successfully shared ${uid} with ${graph}!`,
+              intent: Intent.SUCCESS,
+            })
+          );
       else
         renderToast({
           id: "share-page-failure",

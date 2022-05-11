@@ -8,7 +8,7 @@ import acceptSharePageResponse from "../actions/acceptSharePageResponse";
 import getSubTree from "roamjs-components/util/getSubTree";
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
-import getSettingValueFromTree from 'roamjs-components/util/getSettingValueFromTree';
+import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
 
 const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
 
@@ -145,7 +145,7 @@ const NotificationContainer = ({ configUid }: Props) => {
         }}
       />
       {isOpen ? (
-        <div>
+        <div style={{ background: "white", width: 280 }}>
           <div
             style={{
               display: "flex",
@@ -157,11 +157,11 @@ const NotificationContainer = ({ configUid }: Props) => {
             }}
           >
             <h4>Notifications</h4>
-            <Button onClick={() => setIsOpen(false)} icon={"cross"} />
+            <Button onClick={() => setIsOpen(false)} icon={"cross"} minimal />
           </div>
           <div>
             {notifications.map((not) => (
-              <div key={not.uid}>
+              <div key={not.uid} style={{ padding: "0 16px" }}>
                 <h5>{not.title}</h5>
                 <p>{not.description}</p>
                 <div style={{ gap: 8 }}>
@@ -174,6 +174,7 @@ const NotificationContainer = ({ configUid }: Props) => {
                           removeNotificaton(not)
                         )
                       }
+                      style={{ marginRight: "8px" }}
                     />
                   ))}
                 </div>
