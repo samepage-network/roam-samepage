@@ -1,17 +1,25 @@
 import { Intent } from "@blueprintjs/core";
+import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
-import type { InputTextNode } from "roamjs-components/types";
+import type { InputTextNode, ViewType } from "roamjs-components/types";
 import apiPost from "roamjs-components/util/apiPost";
 import type { Action } from "../../lambdas/multiplayer_post";
 import { notify } from "../components/NotificationContainer";
 import { MessageLoaderProps } from "../components/setupMultiplayer";
 import { render } from "../components/SharePageAlert";
 import { SharedPages } from "../types";
+import getUids from "roamjs-components/dom/getUids";
+import getGraph from "roamjs-components/util/getGraph";
 
-export const sharedPages: SharedPages = {};
+export const sharedPages: SharedPages = {
+  indices: {},
+  ids: new Set(),
+  idToUid: {},
+};
 
 const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
+  const graph = getGraph();
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Share Page With Graph",
     callback: () => {
@@ -83,6 +91,65 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
           id: "share-page-failure",
           content: `Graph ${graph} rejected ${uid}`,
         });
+    },
+  });
+  addGraphListener({
+    operation: "SHARE_PAGE_UPDATE",
+    handler: (data, graph) => {},
+  });
+
+  // replace with Roam global listener
+  const blockUidWatchCallback: Parameters<
+    typeof window.roamAlphaAPI.data.addPullWatch
+  >[2] = (_, after) => {
+    after[":block/parents"]
+      .filter((a) => sharedPages.ids.has(a[":db/id"]))
+      .map((parent) => {
+        const action: Action = {
+          action: "updateBlock",
+          params: {
+            block: {
+              string: after[":block/string"],
+              open: after[":block/open"],
+              heading: after[":block/heading"],
+              "children-view-type": after[":children/view-type"]
+                ? (after[":children/view-type"].slice(1) as ViewType)
+                : undefined,
+              "text-align": after[":block/text-align"],
+              uid: after[":block/uid"],
+            },
+          },
+        };
+        const parentUid = sharedPages.idToUid[parent[":db/id"]];
+        return apiPost("multiplayer", {
+          method: "update-shared-page",
+          graph,
+          uid: parentUid,
+          log: [action],
+        }).then((r) => {
+          sharedPages.indices[parentUid] = r.data.newIndex;
+        });
+      });
+  };
+
+  createHTMLObserver({
+    tag: "TEXTAREA",
+    className: "rm-block-input",
+    callback: (t: HTMLTextAreaElement) => {
+      const { blockUid } = getUids(t);
+      window.roamAlphaAPI.data.addPullWatch(
+        "[*]",
+        `[:block/uid "${blockUid}"]`,
+        blockUidWatchCallback
+      );
+    },
+    removeCallback: (t: HTMLTextAreaElement) => {
+      const { blockUid } = getUids(t);
+      window.roamAlphaAPI.data.removePullWatch(
+        "[*]",
+        `[:block/uid "${blockUid}"]`,
+        blockUidWatchCallback
+      );
     },
   });
 };

@@ -24,36 +24,44 @@ const SharePageAlert = ({
         method: "init-shared-page",
         graph,
         uid: pageUid,
-      })
-        .then((r) => {
-          sharedPages[pageUid] = {
-            localIndex: 0,
-          };
-          const title = getPageTitleByPageUid(pageUid);
-          window.roamjs.extension.multiplayer.sendToGraph({
-            graph,
-            operation: "SHARE_PAGE",
-            data: {
-              id: r.data.id,
-              uid: pageUid,
-              title: title || getTextByBlockUid(pageUid),
-              isPage: !!title,
-            },
-          });
-          const tree = getFullTreeByParentUid(pageUid);
-          const log = tree.children
-            .flatMap((node, order) =>
-              gatherActions({ node, order, parentUid: pageUid })
-            )
-            .map((params) => ({ params, action: "createBlock" }));
-          sharedPages[pageUid].localIndex = log.length;
-          return apiPost("multiplayer", {
-            method: "update-shared-page",
-            graph,
+      }).then((r) => {
+        sharedPages.indices[pageUid] = 0;
+        const dbId = window.roamAlphaAPI.data.fast.q(
+          `[:find ?b :where [?b :block/uid "${pageUid}"]]`
+        )?.[0]?.[0] as number;
+        if (dbId) {
+          sharedPages.ids.add(
+            window.roamAlphaAPI.data.fast.q(
+              `[:find ?b :where [?b :block/uid "${pageUid}"]]`
+            )?.[0]?.[0] as number
+          );
+          sharedPages.idToUid[dbId] = pageUid;
+        }
+        const title = getPageTitleByPageUid(pageUid);
+        window.roamjs.extension.multiplayer.sendToGraph({
+          graph,
+          operation: "SHARE_PAGE",
+          data: {
+            id: r.data.id,
             uid: pageUid,
-            log,
-          });
+            title: title || getTextByBlockUid(pageUid),
+            isPage: !!title,
+          },
         });
+        const tree = getFullTreeByParentUid(pageUid);
+        const log = tree.children
+          .flatMap((node, order) =>
+            gatherActions({ node, order, parentUid: pageUid })
+          )
+          .map((params) => ({ params, action: "createBlock" }));
+        sharedPages.indices[pageUid] = log.length;
+        return apiPost("multiplayer", {
+          method: "update-shared-page",
+          graph,
+          uid: pageUid,
+          log,
+        });
+      });
     },
     [pageUid]
   );

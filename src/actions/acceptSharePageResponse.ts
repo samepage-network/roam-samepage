@@ -40,7 +40,18 @@ const acceptSharePageResponse = async ({
           .then(() => [] as TreeNode[])
   )
     .then((nodes) => {
-      sharedPages[uid] = { localIndex: 0, };
+      sharedPages.indices[uid] = 0;
+      const dbId = window.roamAlphaAPI.data.fast.q(
+        `[:find ?b :where [?b :block/uid "${uid}"]]`
+      )?.[0]?.[0] as number;
+      if (dbId) {
+        sharedPages.ids.add(
+          window.roamAlphaAPI.data.fast.q(
+            `[:find ?b :where [?b :block/uid "${uid}"]]`
+          )?.[0]?.[0] as number
+        );
+        sharedPages.idToUid[dbId] = uid;
+      }
       return apiPost("multiplayer", { method: "join-shared-page", id })
         .then((r) =>
           (r.data as { log: Action[] }).log
@@ -60,9 +71,7 @@ const acceptSharePageResponse = async ({
           })
         )
         .then((r) => {
-          sharedPages[uid] = {
-            localIndex: r.data.newIndex,
-          };
+          sharedPages.indices[uid] = r.data.newIndex;
           window.roamjs.extension.multiplayer.sendToGraph({
             graph,
             operation: `SHARE_PAGE_RESPONSE`,
