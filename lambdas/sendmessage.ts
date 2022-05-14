@@ -1,17 +1,16 @@
 import type { WSEvent, WSHandler } from "./common/types";
 import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
-import postToConnection, { removeLocalSocket } from "./common/postToConnection";
+import postToConnection from "./common/postToConnection";
 import queryByEntity from "./common/queryByEntity";
 import getGraphByClient from "./common/getGraphByClient";
 import postError from "./common/postError";
-import queryById from "./common/queryById";
 import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
 import removeConnection from "./common/removeConnection";
 import getClientsByGraph from "./common/getClientsByGraph";
 import fromEntity from "./common/fromEntity";
 import type { InputTextNode } from "roamjs-components/types";
-import { endClient, saveSession } from "./ondisconnect";
+import messageGraph from "./common/messageGraph";
 import sha from "crypto-js/hmac-sha512";
 import Base64 from "crypto-js/enc-base64";
 import randomstring from "randomstring";
@@ -21,111 +20,6 @@ import listNetworks from "./common/listNetworks";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
-
-const messageGraph = ({
-  event,
-  graph,
-  sourceGraph,
-  data,
-  messageUuid,
-}: {
-  graph: string;
-  sourceGraph: string;
-  data: Record<string, unknown>;
-  messageUuid: string;
-  event: WSEvent;
-}) =>
-  getClientsByGraph(graph)
-    .then((ConnectionIds) => {
-      const Data = {
-        ...data,
-        graph: sourceGraph,
-      };
-      return (
-        ConnectionIds.length
-          ? Promise.all(
-              ConnectionIds.map((ConnectionId) =>
-                postToConnection({
-                  ConnectionId,
-                  Data,
-                })
-                  .then(() => true)
-                  .catch((e) => {
-                    if (process.env.NODE_ENV === "production") {
-                      return endClient(
-                        ConnectionId,
-                        `Missed Message (${e.message})`
-                      )
-                        .then(() => false)
-                        .catch(() => false);
-                    } else {
-                      removeLocalSocket(ConnectionId);
-                      return false;
-                    }
-                  })
-              )
-            ).then((all) => all.every((i) => i))
-          : Promise.resolve(false)
-      ).then(
-        (online) =>
-          !online &&
-          dynamo
-            .putItem({
-              TableName: "RoamJSMultiplayer",
-              Item: {
-                id: { S: messageUuid },
-                entity: { S: toEntity(`${graph}-$message`) },
-                date: {
-                  S: new Date().toJSON(),
-                },
-                graph: { S: sourceGraph },
-              },
-            })
-            .promise()
-            .then(() =>
-              s3
-                .upload({
-                  Bucket: "roamjs-data",
-                  Body: JSON.stringify(Data),
-                  Key: `multiplayer/messages/${messageUuid}.json`,
-                  ContentType: "application/json",
-                })
-                .promise()
-            )
-            .then(() => Promise.resolve())
-      );
-    })
-    .then(() =>
-      dynamo
-        .getItem({
-          TableName: "RoamJSMultiplayer",
-          Key: {
-            id: { S: event.requestContext.connectionId },
-            entity: { S: toEntity("$client") },
-          },
-        })
-        .promise()
-        .then((r) =>
-          r.Item
-            ? r.Item.user
-              ? meterRoamJSUser(r.Item?.user?.S)
-              : Promise.reject(
-                  new Error(
-                    `How did non-authenticated client try to send message from ${sourceGraph} to ${graph}?`
-                  )
-                )
-            : Promise.reject(
-                new Error(
-                  `How did a non-existant client ${event.requestContext.connectionId} send message from ${sourceGraph} to ${graph}?`
-                )
-              )
-        )
-        .catch(
-          emailCatch(
-            `Failed to meter Multiplayer user for message ${messageUuid}`
-          )
-        )
-    );
 
 const dataHandler = async (
   event: WSEvent,

@@ -10,7 +10,7 @@ import createBlock, {
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import { Intent } from "@blueprintjs/core";
 import apiPost from "roamjs-components/util/apiPost";
-import { sharedPages } from "../messages/sharePageWithGraph";
+import { addSharedPage, sharedPages } from "../messages/sharePageWithGraph";
 import type { Action } from "../../lambdas/multiplayer_post";
 import { TreeNode } from "roamjs-components/types";
 
@@ -40,18 +40,7 @@ const acceptSharePageResponse = async ({
           .then(() => [] as TreeNode[])
   )
     .then((nodes) => {
-      sharedPages.indices[uid] = 0;
-      const dbId = window.roamAlphaAPI.data.fast.q(
-        `[:find ?b :where [?b :block/uid "${uid}"]]`
-      )?.[0]?.[0] as number;
-      if (dbId) {
-        sharedPages.ids.add(
-          window.roamAlphaAPI.data.fast.q(
-            `[:find ?b :where [?b :block/uid "${uid}"]]`
-          )?.[0]?.[0] as number
-        );
-        sharedPages.idToUid[dbId] = uid;
-      }
+      addSharedPage(uid);
       return apiPost("multiplayer", { method: "join-shared-page", id })
         .then((r) =>
           (r.data as { log: Action[] }).log

@@ -7,6 +7,7 @@ import apiPost from "roamjs-components/util/apiPost";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { gatherActions } from "roamjs-components/writes/createBlock";
 import { SharedPages } from "../types";
+import { addSharedPage } from "../messages/sharePageWithGraph";
 
 type Props = {
   pageUid: string;
@@ -25,18 +26,7 @@ const SharePageAlert = ({
         graph,
         uid: pageUid,
       }).then((r) => {
-        sharedPages.indices[pageUid] = 0;
-        const dbId = window.roamAlphaAPI.data.fast.q(
-          `[:find ?b :where [?b :block/uid "${pageUid}"]]`
-        )?.[0]?.[0] as number;
-        if (dbId) {
-          sharedPages.ids.add(
-            window.roamAlphaAPI.data.fast.q(
-              `[:find ?b :where [?b :block/uid "${pageUid}"]]`
-            )?.[0]?.[0] as number
-          );
-          sharedPages.idToUid[dbId] = pageUid;
-        }
+        addSharedPage(pageUid);
         const title = getPageTitleByPageUid(pageUid);
         window.roamjs.extension.multiplayer.sendToGraph({
           graph,

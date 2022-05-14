@@ -14,8 +14,10 @@ import randomstring from "randomstring";
 import sha from "crypto-js/hmac-sha512";
 import Base64 from "crypto-js/enc-base64";
 import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
-import type { ActionParams, InputTextNode } from "roamjs-components/types";
+import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
+import { messageGraphBase } from "./common/messageGraph";
+import fromEntity from "./common/fromEntity";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
@@ -129,7 +131,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         })
         .catch(emailCatch("Failed to retrieve Multiplayer usage"));
     case "list-networks":
-      return listNetworks(graph)
+      return getRoamJSUser({ token })
+        .then(() => listNetworks(graph))
         .then((networks) => ({
           statusCode: 200,
           body: JSON.stringify({ networks }),
@@ -418,20 +421,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         uid: string;
       };
       const id = v4();
-      return dynamo
-        .putItem({
-          TableName: "RoamJSMultiplayer",
-          Item: {
-            id: { S: id },
-            entity: { S: toEntity(`$shared`) },
-            date: {
-              S: new Date().toJSON(),
-            },
-            graph: { S: graph },
-            index: { N: "0" },
-          },
-        })
-        .promise()
+      return getRoamJSUser({ token })
+        .then(() =>
+          dynamo
+            .putItem({
+              TableName: "RoamJSMultiplayer",
+              Item: {
+                id: { S: id },
+                entity: { S: toEntity(`$shared`) },
+                date: {
+                  S: new Date().toJSON(),
+                },
+                graph: { S: graph },
+                index: { N: "0" },
+              },
+            })
+            .promise()
+        )
         .then(() =>
           dynamo
             .putItem({
@@ -464,12 +470,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         id: string;
         uid: string;
       };
-      return s3
-        .getObject({
-          Bucket: "roamjs-data",
-          Key: `multiplayer/shared/${id}.json`,
-        })
-        .promise()
+      return getRoamJSUser({ token })
+        .then(() =>
+          s3
+            .getObject({
+              Bucket: "roamjs-data",
+              Key: `multiplayer/shared/${id}.json`,
+            })
+            .promise()
+        )
         .then((r) =>
           dynamo
             .putItem({
@@ -493,96 +502,131 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         log: Action[];
         uid: string;
       };
-      return dynamo
-        .query({
-          TableName: "RoamJSMultiplayer",
-          IndexName: "graph-entity-index",
-          ExpressionAttributeNames: {
-            "#s": "entity",
-            "#d": "graph",
-          },
-          ExpressionAttributeValues: {
-            ":s": { S: toEntity(`$shared:${graph}:${uid}`) },
-            ":d": { S: graph },
-          },
-          KeyConditionExpression: "#s = :s and #d = :d",
-        })
-        .promise()
-        .then((r) => {
-          if (!r.Items?.length) {
-            return {
-              statusCode: 400,
-              body: `No shared page available with uid ${uid}`,
-              headers,
-            };
-          }
-          const item = r.Items[0];
-          const id = item.id.S;
-
-          return s3
-            .getObject({
-              Bucket: "roamjs-data",
-              Key: `multiplayer/shared/${id}.json`,
+      return getRoamJSUser({ token })
+        .then((user) =>
+          dynamo
+            .query({
+              TableName: "RoamJSMultiplayer",
+              IndexName: "graph-entity-index",
+              ExpressionAttributeNames: {
+                "#s": "entity",
+                "#d": "graph",
+              },
+              ExpressionAttributeValues: {
+                ":s": { S: toEntity(`$shared:${graph}:${uid}`) },
+                ":d": { S: graph },
+              },
+              KeyConditionExpression: "#s = :s and #d = :d",
             })
             .promise()
-            .then((r) => JSON.parse(r.Body.toString()))
-            .then((data) => {
-              const updatedLog = data.log.concat(log);
-              const state = data.state;
-              log.forEach(({ action, params }) => {
-                if (action === "createBlock") {
-                  const { uid, ...block } = params.block;
-                  state[params.location["parent-uid"]] = {
-                    ...state[params.location["parent-uid"]],
-                    children: (
-                      state[params.location["parent-uid"]]?.children || []
-                    )?.splice(params.location.order, 0, uid),
-                  };
-                  state[uid] = block;
-                } else if (action === "updateBlock") {
-                  const { uid, ...block } = params.block;
-                  state[uid] = {
-                    ...block,
-                    children: state[uid]?.children || [],
-                  };
-                } else if (action === "deleteBlock") {
-                  delete state[params.block.uid];
-                }
-              });
+            .then((r) => {
+              if (!r.Items?.length) {
+                return {
+                  statusCode: 400,
+                  body: `No shared page available with uid ${uid}`,
+                  headers,
+                };
+              }
+              const item = r.Items[0];
+              const id = item.id.S;
+
               return s3
-                .putObject({
+                .getObject({
                   Bucket: "roamjs-data",
                   Key: `multiplayer/shared/${id}.json`,
-                  Body: JSON.stringify({ log: updatedLog, state }),
                 })
                 .promise()
-                .then(() => updatedLog.length);
+                .then((r) => JSON.parse(r.Body.toString()))
+                .then((data) => {
+                  const updatedLog = data.log.concat(log) as Action[];
+                  const state = data.state;
+                  log.forEach(({ action, params }) => {
+                    if (action === "createBlock") {
+                      const { uid, ...block } = params.block;
+                      state[params.location["parent-uid"]] = {
+                        ...state[params.location["parent-uid"]],
+                        children: (
+                          state[params.location["parent-uid"]]?.children || []
+                        )?.splice(params.location.order, 0, uid),
+                      };
+                      state[uid] = block;
+                    } else if (action === "updateBlock") {
+                      const { uid, ...block } = params.block;
+                      state[uid] = {
+                        ...block,
+                        children: state[uid]?.children || [],
+                      };
+                    } else if (action === "deleteBlock") {
+                      delete state[params.block.uid];
+                    }
+                  });
+                  return s3
+                    .putObject({
+                      Bucket: "roamjs-data",
+                      Key: `multiplayer/shared/${id}.json`,
+                      Body: JSON.stringify({ log: updatedLog, state }),
+                      Metadata: { index: updatedLog.length.toString() },
+                    })
+                    .promise()
+                    .then(() => updatedLog.length);
+                })
+                .then((newIndex) =>
+                  Promise.all([
+                    dynamo
+                      .updateItem({
+                        TableName: "RoamJSMultiplayer",
+                        Key: {
+                          id: { S: id },
+                          entity: { S: toEntity(`$shared`) },
+                        },
+                        UpdateExpression: "SET #s = :s",
+                        ExpressionAttributeNames: {
+                          "#s": "index",
+                        },
+                        ExpressionAttributeValues: {
+                          ":s": { N: `${newIndex}` },
+                        },
+                      })
+                      .promise()
+                      .then(() => newIndex),
+                    dynamo
+                      .query({
+                        TableName: "RoamJSMultiplayer",
+                        IndexName: "id-index",
+                        ExpressionAttributeNames: {
+                          "#s": "id",
+                        },
+                        ExpressionAttributeValues: {
+                          ":s": { S: id },
+                        },
+                        KeyConditionExpression: "#s = :s",
+                      })
+                      .promise()
+                      .then((r) =>
+                        Promise.all(
+                          r.Items.filter((item) => {
+                            const ent = fromEntity(item.entity.S);
+                            return ent !== "$shared" && item.graph.S !== graph;
+                          }).map((item) =>
+                            messageGraphBase({
+                              sourceGraph: graph,
+                              userId: user.id,
+                              graph: item.graph.S,
+                              messageUuid: v4(),
+                              data: { log, uid, index: newIndex },
+                            })
+                          )
+                        )
+                      ),
+                  ])
+                )
+                .then((newIndex) => ({
+                  statusCode: 200,
+                  body: JSON.stringify({ newIndex }),
+                  headers,
+                }));
             })
-            .then((newIndex) =>
-              dynamo
-                .updateItem({
-                  TableName: "RoamJSMultiplayer",
-                  Key: {
-                    id: { S: id },
-                    entity: { S: toEntity(`$shared`) },
-                  },
-                  UpdateExpression: "SET #s = :s",
-                  ExpressionAttributeNames: {
-                    "#s": "index",
-                  },
-                  ExpressionAttributeValues: {
-                    ":s": { N: `${newIndex}` },
-                  },
-                })
-                .promise()
-                .then(() => newIndex)
-            )
-            .then((newIndex) => ({
-              statusCode: 200,
-              body: JSON.stringify({ newIndex }),
-              headers,
-            }));
-        })
+        )
         .catch(emailCatch("Failed to update a shared page"));
     }
     case "get-shared-page": {
@@ -643,6 +687,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             }));
         })
         .catch(emailCatch("Failed to get a shared page"));
+    }
+    case "list-shared-pages": {
     }
     default:
       return {

@@ -79,6 +79,12 @@ type MessageHandlers = {
 };
 export type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
 
+const authenticationHandlers: (() => Promise<unknown>)[] = [];
+
+export const addAuthenticationHandler = (
+  handler: typeof authenticationHandlers[number]
+) => authenticationHandlers.push(handler);
+
 export const messageHandlers: MessageHandlers = {
   ERROR: ({ message }: { message: string }) =>
     renderToast({
@@ -97,39 +103,44 @@ export const messageHandlers: MessageHandlers = {
       roamJsBackend.networkedGraphs = new Set(props.graphs);
       document.body.dispatchEvent(new Event("roamjs:multiplayer:connected"));
       updateOnlineGraphs();
-      if (props.messages.length) {
-        const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
-        let progress = 0;
-        toaster.show({
-          intent: Intent.PRIMARY,
-          message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
-          timeout: 0,
-        });
-        Promise.all(
-          props.messages.map(
-            (msg) =>
-              new Promise<void>((innerResolve) => {
-                const response = `LOAD_MESSAGE/${msg}`;
-                messageHandlers[response] = () => {
-                  delete messageHandlers[response];
-                  progress = progress + 1;
-                  innerResolve();
-                };
-                sendToBackend({
-                  operation: "LOAD_MESSAGE",
-                  data: { messageUuid: msg },
-                });
-              })
-          )
-        ).then(() => toaster.clear());
-      } else {
+      removeConnectCommand();
+      addAuthenticationHandler(() => {
+        if (props.messages.length) {
+          const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
+          let progress = 0;
+          toaster.show({
+            intent: Intent.PRIMARY,
+            message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
+            timeout: 0,
+          });
+          Promise.all(
+            props.messages.map(
+              (msg) =>
+                new Promise<void>((innerResolve) => {
+                  const response = `LOAD_MESSAGE/${msg}`;
+                  messageHandlers[response] = () => {
+                    delete messageHandlers[response];
+                    progress = progress + 1;
+                    innerResolve();
+                  };
+                  sendToBackend({
+                    operation: "LOAD_MESSAGE",
+                    data: { messageUuid: msg },
+                  });
+                })
+            )
+          ).then(() => toaster.clear());
+        } else {
+          return Promise.resolve();
+        }
+      });
+      Promise.all(authenticationHandlers.map((handle) => handle())).then(() => {
         renderToast({
           id: "multiplayer-success",
           content: "Successfully connected to RoamJS Multiplayer!",
           intent: Intent.SUCCESS,
         });
-      }
-      removeConnectCommand();
+      });
     } else {
       roamJsBackend.status = "DISCONNECTED";
       roamJsBackend.channel.close();

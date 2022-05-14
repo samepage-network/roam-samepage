@@ -6,7 +6,10 @@ import type { InputTextNode, ViewType } from "roamjs-components/types";
 import apiPost from "roamjs-components/util/apiPost";
 import type { Action } from "../../lambdas/multiplayer_post";
 import { notify } from "../components/NotificationContainer";
-import { MessageLoaderProps } from "../components/setupMultiplayer";
+import {
+  addAuthenticationHandler,
+  MessageLoaderProps,
+} from "../components/setupMultiplayer";
 import { render } from "../components/SharePageAlert";
 import { SharedPages } from "../types";
 import getUids from "roamjs-components/dom/getUids";
@@ -16,6 +19,21 @@ export const sharedPages: SharedPages = {
   indices: {},
   ids: new Set(),
   idToUid: {},
+};
+
+export const addSharedPage = (uid: string, index = 0) => {
+  sharedPages.indices[uid] = index;
+  const dbId = window.roamAlphaAPI.data.fast.q(
+    `[:find ?b :where [?b :block/uid "${uid}"]]`
+  )?.[0]?.[0] as number;
+  if (dbId) {
+    sharedPages.ids.add(
+      window.roamAlphaAPI.data.fast.q(
+        `[:find ?b :where [?b :block/uid "${uid}"]]`
+      )?.[0]?.[0] as number
+    );
+    sharedPages.idToUid[dbId] = uid;
+  }
 };
 
 const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
@@ -31,6 +49,12 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
         });
     },
   });
+  addAuthenticationHandler(() =>
+    apiPost("multiplayer", { method: "list-shared-pages" }).then((r) => {
+      const { indices } = r.data as { indices: Record<string, number> };
+      Object.keys(indices).forEach((uid) => addSharedPage(uid, indices[uid]));
+    })
+  );
   addGraphListener({
     operation: "SHARE_PAGE",
     handler: (e, graph) => {
@@ -95,7 +119,21 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   });
   addGraphListener({
     operation: "SHARE_PAGE_UPDATE",
-    handler: (data, graph) => {},
+    handler: (data) => {
+      const { log, uid, index } = data as {
+        log: Action[];
+        uid: string;
+        index: number;
+      };
+      log
+        .map(
+          ({ action, params }) =>
+            () =>
+              window.roamAlphaAPI[action](params)
+        )
+        .reduce((p, c) => p.then(c), Promise.resolve())
+        .then(() => (sharedPages.indices[uid] = index));
+    },
   });
 
   // replace with Roam global listener
