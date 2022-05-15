@@ -689,6 +689,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         .catch(emailCatch("Failed to get a shared page"));
     }
     case "list-shared-pages": {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({indices: {}}),
+        headers,
+      }
     }
     default:
       return {
