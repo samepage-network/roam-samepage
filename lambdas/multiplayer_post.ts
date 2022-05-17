@@ -428,22 +428,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               TableName: "RoamJSMultiplayer",
               Item: {
                 id: { S: id },
-                entity: { S: toEntity(`$shared`) },
-                date: {
-                  S: new Date().toJSON(),
-                },
-                graph: { S: graph },
-                index: { N: "0" },
-              },
-            })
-            .promise()
-        )
-        .then(() =>
-          dynamo
-            .putItem({
-              TableName: "RoamJSMultiplayer",
-              Item: {
-                id: { S: id },
                 entity: { S: toEntity(`$shared:${graph}:${uid}`) },
                 date: {
                   S: new Date().toJSON(),
@@ -459,6 +443,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               Bucket: "roamjs-data",
               Key: `multiplayer/shared/${id}.json`,
               Body: JSON.stringify({ log: [], state: {} }),
+              Metadata: { index: "0" },
             })
             .promise()
         )
@@ -571,54 +556,34 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                     .then(() => updatedLog.length);
                 })
                 .then((newIndex) =>
-                  Promise.all([
-                    dynamo
-                      .updateItem({
-                        TableName: "RoamJSMultiplayer",
-                        Key: {
-                          id: { S: id },
-                          entity: { S: toEntity(`$shared`) },
-                        },
-                        UpdateExpression: "SET #s = :s",
-                        ExpressionAttributeNames: {
-                          "#s": "index",
-                        },
-                        ExpressionAttributeValues: {
-                          ":s": { N: `${newIndex}` },
-                        },
-                      })
-                      .promise()
-                      .then(() => newIndex),
-                    dynamo
-                      .query({
-                        TableName: "RoamJSMultiplayer",
-                        IndexName: "id-index",
-                        ExpressionAttributeNames: {
-                          "#s": "id",
-                        },
-                        ExpressionAttributeValues: {
-                          ":s": { S: id },
-                        },
-                        KeyConditionExpression: "#s = :s",
-                      })
-                      .promise()
-                      .then((r) =>
-                        Promise.all(
-                          r.Items.filter((item) => {
-                            const ent = fromEntity(item.entity.S);
-                            return ent !== "$shared" && item.graph.S !== graph;
-                          }).map((item) =>
-                            messageGraphBase({
-                              sourceGraph: graph,
-                              userId: user.id,
-                              graph: item.graph.S,
-                              messageUuid: v4(),
-                              data: { log, uid, index: newIndex },
-                            })
-                          )
+                  dynamo
+                    .query({
+                      TableName: "RoamJSMultiplayer",
+                      IndexName: "id-index",
+                      ExpressionAttributeNames: {
+                        "#s": "id",
+                      },
+                      ExpressionAttributeValues: {
+                        ":s": { S: id },
+                      },
+                      KeyConditionExpression: "#s = :s",
+                    })
+                    .promise()
+                    .then((r) =>
+                      Promise.all(
+                        r.Items.filter((item) => {
+                          return item.graph.S !== graph;
+                        }).map((item) =>
+                          messageGraphBase({
+                            sourceGraph: graph,
+                            userId: user.id,
+                            graph: item.graph.S,
+                            messageUuid: v4(),
+                            data: { log, uid, index: newIndex },
+                          })
                         )
-                      ),
-                  ])
+                      )
+                    )
                 )
                 .then((newIndex) => ({
                   statusCode: 200,
@@ -656,16 +621,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           }
           const item = r.Items[0];
           const id = item.id.S;
-          return dynamo
-            .getItem({
-              TableName: "RoamJSMultiplayer",
-              Key: {
-                id: { S: id },
-              },
+          return s3
+            .headObject({
+              Bucket: "roamjs-data",
+              Key: `multiplayer/shared/${id}.json`,
             })
             .promise()
             .then((r) => {
-              const remoteIndex = Number(r.Item.index.N);
+              const remoteIndex = Number(r.Metadata.index);
               if (remoteIndex <= localIndex) {
                 return {
                   statusCode: 200,
@@ -689,11 +652,43 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         .catch(emailCatch("Failed to get a shared page"));
     }
     case "list-shared-pages": {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({indices: {}}),
-        headers,
-      }
+      return getRoamJSUser({ token })
+        .then(() =>
+          dynamo
+            .query({
+              TableName: "RoamJSMultiplayer",
+              IndexName: "graph-entity-index",
+              ExpressionAttributeNames: {
+                "#s": "entity",
+                "#d": "graph",
+              },
+              ExpressionAttributeValues: {
+                ":s": { S: toEntity(`$shared:${graph}`) },
+                ":d": { S: graph },
+              },
+              KeyConditionExpression: "begins_with(#s, :s) and #d = :d",
+            })
+            .promise()
+        )
+        .then((r) =>
+          Promise.all(
+            r.Items.map((i) =>
+              s3
+                .headObject({
+                  Bucket: "roamjs-data",
+                  Key: `multiplayer/shared/${i.id.S}.json`,
+                })
+                .promise()
+                .then((o) => [i.id.S, Number(o.Metadata.index)])
+            )
+          )
+        )
+        .then((entries) => ({
+          statusCode: 200,
+          body: JSON.stringify({ indices: Object.fromEntries(entries) }),
+          headers,
+        }))
+        .catch(emailCatch("Failed to retrieve shared pages"));
     }
     default:
       return {

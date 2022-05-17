@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@blueprintjs/core";
+import { Button, Spinner } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
@@ -12,25 +12,55 @@ import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromT
 
 const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
 
-const actions = {
+const ACTIONS = {
   "reject share page response": rejectSharePageResponse,
   "accept share page response": acceptSharePageResponse,
+};
+
+type NotificationAction = {
+  label: string;
+  method: keyof typeof ACTIONS;
+  args: Record<string, string>;
 };
 
 type Notification = {
   uid: string;
   title: string;
   description: string;
-  actions: {
-    label: string;
-    method: keyof typeof actions;
-    args: Record<string, string>;
-  }[];
+  actions: NotificationAction[];
 };
 
 type Props = { configUid: string };
 
 const KEY = "Notifications";
+
+const ActionButtons = ({
+  actions,
+  onSuccess,
+}: {
+  actions: NotificationAction[];
+  onSuccess: () => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+  return (
+    <>
+      {actions.map((action) => (
+        <Button
+          text={action.label}
+          onClick={() => {
+            setLoading(true);
+            ACTIONS[action.method]?.(action.args)
+              .then(onSuccess)
+              .finally(() => setLoading(false));
+          }}
+          style={{ marginRight: "8px" }}
+          disabled={loading}
+        />
+      ))}
+      {loading && <Spinner size={12} />}
+    </>
+  );
+};
 
 const NotificationContainer = ({ configUid }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,7 +80,7 @@ const NotificationContainer = ({ configUid }: Props) => {
           method: getSettingValueFromTree({
             tree: act.children,
             key: "Method",
-          }) as keyof typeof actions,
+          }) as keyof typeof ACTIONS,
           args: Object.fromEntries(
             getSubTree({ key: "Args", tree: act.children }).children.map(
               (arg) => [arg.text, arg.children[0]?.text]
@@ -161,22 +191,14 @@ const NotificationContainer = ({ configUid }: Props) => {
           </div>
           <div>
             {notifications.map((not) => (
-              <div key={not.uid} style={{ padding: "0 16px" }}>
+              <div key={not.uid} style={{ padding: "0 16px 4px" }}>
                 <h5>{not.title}</h5>
                 <p>{not.description}</p>
                 <div style={{ gap: 8 }}>
-                  {not.actions.map((action) => (
-                    <Button
-                      key={action.label}
-                      text={action.label}
-                      onClick={() =>
-                        actions[action.method]?.(action.args).then(() =>
-                          removeNotificaton(not)
-                        )
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                  ))}
+                  <ActionButtons
+                    actions={not.actions}
+                    onSuccess={() => removeNotificaton(not)}
+                  />
                 </div>
               </div>
             ))}
@@ -186,7 +208,12 @@ const NotificationContainer = ({ configUid }: Props) => {
         <img
           onClick={() => setIsOpen(true)}
           src={"https://roamjs.com/images/logo-low-res.png"}
-          style={{ borderRadius: "50%", height: 24, width: 24 }}
+          style={{
+            borderRadius: "50%",
+            height: 24,
+            width: 24,
+            cursor: "pointer",
+          }}
         />
       )}
     </div>

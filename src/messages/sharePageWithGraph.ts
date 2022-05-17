@@ -50,7 +50,7 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
     },
   });
   addAuthenticationHandler(() =>
-    apiPost("multiplayer", { method: "list-shared-pages" }).then((r) => {
+    apiPost("multiplayer", { method: "list-shared-pages", graph: getGraph() }).then((r) => {
       const { indices } = r.data as { indices: Record<string, number> };
       Object.keys(indices).forEach((uid) => addSharedPage(uid, indices[uid]));
     })
