@@ -2,7 +2,7 @@ import { Intent } from "@blueprintjs/core";
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
-import type { InputTextNode, ViewType } from "roamjs-components/types";
+import type { ViewType } from "roamjs-components/types";
 import apiPost from "roamjs-components/util/apiPost";
 import type { Action } from "../../lambdas/multiplayer_post";
 import { notify } from "../components/NotificationContainer";
@@ -36,22 +36,20 @@ export const addSharedPage = (uid: string, index = 0) => {
   }
 };
 
-const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
+const load = ({ addGraphListener }: MessageLoaderProps) => {
   const graph = getGraph();
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Share Page With Graph",
     callback: () => {
-      if (false) render({ pageUid: getCurrentPageUid(), sharedPages });
-      else
-        renderToast({
-          content: "Feature is still in development. Coming Soon!",
-          id: "coming-soon",
-        });
+      render({ pageUid: getCurrentPageUid(), sharedPages });
     },
   });
   addAuthenticationHandler(() =>
-    apiPost("multiplayer", { method: "list-shared-pages", graph: getGraph() }).then((r) => {
-      const { indices } = r.data as { indices: Record<string, number> };
+    apiPost<{ indices: Record<string, number> }>("multiplayer", {
+      method: "list-shared-pages",
+      graph: getGraph(),
+    }).then((r) => {
+      const { indices } = r;
       Object.keys(indices).forEach((uid) => addSharedPage(uid, indices[uid]));
     })
   );
@@ -97,9 +95,9 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
         uid: string;
       };
       if (success)
-        apiPost("multiplayer", { method: "get-shared-page" })
+        apiPost<{ log: Action[] }>("multiplayer", { method: "get-shared-page" })
           .then((r) =>
-            (r.data as { log: Action[] }).log
+            r.log
               .map((a) => () => window.roamAlphaAPI[a.action](a.params))
               .reduce((p, c) => p.then(c), Promise.resolve())
           )
@@ -159,13 +157,13 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
           },
         };
         const parentUid = sharedPages.idToUid[parent[":db/id"]];
-        return apiPost("multiplayer", {
+        return apiPost<{ newIndex: number }>("multiplayer", {
           method: "update-shared-page",
           graph,
           uid: parentUid,
           log: [action],
         }).then((r) => {
-          sharedPages.indices[parentUid] = r.data.newIndex;
+          sharedPages.indices[parentUid] = r.newIndex;
         });
       });
   };

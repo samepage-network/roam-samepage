@@ -21,7 +21,7 @@ const SharePageAlert = ({
 }: { onClose: () => void } & Props) => {
   const onSubmit = useCallback(
     (graph: string) => {
-      apiPost("multiplayer", {
+      apiPost<{ id: string }>("multiplayer", {
         method: "init-shared-page",
         graph,
         uid: pageUid,
@@ -32,7 +32,7 @@ const SharePageAlert = ({
           graph,
           operation: "SHARE_PAGE",
           data: {
-            id: r.data.id,
+            id: r.id,
             uid: pageUid,
             title: title || getTextByBlockUid(pageUid),
             isPage: !!title,

@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler } from "aws-lambda";
 import getRoamJSUser from "roamjs-components/backend/getRoamJSUser";
 import headers from "roamjs-components/backend/headers";
-import AWS, { S3 } from "aws-sdk";
+import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
 import differenceInMinutes from "date-fns/differenceInMinutes";
 import format from "date-fns/format";
@@ -10,9 +10,8 @@ import emailCatch from "roamjs-components/backend/emailCatch";
 import getClientsByGraph from "./common/getClientsByGraph";
 import queryByEntity from "./common/queryByEntity";
 import postToConnection from "./common/postToConnection";
-import randomstring from "randomstring";
-import sha from "crypto-js/hmac-sha512";
-import Base64 from "crypto-js/enc-base64";
+import nanoid from "nanoid";
+import { HmacSHA512, enc} from "crypto-js";
 import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
@@ -223,7 +222,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           body: `A network already exists by the name of ${name}`,
           headers,
         };
-      const salt = randomstring.generate(16);
+      const salt = nanoid();
       return Promise.all([
         getUsersByGraph(graph),
         getRoamJSUser({
@@ -251,8 +250,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                   },
                   graph: { S: graph },
                   password: {
-                    S: Base64.stringify(
-                      sha(password + salt, process.env.PASSWORD_SECRET_KEY)
+                    S: enc.Base64.stringify(
+                      HmacSHA512(password + salt, process.env.PASSWORD_SECRET_KEY)
                     ),
                   },
                   salt: { S: salt },
@@ -350,8 +349,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               headers,
             };
           const passwordHash = network.Item.password.S;
-          const inputPasswordHash = Base64.stringify(
-            sha(
+          const inputPasswordHash = enc.Base64.stringify(
+            HmacSHA512(
               password + (network.Item.salt.S || ""),
               process.env.PASSWORD_SECRET_KEY
             )
@@ -463,22 +462,37 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               Key: `multiplayer/shared/${id}.json`,
             })
             .promise()
+            .catch((e) =>
+              (e as AWS.AWSError).name === "NoSuchKey"
+                ? {
+                    statusCode: 409,
+                    headers,
+                    body: `No shared page exists under id ${id}`,
+                  }
+                : Promise.reject(e)
+            )
         )
         .then((r) =>
-          dynamo
-            .putItem({
-              TableName: "RoamJSMultiplayer",
-              Item: {
-                id: { S: id },
-                entity: { S: toEntity(`$shared:${graph}:${uid}`) },
-                date: {
-                  S: new Date().toJSON(),
-                },
-                graph: { S: graph },
-              },
-            })
-            .promise()
-            .then(() => ({ statusCode: 200, body: r.Body.toString() }))
+          "statusCode" in r
+            ? r
+            : dynamo
+                .putItem({
+                  TableName: "RoamJSMultiplayer",
+                  Item: {
+                    id: { S: id },
+                    entity: { S: toEntity(`$shared:${graph}:${uid}`) },
+                    date: {
+                      S: new Date().toJSON(),
+                    },
+                    graph: { S: graph },
+                  },
+                })
+                .promise()
+                .then(() => ({
+                  statusCode: 200,
+                  body: r.Body.toString(),
+                  headers,
+                }))
         )
         .catch(emailCatch("Failed to join a shared page"));
     }

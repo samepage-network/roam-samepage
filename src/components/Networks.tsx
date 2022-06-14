@@ -101,11 +101,11 @@ const Networks = () => {
       setStatus(roamJsBackend.status);
     });
 
-    apiPost(`multiplayer`, {
+    apiPost<{ networks: string[] }>(`multiplayer`, {
       method: "list-networks",
       graph: getGraph(),
     })
-      .then((r) => setNetworks(r.data.networks.map((id: string) => ({ id }))))
+      .then((r) => setNetworks(r.networks.map((id: string) => ({ id }))))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
     return () => clearTimeout(errorTimeout.current);

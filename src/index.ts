@@ -11,6 +11,13 @@ import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
 import loadSharePageWithGraph from "./messages/sharePageWithGraph";
 import { render } from "./components/NotificationContainer";
+import CustomPanel from "roamjs-components/components/ConfigPanels/CustomPanel";
+import FlagPanel from "roamjs-components/components/ConfigPanels/FlagPanel";
+import type {
+  Field,
+  CustomField,
+} from "roamjs-components/components/ConfigPanels/types";
+import localStorageGet from "roamjs-components/util/localStorageGet";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -44,12 +51,12 @@ runExtension(ID, async () => {
           fields: [
             {
               title: "Connected Graphs",
-              type: "custom",
+              Panel: CustomPanel,
               options: {
                 component: OnlineGraphs,
               },
               description: "Graphs that are within your network",
-            },
+            } as Field<CustomField>,
           ],
         },
         {
@@ -58,28 +65,28 @@ runExtension(ID, async () => {
           fields: [
             {
               title: "Networks",
-              type: "custom",
+              Panel: CustomPanel,
               description:
                 "View all the networks that your graph is currently in",
               options: {
                 component: Networks,
               },
-            },
+            } as Field<CustomField>,
             {
               title: "Disable Auto Connect",
-              type: "flag",
+              Panel: FlagPanel,
               description:
                 "Prevent the extension from automatically connecting to your configured networks",
             },
             {
               title: "Usage",
-              type: "custom",
+              Panel: CustomPanel,
               description:
                 "Displays how much the user has used Multiplayer this month",
               options: {
                 component: UsageChart,
               },
-            },
+            } as Field<CustomField>,
           ],
           onEnable: toggleOnAsync,
         },
@@ -95,7 +102,9 @@ runExtension(ID, async () => {
   loadSendPageToGraph(api);
   loadCopyBlockToGraph(api);
   loadCrossGraphBlockReference(api);
-  loadSharePageWithGraph(api);
+  if (localStorageGet("experimental") === "true") {
+    loadSharePageWithGraph(api);
+  }
 
   if (!loadedElsewhere) {
     enable();

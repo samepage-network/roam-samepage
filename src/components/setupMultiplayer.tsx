@@ -16,7 +16,6 @@ import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByPar
 import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
-import { isSafari } from "mobile-device-detect";
 
 const FAILED_STATES = ["failed", "closed"];
 
@@ -278,8 +277,9 @@ export const sendToBackend = ({
 };
 
 type AlertProps = { onClose: () => void };
-const onError = (e: { error: Error } & Event) => {
+const onError = (e: { error: Error } | Event) => {
   if (
+    "error" in e &&
     !e.error.message.includes("Transport channel closed") &&
     !e.error.message.includes("User-Initiated Abort, reason=Close called")
   ) {
@@ -507,6 +507,8 @@ const receiveAnswer = ({ answer }: { answer: string }) => {
     console.error(Object.keys(connectedGraphs));
   }
 };
+
+const isSafari = window.navigator.userAgent.includes("Safari");
 
 const SetupAlert = ({ onClose }: AlertProps) => {
   const [loading, setLoading] = useState(false);

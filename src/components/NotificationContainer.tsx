@@ -9,6 +9,7 @@ import getSubTree from "roamjs-components/util/getSubTree";
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
+import { render as renderToast } from "roamjs-components/components/Toast";
 
 const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
 
@@ -44,19 +45,28 @@ const ActionButtons = ({
   const [loading, setLoading] = useState(false);
   return (
     <>
-      {actions.map((action) => (
-        <Button
-          text={action.label}
-          onClick={() => {
-            setLoading(true);
-            ACTIONS[action.method]?.(action.args)
-              .then(onSuccess)
-              .finally(() => setLoading(false));
-          }}
-          style={{ marginRight: "8px" }}
-          disabled={loading}
-        />
-      ))}
+      <div className={"flex gap-8"}>
+        {actions.map((action) => (
+          <Button
+            text={action.label}
+            onClick={() => {
+              setLoading(true);
+              ACTIONS[action.method]?.(action.args)
+                .then(onSuccess)
+                .catch((e) =>
+                  renderToast({
+                    id: "notification-error",
+                    content: `Failed to process notification: ${e.message}`,
+                    intent: "danger",
+                  })
+                )
+                .finally(() => setLoading(false));
+            }}
+            style={{ marginRight: "8px" }}
+            disabled={loading}
+          />
+        ))}
+      </div>
       {loading && <Spinner size={12} />}
     </>
   );
@@ -194,7 +204,7 @@ const NotificationContainer = ({ configUid }: Props) => {
               <div key={not.uid} style={{ padding: "0 16px 4px" }}>
                 <h5>{not.title}</h5>
                 <p>{not.description}</p>
-                <div style={{ gap: 8 }}>
+                <div style={{ gap: 8 }} className={"flex"}>
                   <ActionButtons
                     actions={not.actions}
                     onSuccess={() => removeNotificaton(not)}

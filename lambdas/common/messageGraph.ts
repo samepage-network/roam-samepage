@@ -1,5 +1,6 @@
 import AWS from "aws-sdk";
-import { meterRoamJSUser, emailCatch } from "roamjs-components";
+import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
+import emailCatch from "roamjs-components/backend/emailCatch";
 import { endClient } from "../ondisconnect";
 import getClientsByGraph from "./getClientsByGraph";
 import postToConnection, { removeLocalSocket } from "./postToConnection";

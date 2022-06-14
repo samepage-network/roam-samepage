@@ -8,8 +8,8 @@ const UsageChart = () => {
   const [error, setError] = useState("");
   const [stats, setStats] = useState({ networks: 0, minutes: 0, messages: 0, date: '' });
   useEffect(() => {
-    apiPost("multiplayer", { method: "usage", graph: getGraph() })
-      .then((r) => setStats(r.data))
+    apiPost<typeof stats>("multiplayer", { method: "usage", graph: getGraph() })
+      .then((r) => setStats(r))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [setStats, setLoading, setError]);
