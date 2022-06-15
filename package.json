@@ -28,6 +28,6 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1066.0",
-    "roamjs-components": "^0.64.10"
+    "roamjs-components": "^0.64.11"
   }
 }

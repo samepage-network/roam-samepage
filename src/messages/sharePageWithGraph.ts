@@ -56,10 +56,11 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
   addGraphListener({
     operation: "SHARE_PAGE",
     handler: (e, graph) => {
-      const { uid, title, isPage } = e as {
+      const { uid, title, isPage, id } = e as {
         uid: string;
         title: string;
         isPage: boolean;
+        id: string;
       };
       notify({
         title: "Share Page",
@@ -73,12 +74,13 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
               uid,
               graph,
               title,
+              id,
             },
           },
           {
             label: "Reject",
             method: "reject share page response",
-            args: { graph },
+            args: { graph, id },
           },
         ],
       });

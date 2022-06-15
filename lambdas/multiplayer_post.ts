@@ -11,7 +11,7 @@ import getClientsByGraph from "./common/getClientsByGraph";
 import queryByEntity from "./common/queryByEntity";
 import postToConnection from "./common/postToConnection";
 import nanoid from "nanoid";
-import { HmacSHA512, enc} from "crypto-js";
+import { HmacSHA512, enc } from "crypto-js";
 import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
@@ -251,7 +251,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                   graph: { S: graph },
                   password: {
                     S: enc.Base64.stringify(
-                      HmacSHA512(password + salt, process.env.PASSWORD_SECRET_KEY)
+                      HmacSHA512(
+                        password + salt,
+                        process.env.PASSWORD_SECRET_KEY
+                      )
                     ),
                   },
                   salt: { S: salt },
@@ -475,24 +478,37 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         .then((r) =>
           "statusCode" in r
             ? r
-            : dynamo
-                .putItem({
-                  TableName: "RoamJSMultiplayer",
-                  Item: {
-                    id: { S: id },
-                    entity: { S: toEntity(`$shared:${graph}:${uid}`) },
-                    date: {
-                      S: new Date().toJSON(),
-                    },
-                    graph: { S: graph },
+            : Promise.resolve({
+                TableName: "RoamJSMultiplayer",
+                Item: {
+                  id: { S: id },
+                  entity: { S: toEntity(`$shared:${graph}:${uid}`) },
+                  date: {
+                    S: new Date().toJSON(),
                   },
-                })
-                .promise()
-                .then(() => ({
-                  statusCode: 200,
-                  body: r.Body.toString(),
-                  headers,
-                }))
+                  graph: { S: graph },
+                },
+              }).then((args) =>
+                dynamo
+                  .putItem(args)
+                  .promise()
+                  .then(() => ({
+                    statusCode: 200,
+                    body: r.Body.toString(),
+                    headers,
+                  }))
+                  .catch((e) =>
+                    Promise.reject(
+                      new Error(
+                        `Failed to put item: ${JSON.stringify(
+                          args,
+                          null,
+                          4
+                        )}\nReason: ${e.message}`
+                      )
+                    )
+                  )
+              )
         )
         .catch(emailCatch("Failed to join a shared page"));
     }
@@ -593,11 +609,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                             userId: user.id,
                             graph: item.graph.S,
                             messageUuid: v4(),
-                            data: { log, uid, index: newIndex },
+                            data: { log, uid, index: newIndex, operation: "" },
                           })
                         )
                       )
                     )
+                    .then(() => newIndex)
                 )
                 .then((newIndex) => ({
                   statusCode: 200,

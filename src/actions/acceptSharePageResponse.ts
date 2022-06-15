@@ -41,9 +41,14 @@ const acceptSharePageResponse = async ({
   )
     .then((nodes) => {
       addSharedPage(uid);
-      return apiPost<{ log: Action[] }>("multiplayer", {
-        method: "join-shared-page",
-        id,
+      return apiPost<{ log: Action[] }>({
+        path: "multiplayer",
+        data: {
+          method: "join-shared-page",
+          id,
+          uid,
+          graph,
+        },
       })
         .then((r) =>
           r.log
@@ -51,15 +56,18 @@ const acceptSharePageResponse = async ({
             .reduce((p, c) => p.then(c), Promise.resolve())
         )
         .then(() =>
-          apiPost<{ newIndex: number }>("multiplayer", {
-            method: "update-shared-page",
-            graph,
-            uid,
-            log: nodes
-              .flatMap((node, order) =>
-                gatherActions({ node, order, parentUid: uid })
-              )
-              .map((params) => ({ params, action: "createBlock" })),
+          apiPost<{ newIndex: number }>({
+            path: "multiplayer",
+            data: {
+              method: "update-shared-page",
+              graph,
+              uid,
+              log: nodes
+                .flatMap((node, order) =>
+                  gatherActions({ node, order, parentUid: uid })
+                )
+                .map((params) => ({ params, action: "createBlock" })),
+            },
           })
         )
         .then((r) => {

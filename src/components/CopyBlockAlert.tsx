@@ -24,7 +24,7 @@ const CopyBlockAlert = ({
     [blockUid]
   );
   const onSubmit = useCallback(
-    (graph: string) => {
+    async (graph: string) => {
       window.roamjs.extension.multiplayer.sendToGraph({
         graph,
         operation: "COPY_BLOCK",

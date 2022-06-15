@@ -11,7 +11,7 @@ const GraphMessageAlert = ({
   onClose: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
-  onSubmitToGraph: (graph: string) => void;
+  onSubmitToGraph: (graph: string) => Promise<void>;
   title: string;
 }) => {
   const allGraphs = useMemo(
@@ -19,9 +19,12 @@ const GraphMessageAlert = ({
     []
   );
   const [graphs, setGraphs] = useState(new Set<string>());
+  const [loading, setLoading] = useState(false);
   const onSubmit = useCallback(() => {
-    Array.from(graphs).forEach(onSubmitToGraph);
-    onClose();
+    setLoading(true);
+    Promise.all(Array.from(graphs).map(onSubmitToGraph))
+      .then(onClose)
+      .catch(() => setLoading(false));
   }, [onSubmitToGraph, onClose, graphs]);
   const submitDisabled = useMemo(
     () => disabled || !graphs.size,
@@ -49,7 +52,6 @@ const GraphMessageAlert = ({
         isOpen={true}
         title={title}
         onClose={onClose}
-        isCloseButtonShown
         canOutsideClickClose
         canEscapeKeyClose
       >
@@ -90,12 +92,12 @@ const GraphMessageAlert = ({
         </div>
         <div className={Classes.DIALOG_FOOTER}>
           <div className={Classes.DIALOG_FOOTER_ACTIONS}>
-            <Button text={"Cancel"} onClick={onClose} />
+            <Button text={"Cancel"} onClick={onClose} disabled={loading} />
             <Button
               text={"Send"}
               intent={Intent.PRIMARY}
               onClick={onSubmit}
-              disabled={submitDisabled}
+              disabled={submitDisabled || loading}
             />
           </div>
         </div>

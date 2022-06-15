@@ -20,7 +20,7 @@ const SendPageAlert = ({
     [pageUid]
   );
   const onSubmit = useCallback(
-    (graph: string) => {
+    async (graph: string) => {
       window.roamjs.extension.multiplayer.sendToGraph({
         graph,
         operation: "SEND_PAGE",
