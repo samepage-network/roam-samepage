@@ -22,7 +22,7 @@
     "cross-env": "^7.0.3",
     "dotenv": "^16.0.0",
     "localhost-lambdas": "^0.5.5",
-    "roamjs-scripts": "^0.18.19",
+    "roamjs-scripts": "^0.19.3",
     "ts-node": "^10.4.0",
     "ws": "^8.4.2"
   },

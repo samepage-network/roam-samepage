@@ -3,7 +3,8 @@
   "include": [
     "src",
     "lambdas",
-    "scripts"
+    "scripts",
+    "tests"
   ],
   "exclude": [
     "node_modules"
