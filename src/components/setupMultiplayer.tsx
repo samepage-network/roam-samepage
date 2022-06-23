@@ -508,7 +508,10 @@ const receiveAnswer = ({ answer }: { answer: string }) => {
   }
 };
 
-const isSafari = window.navigator.userAgent.includes("Safari");
+const isSafari =
+  window.navigator.userAgent.includes("Safari") &&
+  !window.navigator.userAgent.includes("Chrome") &&
+  !window.navigator.userAgent.includes("Android");
 
 const SetupAlert = ({ onClose }: AlertProps) => {
   const [loading, setLoading] = useState(false);
