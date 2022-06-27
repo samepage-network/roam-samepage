@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Spinner } from "@blueprintjs/core";
 import apiPost from "roamjs-components/util/apiPost";
-import getGraph from "roamjs-components/util/getGraph";
 
 const UsageChart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({ networks: 0, minutes: 0, messages: 0, date: '' });
   useEffect(() => {
-    apiPost<typeof stats>("multiplayer", { method: "usage", graph: getGraph() })
+    apiPost<typeof stats>("multiplayer", { method: "usage", graph: window.roamAlphaAPI.graph.name })
       .then((r) => setStats(r))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

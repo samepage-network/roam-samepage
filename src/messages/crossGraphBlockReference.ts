@@ -5,12 +5,8 @@ import {
   sendToBackend,
 } from "../components/setupMultiplayer";
 import { render as referenceRender } from "../components/CrossGraphReference";
-import getGraph from "roamjs-components/util/getGraph";
 
-const load = ({
-  addGraphListener,
-  getNetworkedGraphs,
-}: MessageLoaderProps) => {
+const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
   addGraphListener({
     operation: "QUERY_REF",
     handler: (e, graph) => {
@@ -35,7 +31,9 @@ const load = ({
     label: "Copy Cross Graph Block Reference",
     callback: () => {
       const blockUid = window.roamAlphaAPI.ui.getFocusedBlock()["block-uid"];
-      window.navigator.clipboard.writeText(`((${getGraph()}:${blockUid}))`);
+      window.navigator.clipboard.writeText(
+        `((${window.roamAlphaAPI.graph.name}:${blockUid}))`
+      );
     },
   });
 };

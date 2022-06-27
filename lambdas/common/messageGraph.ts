@@ -12,18 +12,18 @@ const s3 = new AWS.S3();
 
 export const messageGraphBase = ({
   userId,
-  graph,
+  targetGraph,
   sourceGraph,
   data,
   messageUuid,
 }: {
-  graph: string;
+  targetGraph: string;
   sourceGraph: string;
   data: Record<string, unknown>;
   messageUuid: string;
   userId: string;
 }) =>
-  getClientsByGraph(graph)
+  getClientsByGraph(targetGraph)
     .then((ConnectionIds) => {
       const Data = {
         ...data,
@@ -62,7 +62,7 @@ export const messageGraphBase = ({
               TableName: "RoamJSMultiplayer",
               Item: {
                 id: { S: messageUuid },
-                entity: { S: toEntity(`${graph}-$message`) },
+                entity: { S: toEntity(`${targetGraph}-$message`) },
                 date: {
                   S: new Date().toJSON(),
                 },
@@ -95,7 +95,7 @@ const messageGraph = ({
   event,
   ...rest
 }: {
-  graph: string;
+  targetGraph: string;
   sourceGraph: string;
   data: Record<string, unknown>;
   messageUuid: string;
@@ -116,12 +116,12 @@ const messageGraph = ({
           ? messageGraphBase({ userId: r.Item?.user?.S, ...rest })
           : Promise.reject(
               new Error(
-                `How did non-authenticated client try to send message from ${rest.sourceGraph} to ${rest.graph}?`
+                `How did non-authenticated client try to send message from ${rest.sourceGraph} to ${rest.targetGraph}?`
               )
             )
         : Promise.reject(
             new Error(
-              `How did a non-existant client ${event.requestContext.connectionId} send message from ${rest.sourceGraph} to ${rest.graph}?`
+              `How did a non-existant client ${event.requestContext.connectionId} send message from ${rest.sourceGraph} to ${rest.targetGraph}?`
             )
           )
     );

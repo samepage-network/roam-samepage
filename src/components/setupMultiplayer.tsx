@@ -8,7 +8,6 @@ import {
   Toaster,
 } from "@blueprintjs/core";
 import React, { useCallback, useEffect, useState } from "react";
-import getGraph from "roamjs-components/util/getGraph";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import renderToast from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
@@ -78,11 +77,20 @@ type MessageHandlers = {
 };
 export type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
 
-const authenticationHandlers: (() => Promise<unknown>)[] = [];
+const authenticationHandlers: {
+  handler: () => Promise<unknown>;
+  label: string;
+}[] = [];
 
 export const addAuthenticationHandler = (
-  handler: typeof authenticationHandlers[number]
-) => authenticationHandlers.push(handler);
+  args: typeof authenticationHandlers[number]
+) => authenticationHandlers.push(args);
+
+export const removeAuthenticationHandler = (label: string) =>
+  authenticationHandlers.splice(
+    authenticationHandlers.findIndex((h) => h.label === label),
+    1
+  );
 
 export const messageHandlers: MessageHandlers = {
   ERROR: ({ message }: { message: string }) =>
@@ -103,43 +111,48 @@ export const messageHandlers: MessageHandlers = {
       document.body.dispatchEvent(new Event("roamjs:multiplayer:connected"));
       updateOnlineGraphs();
       removeConnectCommand();
-      addAuthenticationHandler(() => {
-        if (props.messages.length) {
-          const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
-          let progress = 0;
-          toaster.show({
-            intent: Intent.PRIMARY,
-            message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
-            timeout: 0,
+      addAuthenticationHandler({
+        handler: () => {
+          if (props.messages.length) {
+            const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
+            let progress = 0;
+            toaster.show({
+              intent: Intent.PRIMARY,
+              message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
+              timeout: 0,
+            });
+            Promise.all(
+              props.messages.map(
+                (msg) =>
+                  new Promise<void>((innerResolve) => {
+                    const response = `LOAD_MESSAGE/${msg}`;
+                    messageHandlers[response] = () => {
+                      delete messageHandlers[response];
+                      progress = progress + 1;
+                      innerResolve();
+                    };
+                    sendToBackend({
+                      operation: "LOAD_MESSAGE",
+                      data: { messageUuid: msg },
+                    });
+                  })
+              )
+            ).then(() => toaster.clear());
+          } else {
+            return Promise.resolve();
+          }
+        },
+        label: "LOAD_MESSAGES",
+      });
+      Promise.all(authenticationHandlers.map(({ handler }) => handler())).then(
+        () => {
+          renderToast({
+            id: "multiplayer-success",
+            content: "Successfully connected to RoamJS Multiplayer!",
+            intent: Intent.SUCCESS,
           });
-          Promise.all(
-            props.messages.map(
-              (msg) =>
-                new Promise<void>((innerResolve) => {
-                  const response = `LOAD_MESSAGE/${msg}`;
-                  messageHandlers[response] = () => {
-                    delete messageHandlers[response];
-                    progress = progress + 1;
-                    innerResolve();
-                  };
-                  sendToBackend({
-                    operation: "LOAD_MESSAGE",
-                    data: { messageUuid: msg },
-                  });
-                })
-            )
-          ).then(() => toaster.clear());
-        } else {
-          return Promise.resolve();
         }
-      });
-      Promise.all(authenticationHandlers.map((handle) => handle())).then(() => {
-        renderToast({
-          id: "multiplayer-success",
-          content: "Successfully connected to RoamJS Multiplayer!",
-          intent: Intent.SUCCESS,
-        });
-      });
+      );
     } else {
       roamJsBackend.status = "DISCONNECTED";
       roamJsBackend.channel.close();
@@ -238,7 +251,9 @@ const receiveChunkedMessage = (str: string, graph?: string) => {
     else if (!props.ephemeral)
       renderToast({
         id: `network-error-${operation}`,
-        content: `Unknown network operation: ${operation}`,
+        content: `Unknown network operation: ${
+          operation || "No operation specified"
+        }`,
         intent: "danger",
       });
   }
@@ -404,7 +419,7 @@ export const getSetupCode = ({
   sendChannel.addEventListener("message", connectionHandler);
   sendChannel.onerror = onError;
   sendChannel.onopen = () => {
-    sendChannel.send(getGraph());
+    sendChannel.send(window.roamAlphaAPI.graph.name);
   };
   return Promise.all([
     gatherCandidates(connection),
@@ -446,7 +461,7 @@ const getConnectCode = ({
         callback: () => {
           delete connectedGraphs[label];
           cleanup();
-          receiveChannel.send(getGraph());
+          receiveChannel.send(window.roamAlphaAPI.graph.name);
           receiveChannel.removeEventListener("message", connectionHandler);
         },
       });
@@ -684,7 +699,10 @@ const connectToBackend = () => {
     roamJsBackend.channel.onopen = () => {
       sendToBackend({
         operation: "AUTHENTICATION",
-        data: { token: getAuthorizationHeader(), graph: getGraph() },
+        data: {
+          token: getAuthorizationHeader(),
+          graph: window.roamAlphaAPI.graph.name,
+        },
         unauthenticated: true,
       });
     };
@@ -829,7 +847,10 @@ const setupMultiplayer = (configUid: string) => {
 
 export type MessageLoaderProps = Pick<
   ReturnType<typeof setupMultiplayer>,
-  "addGraphListener" | "sendToGraph" | "getNetworkedGraphs"
+  | "addGraphListener"
+  | "sendToGraph"
+  | "getNetworkedGraphs"
+  | "removeGraphListener"
 >;
 
 export default setupMultiplayer;

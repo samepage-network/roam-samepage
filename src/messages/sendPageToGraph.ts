@@ -1,5 +1,4 @@
 import { render as renderToast } from "roamjs-components/components/Toast";
-import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
@@ -39,13 +38,14 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
             )
           : createPage({ uid, title, tree })
       )
-        .then(() =>
-          createBlock({
-            parentUid: toRoamDateUid(),
-            order: getChildrenLengthByPageUid(toRoamDateUid()),
+        .then(() => {
+          const parentUid = window.roamAlphaAPI.util.dateToPageUid(new Date());
+          return createBlock({
+            parentUid,
+            order: getChildrenLengthByPageUid(parentUid),
             node: { text: `[[${graph}]] sent over page [[${title}]]` },
-          })
-        )
+          });
+        })
         .then(() => {
           renderToast({
             id: "send-page-success",

@@ -15,7 +15,6 @@ import {
 import renderToast from "roamjs-components/components/Toast";
 import StatusIndicator from "./StatusIndicator";
 import apiPost from "roamjs-components/util/apiPost";
-import getGraph from "roamjs-components/util/getGraph";
 
 const Network = (r: {
   id: string;
@@ -58,7 +57,7 @@ const Network = (r: {
                   setLoading(true);
                   apiPost(`multiplayer`, {
                     method: "leave-network",
-                    graph: getGraph(),
+                    graph: window.roamAlphaAPI.graph.name,
                     name: r.id,
                   })
                     .then(() => {
@@ -103,7 +102,7 @@ const Networks = () => {
 
     apiPost<{ networks: string[] }>(`multiplayer`, {
       method: "list-networks",
-      graph: getGraph(),
+      graph: window.roamAlphaAPI.graph.name,
     })
       .then((r) => setNetworks(r.networks.map((id: string) => ({ id }))))
       .catch((e) => setError(e.message))
@@ -175,7 +174,7 @@ const Networks = () => {
               setLoading(true);
               apiPost(`multiplayer`, {
                 method: "create-network",
-                graph: getGraph(),
+                graph: window.roamAlphaAPI.graph.name,
                 name: newNetwork,
                 password,
               })
@@ -199,7 +198,7 @@ const Networks = () => {
               setLoading(true);
               apiPost(`multiplayer`, {
                 method: "join-network",
-                graph: getGraph(),
+                graph: window.roamAlphaAPI.graph.name,
                 name: newNetwork,
                 password,
               })

@@ -3,7 +3,6 @@ import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageU
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import createPage from "roamjs-components/writes/createPage";
-import toRoamDateUid from "roamjs-components/date/toRoamDateUid";
 import createBlock, {
   gatherActions,
 } from "roamjs-components/writes/createBlock";
@@ -29,7 +28,7 @@ const acceptSharePageResponse = async ({
       ? Promise.resolve(getFullTreeByParentUid(uid).children)
       : isPage === "true"
       ? createPage({ uid, title }).then(() => [] as TreeNode[])
-      : Promise.resolve(toRoamDateUid())
+      : Promise.resolve(window.roamAlphaAPI.util.dateToPageUid(new Date()))
           .then((parentUid) =>
             createBlock({
               node: { text: title },
@@ -60,7 +59,7 @@ const acceptSharePageResponse = async ({
             path: "multiplayer",
             data: {
               method: "update-shared-page",
-              graph,
+              graph: window.roamAlphaAPI.graph.name,
               uid,
               log: nodes
                 .flatMap((node, order) =>

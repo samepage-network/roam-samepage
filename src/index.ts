@@ -9,7 +9,9 @@ import UsageChart from "./components/UsageChart";
 import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
-import loadSharePageWithGraph from "./messages/sharePageWithGraph";
+import loadSharePageWithGraph, {
+  unload as unloadSharePageWithGraph,
+} from "./messages/sharePageWithGraph";
 import { render } from "./components/NotificationContainer";
 import CustomPanel from "roamjs-components/components/ConfigPanels/CustomPanel";
 import FlagPanel from "roamjs-components/components/ConfigPanels/FlagPanel";
@@ -18,6 +20,7 @@ import type {
   CustomField,
 } from "roamjs-components/components/ConfigPanels/types";
 import localStorageGet from "roamjs-components/util/localStorageGet";
+import registerExperimentalMode from "roamjs-components/util/registerExperimentalMode";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -101,9 +104,10 @@ runExtension(ID, async () => {
   loadSendPageToGraph(api);
   loadCopyBlockToGraph(api);
   loadCrossGraphBlockReference(api);
-  if (localStorageGet("experimental") === "true") {
-    loadSharePageWithGraph(api);
-  }
+  registerExperimentalMode({
+    onEnable: () => loadSharePageWithGraph(api),
+    onDisable: () => unloadSharePageWithGraph(api),
+  });
 
   if (!loadedElsewhere) {
     enable();

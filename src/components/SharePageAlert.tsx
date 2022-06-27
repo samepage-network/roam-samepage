@@ -22,9 +22,9 @@ const SharePageAlert = ({
 }: { onClose: () => void } & Props) => {
   const onSubmit = useCallback(
     (graph: string) => {
-      return apiPost<{ id: string }>("multiplayer", {
+      return apiPost<{ id: string; created: boolean }>("multiplayer", {
         method: "init-shared-page",
-        graph,
+        graph: window.roamAlphaAPI.graph.name,
         uid: pageUid,
       })
         .then((r) => {
@@ -40,19 +40,21 @@ const SharePageAlert = ({
               isPage: !!title,
             },
           });
-          const tree = getFullTreeByParentUid(pageUid);
-          const log = tree.children
-            .flatMap((node, order) =>
-              gatherActions({ node, order, parentUid: pageUid })
-            )
-            .map((params) => ({ params, action: "createBlock" }));
-          sharedPages.indices[pageUid] = log.length;
-          return apiPost("multiplayer", {
-            method: "update-shared-page",
-            graph,
-            uid: pageUid,
-            log,
-          });
+          if (r.created) {
+            const tree = getFullTreeByParentUid(pageUid);
+            const log = tree.children
+              .flatMap((node, order) =>
+                gatherActions({ node, order, parentUid: pageUid })
+              )
+              .map((params) => ({ params, action: "createBlock" }));
+            sharedPages.indices[pageUid] = log.length;
+            return apiPost("multiplayer", {
+              method: "update-shared-page",
+              graph: window.roamAlphaAPI.graph.name,
+              uid: pageUid,
+              log,
+            });
+          }
         })
         .then(() => {
           renderToast({

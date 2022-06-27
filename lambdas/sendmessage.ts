@@ -167,7 +167,7 @@ const dataHandler = async (
     return getGraphByClient(event).then((sourceGraph) =>
       messageGraph({
         event,
-        graph,
+        targetGraph: graph,
         sourceGraph,
         data: {
           operation: proxyOperation,
@@ -281,7 +281,7 @@ const dataHandler = async (
         messageGraph({
           event,
           sourceGraph,
-          graph,
+          targetGraph: graph,
           data: {
             uid,
             operation: "QUERY_REF",
@@ -323,7 +323,7 @@ const dataHandler = async (
     return getGraphByClient(event).then((sourceGraph) =>
       messageGraph({
         event,
-        graph,
+        targetGraph: graph,
         sourceGraph,
         data: {
           operation: `QUERY_REF_RESPONSE/${sourceGraph}/${node.uid}`,
