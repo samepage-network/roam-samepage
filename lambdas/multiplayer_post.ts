@@ -16,6 +16,7 @@ import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
 import { messageGraphBase } from "./common/messageGraph";
+import fromEntity from "./common/fromEntity";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
@@ -569,8 +570,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           .catch(emailCatch("Failed to update a shared page with empty log"));
       }
       return getRoamJSUser({ token })
-        .then((user) =>
-          getSharedPage({ graph, uid }).then((item) => {
+        .then((user) => {
+          return getSharedPage({ graph, uid }).then((item) => {
             if (!item) {
               return {
                 statusCode: 400,
@@ -620,8 +621,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                   .promise()
                   .then(() => updatedLog.length);
               })
-              .then((newIndex) =>
-                dynamo
+              .then((newIndex) => {
+                return dynamo
                   .query({
                     TableName: "RoamJSMultiplayer",
                     IndexName: "id-index",
@@ -634,8 +635,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                     KeyConditionExpression: "#s = :s",
                   })
                   .promise()
-                  .then((r) =>
-                    Promise.all(
+                  .then((r) => {
+                    return Promise.all(
                       r.Items.filter((item) => {
                         return item.graph.S !== graph;
                       }).map((item) =>
@@ -652,17 +653,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                           },
                         })
                       )
-                    )
-                  )
-                  .then(() => newIndex)
-              )
+                    );
+                  })
+                  .then(() => {
+                    return newIndex;
+                  });
+              })
               .then((newIndex) => ({
                 statusCode: 200,
                 body: JSON.stringify({ newIndex }),
                 headers,
               }));
-          })
-        )
+          });
+        })
         .catch(emailCatch("Failed to update a shared page"));
     }
     case "get-shared-page": {
@@ -730,7 +733,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                 "#d": "graph",
               },
               ExpressionAttributeValues: {
-                ":s": { S: toEntity(`$shared:${graph}`) },
+                ":s": { S: `$shared:${graph}` },
                 ":d": { S: graph },
               },
               KeyConditionExpression: "begins_with(#s, :s) and #d = :d",
@@ -739,14 +742,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         )
         .then((r) =>
           Promise.all(
-            r.Items.map((i) =>
+            r.Items.filter((i) =>
+              process.env.NODE_ENV === "development"
+                ? i.entity.S.endsWith("-dev")
+                : !i.entity.S.endsWith("-dev")
+            ).map((i) =>
               s3
                 .headObject({
                   Bucket: "roamjs-data",
                   Key: `multiplayer/shared/${i.id.S}.json`,
                 })
                 .promise()
-                .then((o) => [i.id.S, Number(o.Metadata.index)])
+                .then((o) => [
+                  fromEntity(i.entity.S).split(":")?.[2],
+                  Number(o.Metadata.index),
+                ])
             )
           )
         )

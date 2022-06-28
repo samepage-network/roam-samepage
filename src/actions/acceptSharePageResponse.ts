@@ -46,7 +46,7 @@ const acceptSharePageResponse = async ({
           method: "join-shared-page",
           id,
           uid,
-          graph,
+          graph: window.roamAlphaAPI.graph.name,
         },
       })
         .then((r) =>

@@ -53,13 +53,14 @@ const ActionButtons = ({
               setLoading(true);
               ACTIONS[action.method]?.(action.args)
                 .then(onSuccess)
-                .catch((e) =>
+                .catch((e) => {
+                  console.error(e);
                   renderToast({
                     id: "notification-error",
                     content: `Failed to process notification: ${e.message}`,
                     intent: "danger",
-                  })
-                )
+                  });
+                })
                 .finally(() => setLoading(false));
             }}
             style={{ marginRight: "8px" }}
