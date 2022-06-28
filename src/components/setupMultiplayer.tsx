@@ -553,6 +553,7 @@ const SetupAlert = ({ onClose }: AlertProps) => {
       style={isSafari ? { minWidth: 800 } : {}}
       // @ts-ignore
       title={"Setup Multiplayer Connection"}
+      isCloseButtonShown={false}
     >
       {!isSafari ? (
         <>
@@ -630,6 +631,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
       style={isSafari ? { minWidth: 800 } : {}}
       // @ts-ignore
       title={"Connect to Multiplayer Host"}
+      isCloseButtonShown={false}
     >
       {copied ? (
         !isSafari ? (
