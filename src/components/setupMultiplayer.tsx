@@ -803,12 +803,12 @@ const setupMultiplayer = (configUid: string) => {
       const tree = getBasicTreeByParentUid(
         getPageUidByPageTitle("roam/js/multiplayer")
       );
-      const disableAutoConnect = getSubTree({
+      const autoConnect = getSubTree({
         tree,
-        key: "Disable Auto Connect",
+        key: "Auto Connect",
       }).uid;
       addConnectCommand();
-      if (!disableAutoConnect) connectToBackend();
+      if (autoConnect) connectToBackend();
       window.roamAlphaAPI.ui.commandPalette.addCommand({
         label: "Setup Multiplayer",
         callback: () => {

@@ -68,10 +68,10 @@ runExtension(ID, async () => {
               },
             } as Field<CustomField>,
             {
-              title: "Disable Auto Connect",
+              title: "Auto Connect",
               Panel: FlagPanel,
               description:
-                "Prevent the extension from automatically connecting to your configured networks",
+                "Automatically connect to RoamJS backend and your configured networks",
             },
             {
               title: "Usage",
