@@ -1,7 +1,7 @@
 import toConfigPageName from "roamjs-components/util/toConfigPageName";
 import runExtension from "roamjs-components/util/runExtension";
 import { createConfigObserver } from "roamjs-components/components/ConfigPage";
-import setupMultiplayer, { toggleOnAsync } from "./components/setupMultiplayer";
+import setupMultiplayer from "./components/setupMultiplayer";
 import OnlineGraphs from "./components/OnlineGraphs";
 import Networks from "./components/Networks";
 import addStyle from "roamjs-components/dom/addStyle";
@@ -19,7 +19,6 @@ import type {
   Field,
   CustomField,
 } from "roamjs-components/components/ConfigPanels/types";
-import localStorageGet from "roamjs-components/util/localStorageGet";
 import registerExperimentalMode from "roamjs-components/util/registerExperimentalMode";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
@@ -49,7 +48,7 @@ runExtension(ID, async () => {
     config: {
       tabs: [
         {
-          id: "Synchronous",
+          id: "Home",
           fields: [
             {
               title: "Connected Graphs",
@@ -59,12 +58,6 @@ runExtension(ID, async () => {
               },
               description: "Graphs that are within your network",
             } as Field<CustomField>,
-          ],
-        },
-        {
-          id: "Asynchronous",
-          toggleable: "premium",
-          fields: [
             {
               title: "Networks",
               Panel: CustomPanel,
@@ -90,7 +83,6 @@ runExtension(ID, async () => {
               },
             } as Field<CustomField>,
           ],
-          onEnable: toggleOnAsync,
         },
       ],
     },

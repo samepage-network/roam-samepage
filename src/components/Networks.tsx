@@ -15,6 +15,7 @@ import {
 import renderToast from "roamjs-components/components/Toast";
 import StatusIndicator from "./StatusIndicator";
 import apiPost from "roamjs-components/util/apiPost";
+import useRoamJSTokenWarning from "roamjs-components/hooks/useRoamJSTokenWarning";
 
 const Network = (r: {
   id: string;
@@ -128,7 +129,13 @@ const Networks = () => {
         ) : (
           <p>Graph is not a member of any networks</p>
         )}
-        <p style={{ color: "darkred" }}>{error}</p>
+        <p
+          className={
+            "overflow-hidden text-overflow-ellipsis white-space-nowrap text-red-700"
+          }
+        >
+          {error}
+        </p>
       </div>
       <div
         id={ONLINE_GRAPHS_ID}
@@ -188,7 +195,7 @@ const Networks = () => {
                     intent: Intent.SUCCESS,
                   });
                 })
-                .catch((e) => e.setError(e.message))
+                .catch((e) => setError(e.message))
                 .finally(() => setLoading(false));
             }}
           />

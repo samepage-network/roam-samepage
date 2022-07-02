@@ -1,7 +1,6 @@
 import type { WSHandler } from "./common/types";
 import AWS from "aws-sdk";
 import toEntity from "./common/toEntity";
-import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import emailError from "roamjs-components/backend/emailError";
 import differenceInMinutes from "date-fns/differenceInMinutes";
 
@@ -38,18 +37,6 @@ export const saveSession = ({
             },
           })
           .promise()
-          .then(() => {
-            const quantity = Math.ceil(
-              differenceInMinutes(now, new Date(item.date.S)) / 5 
-              // not charging if it's less than 5 minutes, timeouts are usually 10.
-            );
-            if (quantity > 0) {
-              return meterRoamJSUser(
-                item.user.S,
-                differenceInMinutes(new Date(), new Date(item.date.S))
-              );
-            }
-          })
       : Promise.resolve(),
   ]);
 };

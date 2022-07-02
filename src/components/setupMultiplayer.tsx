@@ -15,6 +15,10 @@ import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByPar
 import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
+import {
+  addTokenDialogCommand,
+  checkRoamJSTokenWarning,
+} from "roamjs-components/components/TokenDialog";
 
 const FAILED_STATES = ["failed", "closed"];
 
@@ -743,22 +747,8 @@ const disconnectFromBackend = () => {
   addConnectCommand();
 };
 
-export const toggleOnAsync = () => {
-  const tree = getBasicTreeByParentUid(
-    getPageUidByPageTitle("roam/js/multiplayer")
-  );
-  const asyncModeTree = getSubTree({ tree, key: "Asynchronous" });
-  const disableAutoConnect = getSubTree({
-    tree: asyncModeTree.children,
-    key: "Disable Auto Connect",
-  }).uid;
-  addConnectCommand();
-  if (!disableAutoConnect) connectToBackend();
-};
-
 const setupMultiplayer = (configUid: string) => {
   const tree = getBasicTreeByParentUid(configUid);
-  const asyncModeTree = getSubTree({ tree, key: "Asynchronous" });
   const getConnectedGraphs = () =>
     Object.keys(connectedGraphs).filter(
       (g) => connectedGraphs[g].status === "CONNECTED"
@@ -808,9 +798,17 @@ const setupMultiplayer = (configUid: string) => {
         new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
       ),
     enable: () => {
-      if (asyncModeTree.uid) {
-        toggleOnAsync();
-      }
+      checkRoamJSTokenWarning();
+      addTokenDialogCommand();
+      const tree = getBasicTreeByParentUid(
+        getPageUidByPageTitle("roam/js/multiplayer")
+      );
+      const disableAutoConnect = getSubTree({
+        tree,
+        key: "Disable Auto Connect",
+      }).uid;
+      addConnectCommand();
+      if (!disableAutoConnect) connectToBackend();
       window.roamAlphaAPI.ui.commandPalette.addCommand({
         label: "Setup Multiplayer",
         callback: () => {
@@ -831,11 +829,9 @@ const setupMultiplayer = (configUid: string) => {
       });
     },
     disable: () => {
-      if (asyncModeTree.uid) {
-        disconnectFromBackend();
-        removeConnectCommand();
-        removeDisconnectCommand();
-      }
+      disconnectFromBackend();
+      removeConnectCommand();
+      removeDisconnectCommand();
       window.roamAlphaAPI.ui.commandPalette.removeCommand({
         label: "Connect To Graph",
       });

@@ -12,7 +12,6 @@ import queryByEntity from "./common/queryByEntity";
 import postToConnection from "./common/postToConnection";
 import nanoid from "nanoid";
 import { HmacSHA512, enc } from "crypto-js";
-import meterRoamJSUser from "roamjs-components/backend/meterRoamJSUser";
 import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
 import { messageGraphBase } from "./common/messageGraph";
@@ -162,7 +161,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         getUsersByGraph(graph),
         getRoamJSUser({
           token,
-          params: { expand: "period" },
         }),
       ])
         .then(([users, user]) => {
@@ -245,7 +243,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         getUsersByGraph(graph),
         getRoamJSUser({
           token,
-          params: { expand: "period" },
         }),
       ])
         .then(([users, user]) => {
@@ -294,13 +291,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               })
               .promise(),
           ])
-            .then(() =>
-              meterRoamJSUser(user.id, 100).catch(
-                emailCatch(
-                  `Failed to meter Multiplayer user for network ${name}`
-                )
-              )
-            )
             .then(() => ({
               statusCode: 200,
               body: JSON.stringify({ success: true }),
@@ -322,7 +312,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         getUsersByGraph(graph),
         getRoamJSUser({
           token,
-          params: { expand: "period" },
         }),
         dynamo
           .getItem({

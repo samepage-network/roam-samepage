@@ -6,10 +6,12 @@
   "scripts": {
     "build": "roamjs-scripts build",
     "dev": "roamjs-scripts dev",
+    "dev:dep": "roamjs-scripts dev --port 3200",
     "preserver": "roamjs-scripts lambdas --build --unset API_URL",
     "lambdas": "roamjs-scripts lambdas",
     "server": "localhost-lambdas",
     "start": "concurrently npm:dev npm:server",
+    "start:dep": "concurrently npm:dev:dep npm:server",
     "ssh": "ssh -i RoamJSMultiplayer.pem ubuntu@35.173.242.123",
     "ws": "ts-node --project tsconfig.json scripts/ws.ts"
   },

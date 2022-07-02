@@ -6,8 +6,8 @@ runE2eTest("Share Page Across Graphs", ({ cy, Cypress }) => {
     "roam/js/multiplayer"
   );
   cy.get("ul.rm-find-or-create__menu").children().first().click();
-  cy.get("#bp3-tab-title_multiplayer-config-tabs_Asynchronous").click();
-  cy.get("#bp3-tab-title_Asynchronous-field-tabs_Networks").click();
+  cy.get("#bp3-tab-title_multiplayer-config-tabs_Home").click();
+  cy.get("#bp3-tab-title_Home-field-tabs_Networks").click();
   cy.get('input[placeholder="New Network"]').type("Vargas");
   cy.get('input[type="password"]').type("password");
   cy.get("button.bp3-intent-success").click();
