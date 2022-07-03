@@ -67,84 +67,85 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     event.headers.Authorization || event.headers.authorization || "";
   switch (method) {
     case "usage":
-      return getRoamJSUser({
-        token,
-        params: { expand: "period" },
-      })
-        .then((u) => {
-          const { start, end } = u;
-          const endDate = new Date((end as number) * 1000);
-          const startDate = new Date((start as number) * 1000).toJSON();
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+      const endDate = new Date(
+        currentMonth === 11 ? currentYear + 1 : currentYear,
+        currentMonth === 11 ? 0 : currentMonth + 1,
+        1
+      );
+      const startDate = new Date(currentYear, currentMonth, 1).toJSON();
 
-          const queryAll = (
-            entity: string,
-            ExclusiveStartKey?: AWS.DynamoDB.Key
-          ): Promise<AWS.DynamoDB.ItemList> =>
-            dynamo
-              .query({
-                TableName: "RoamJSMultiplayer",
-                IndexName: "entity-date-index",
-                ExpressionAttributeNames: {
-                  "#s": "entity",
-                  "#d": "date",
-                },
-                ExpressionAttributeValues: {
-                  ":s": { S: toEntity(entity) },
-                  ":d": { S: startDate },
-                },
-                KeyConditionExpression: "#s = :s and #d >= :d",
-                ExclusiveStartKey,
-              })
-              .promise()
-              .then((r) =>
-                r.LastEvaluatedKey
-                  ? queryAll(entity, r.LastEvaluatedKey).then((next) =>
-                      r.Items.concat(next)
-                    )
-                  : r.Items
-              );
+      const queryAll = (
+        entity: string,
+        ExclusiveStartKey?: AWS.DynamoDB.Key
+      ): Promise<AWS.DynamoDB.ItemList> =>
+        dynamo
+          .query({
+            TableName: "RoamJSMultiplayer",
+            IndexName: "entity-date-index",
+            ExpressionAttributeNames: {
+              "#s": "entity",
+              "#d": "date",
+            },
+            ExpressionAttributeValues: {
+              ":s": { S: toEntity(entity) },
+              ":d": { S: startDate },
+            },
+            KeyConditionExpression: "#s = :s and #d >= :d",
+            ExclusiveStartKey,
+          })
+          .promise()
+          .then((r) =>
+            r.LastEvaluatedKey
+              ? queryAll(entity, r.LastEvaluatedKey).then((next) =>
+                  r.Items.concat(next)
+                )
+              : r.Items
+          );
 
-          return Promise.all([
-            queryAll("$session").then((items) =>
-              items.filter((i) => i.graph.S === graph)
+      return Promise.all([
+        queryAll("$session").then((items) =>
+          items.filter((i) => i.graph.S === graph)
+        ),
+        queryAll(`${graph}-$message`),
+        dynamo
+          .query({
+            TableName: "RoamJSMultiplayer",
+            IndexName: "graph-entity-index",
+            ExpressionAttributeNames: {
+              "#s": "entity",
+              "#d": "graph",
+            },
+            ExpressionAttributeValues: {
+              ":s": { S: toEntity("$network") },
+              ":d": { S: graph },
+            },
+            KeyConditionExpression: "#s = :s and #d = :d",
+          })
+          .promise()
+          .then((r) => r.Items),
+      ])
+        .then(([sessions, messages, networks]) => ({
+          statusCode: 200,
+          body: JSON.stringify({
+            minutes: sessions.reduce(
+              (p, c) =>
+                differenceInMinutes(
+                  new Date(c.date.S),
+                  new Date(c.initiated.S)
+                ) /
+                  5 +
+                p,
+              0
             ),
-            queryAll(`${graph}-$message`),
-            dynamo
-              .query({
-                TableName: "RoamJSMultiplayer",
-                IndexName: "graph-entity-index",
-                ExpressionAttributeNames: {
-                  "#s": "entity",
-                  "#d": "graph",
-                },
-                ExpressionAttributeValues: {
-                  ":s": { S: toEntity("$network") },
-                  ":d": { S: graph },
-                },
-                KeyConditionExpression: "#s = :s and #d = :d",
-              })
-              .promise()
-              .then((r) => r.Items),
-          ]).then(([sessions, messages, networks]) => ({
-            statusCode: 200,
-            body: JSON.stringify({
-              minutes: sessions.reduce(
-                (p, c) =>
-                  differenceInMinutes(
-                    new Date(c.date.S),
-                    new Date(c.initiated.S)
-                  ) /
-                    5 +
-                  p,
-                0
-              ),
-              messages: messages.length,
-              networks: networks.length,
-              date: format(endDate, "MMMM do, yyyy"),
-            }),
-            headers,
-          }));
-        })
+            messages: messages.length,
+            networks: networks.length,
+            date: format(endDate, "MMMM do, yyyy"),
+          }),
+          headers,
+        }))
         .catch(emailCatch("Failed to retrieve Multiplayer usage"));
     case "list-networks":
       return getRoamJSUser({ token })
@@ -290,12 +291,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                 },
               })
               .promise(),
-          ])
-            .then(() => ({
-              statusCode: 200,
-              body: JSON.stringify({ success: true }),
-              headers,
-            }));
+          ]).then(() => ({
+            statusCode: 200,
+            body: JSON.stringify({ success: true }),
+            headers,
+          }));
         })
         .catch(emailCatch("Failed to create Multiplayer network"));
     }
