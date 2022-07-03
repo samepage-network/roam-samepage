@@ -33,6 +33,10 @@ export const addSharedPage = (uid: string, index = 0) => {
     sharedPages.ids.add(dbId);
     sharedPages.idToUid[dbId] = uid;
   }
+  const event = new CustomEvent("roamjs:multiplayer:shared", { detail: uid });
+  document
+    .querySelectorAll("h1.rm-title-display")
+    .forEach((h1) => h1.dispatchEvent(event));
 };
 
 const COMMAND_PALETTE_LABEL = "Share Page With Graph";
@@ -232,13 +236,24 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
             graph: window.roamAlphaAPI.graph.name,
             uid,
           }).then((r) => {
-            if (r.exists) {
+            const execRender = () => {
               const parent = document.createElement("div");
               containerParent.insertBefore(
                 parent,
                 h.parentElement?.nextElementSibling || null
               );
               renderStatus({ parent });
+            };
+            if (r.exists) {
+              execRender();
+            } else {
+              h.addEventListener("roamjs:multiplayer:shared", ((
+                e: CustomEvent
+              ) => {
+                if (e.detail === uid) {
+                  execRender();
+                }
+              }) as EventListener);
             }
           });
         }

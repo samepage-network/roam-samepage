@@ -97,6 +97,7 @@ runExtension(ID, async () => {
   loadCopyBlockToGraph(api);
   loadCrossGraphBlockReference(api);
   registerExperimentalMode({
+    feature: "Shared Pages",
     onEnable: () => loadSharePageWithGraph(api),
     onDisable: () => unloadSharePageWithGraph(api),
   });

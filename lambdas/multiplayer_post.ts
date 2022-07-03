@@ -14,7 +14,7 @@ import nanoid from "nanoid";
 import { HmacSHA512, enc } from "crypto-js";
 import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
-import { messageGraphBase } from "./common/messageGraph";
+import messageGraph from "./common/messageGraph";
 import fromEntity from "./common/fromEntity";
 
 const dynamo = new AWS.DynamoDB();
@@ -629,9 +629,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                       r.Items.filter((item) => {
                         return item.graph.S !== graph;
                       }).map((item) =>
-                        messageGraphBase({
+                        messageGraph({
                           sourceGraph: graph,
-                          userId: user.id,
                           targetGraph: item.graph.S,
                           messageUuid: v4(),
                           data: {

@@ -97,12 +97,14 @@ export const removeAuthenticationHandler = (label: string) =>
   );
 
 export const messageHandlers: MessageHandlers = {
-  ERROR: ({ message }: { message: string }) =>
+  ERROR: ({ message }: { message: string }) => {
     renderToast({
       id: "websocket-error",
       content: message,
       intent: "danger",
-    }),
+    });
+    if (roamJsBackend.status === "PENDING") disconnectFromBackend();
+  },
   AUTHENTICATION: (props: {
     success: boolean;
     reason?: string;
@@ -714,7 +716,9 @@ const connectToBackend = () => {
     };
 
     roamJsBackend.channel.onclose = disconnectFromBackend;
-    roamJsBackend.channel.onerror = onError;
+    roamJsBackend.channel.onerror = (ev) => {
+      onError(ev);
+    };
 
     roamJsBackend.channel.onmessage = (data) => {
       if (JSON.parse(data.data).message === "Internal server error")
@@ -747,8 +751,9 @@ const disconnectFromBackend = () => {
   addConnectCommand();
 };
 
-const setupMultiplayer = (configUid: string) => {
-  const tree = getBasicTreeByParentUid(configUid);
+const setupMultiplayer = (
+  configUid: string
+): typeof window.roamjs.extension.multiplayer => {
   const getConnectedGraphs = () =>
     Object.keys(connectedGraphs).filter(
       (g) => connectedGraphs[g].status === "CONNECTED"
@@ -800,9 +805,7 @@ const setupMultiplayer = (configUid: string) => {
     enable: () => {
       checkRoamJSTokenWarning();
       addTokenDialogCommand();
-      const tree = getBasicTreeByParentUid(
-        getPageUidByPageTitle("roam/js/multiplayer")
-      );
+      const tree = getBasicTreeByParentUid(configUid);
       const autoConnect = getSubTree({
         tree,
         key: "Auto Connect",

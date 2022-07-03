@@ -10,7 +10,6 @@ const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
 
 export const messageGraphBase = ({
-  userId,
   targetGraph,
   sourceGraph,
   data,
@@ -20,12 +19,11 @@ export const messageGraphBase = ({
   sourceGraph: string;
   data: Record<string, unknown>;
   messageUuid: string;
-  userId: string;
 }) =>
   getClientsByGraph(targetGraph).then((ConnectionIds) => {
     const Data = {
       ...data,
-      graph: sourceGraph,
+      graph: targetGraph,
     };
     return (
       ConnectionIds.length
@@ -82,39 +80,4 @@ export const messageGraphBase = ({
     );
   });
 
-const messageGraph = ({
-  event,
-  ...rest
-}: {
-  targetGraph: string;
-  sourceGraph: string;
-  data: Record<string, unknown>;
-  messageUuid: string;
-  event: WSEvent;
-}) =>
-  dynamo
-    .getItem({
-      TableName: "RoamJSMultiplayer",
-      Key: {
-        id: { S: event.requestContext.connectionId },
-        entity: { S: toEntity("$client") },
-      },
-    })
-    .promise()
-    .then((r) =>
-      r.Item
-        ? r.Item.user
-          ? messageGraphBase({ userId: r.Item?.user?.S, ...rest })
-          : Promise.reject(
-              new Error(
-                `How did non-authenticated client try to send message from ${rest.sourceGraph} to ${rest.targetGraph}?`
-              )
-            )
-        : Promise.reject(
-            new Error(
-              `How did a non-existant client ${event.requestContext.connectionId} send message from ${rest.sourceGraph} to ${rest.targetGraph}?`
-            )
-          )
-    );
-
-export default messageGraph;
+export default messageGraphBase;

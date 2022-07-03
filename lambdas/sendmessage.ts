@@ -164,11 +164,10 @@ const dataHandler = async (
       proxyOperation: string;
       graph: string;
     };
-    return getGraphByClient(event).then((sourceGraph) =>
+    return getGraphByClient(event).then((targetGraph) =>
       messageGraph({
-        event,
-        targetGraph: graph,
-        sourceGraph,
+        sourceGraph: graph,
+        targetGraph,
         data: {
           operation: proxyOperation,
           ...proxyData,
@@ -277,11 +276,10 @@ const dataHandler = async (
             .catch();
       })
       .then(() => getGraphByClient(event))
-      .then((sourceGraph) =>
+      .then((targetGraph) =>
         messageGraph({
-          event,
-          sourceGraph,
-          targetGraph: graph,
+          sourceGraph: graph,
+          targetGraph,
           data: {
             uid,
             operation: "QUERY_REF",
@@ -320,13 +318,12 @@ const dataHandler = async (
             .promise()
         );
     }
-    return getGraphByClient(event).then((sourceGraph) =>
+    return getGraphByClient(event).then((targetGraph) =>
       messageGraph({
-        event,
-        targetGraph: graph,
-        sourceGraph,
+        targetGraph,
+        sourceGraph: graph,
         data: {
-          operation: `QUERY_REF_RESPONSE/${sourceGraph}/${node.uid}`,
+          operation: `QUERY_REF_RESPONSE/${graph}/${node.uid}`,
           node,
           found,
           ephemeral: true,
@@ -434,10 +431,10 @@ export const handler: WSHandler = (event) =>
         .then(() => getGraphByClient(event))
         // END of THIS IS CRAZY
         .then(() => {
-          console.log(e);
+          console.log('Uncaught WebSocket error: ', e);
           return {
             statusCode: 500,
-            body: `Uncaught Server Error: ${e.message}`,
+            body: `Uncaught WebSocket Error: ${e.message}`,
           };
         })
     );
