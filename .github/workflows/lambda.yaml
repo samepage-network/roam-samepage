@@ -14,7 +14,6 @@ env:
   PASSWORD_SECRET_KEY: ${{ secrets.PASSWORD_SECRET_KEY }}
   ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
   ROAMJS_EMAIL: dvargas92495@gmail.com
-  ROAMJS_EXTENSION_ID: multiplayer
 
 jobs:
   deploy:
