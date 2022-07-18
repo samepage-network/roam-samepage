@@ -14,7 +14,6 @@ import { v4 } from "uuid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
-import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import {
   addTokenDialogCommand,
   checkRoamJSTokenWarning,
@@ -803,15 +802,16 @@ const setupMultiplayer = (
         new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
       ),
     enable: () => {
-      checkRoamJSTokenWarning();
-      addTokenDialogCommand();
       const tree = getBasicTreeByParentUid(configUid);
       const autoConnect = getSubTree({
         tree,
         key: "Auto Connect",
       }).uid;
       addConnectCommand();
-      if (autoConnect) connectToBackend();
+      addTokenDialogCommand();
+      if (autoConnect) {
+        checkRoamJSTokenWarning().then((token) => token && connectToBackend());
+      }
       window.roamAlphaAPI.ui.commandPalette.addCommand({
         label: "Setup Multiplayer",
         callback: () => {
