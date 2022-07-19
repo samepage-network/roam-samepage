@@ -20,6 +20,7 @@ import type {
   CustomField,
 } from "roamjs-components/components/ConfigPanels/types";
 import registerExperimentalMode from "roamjs-components/util/registerExperimentalMode";
+import SharedPagesDashboard from "./components/SharedPagesDashboard";
 
 const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
 const ID = "multiplayer";
@@ -45,47 +46,47 @@ addStyle(`.roamjs-multiplayer-connected-network {
 runExtension(ID, async () => {
   const { pageUid } = await createConfigObserver({
     title: CONFIG,
-    config: {
-      tabs: [
-        {
-          id: "Home",
-          fields: [
-            {
-              title: "Connected Graphs",
-              Panel: CustomPanel,
-              options: {
-                component: OnlineGraphs,
-              },
-              description: "Graphs that are within your network",
-            } as Field<CustomField>,
-            {
-              title: "Networks",
-              Panel: CustomPanel,
-              description:
-                "View all the networks that your graph is currently in",
-              options: {
-                component: Networks,
-              },
-            } as Field<CustomField>,
-            {
-              title: "Auto Connect",
-              Panel: FlagPanel,
-              description:
-                "Automatically connect to RoamJS backend and your configured networks",
-            },
-            {
-              title: "Usage",
-              Panel: CustomPanel,
-              description:
-                "Displays how much the user has used Multiplayer this month",
-              options: {
-                component: UsageChart,
-              },
-            } as Field<CustomField>,
-          ],
+    config: [
+      {
+        title: "Connected Graphs",
+        Panel: CustomPanel,
+        options: {
+          component: OnlineGraphs,
         },
-      ],
-    },
+        description: "Graphs that are within your network",
+      } as Field<CustomField>,
+      {
+        title: "Networks",
+        Panel: CustomPanel,
+        description: "View all the networks that your graph is currently in",
+        options: {
+          component: Networks,
+        },
+      } as Field<CustomField>,
+      {
+        title: "Shared Pages",
+        Panel: CustomPanel,
+        description: "View all of the shared with other graphs.",
+        options: {
+          component: SharedPagesDashboard,
+        }
+      } as Field<CustomField>,
+      {
+        title: "Auto Connect",
+        Panel: FlagPanel,
+        description:
+          "Automatically connect to RoamJS backend and your configured networks",
+      },
+      {
+        title: "Usage",
+        Panel: CustomPanel,
+        description:
+          "Displays how much the user has used Multiplayer this month",
+        options: {
+          component: UsageChart,
+        },
+      } as Field<CustomField>,
+    ],
   });
 
   render({ configUid: pageUid });

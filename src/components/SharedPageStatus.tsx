@@ -1,5 +1,5 @@
-import ReactDOM from "react-dom";
 import { Button, Tooltip } from "@blueprintjs/core";
+import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
 
 const SharedPageStatus = () => {
   return (
@@ -16,7 +16,7 @@ const SharedPageStatus = () => {
 };
 
 export const render = ({ parent }: { parent: HTMLElement }) => {
-  ReactDOM.render(<SharedPageStatus />, parent);
+  renderWithUnmount(<SharedPageStatus />, parent);
 };
 
 export default SharedPageStatus;
