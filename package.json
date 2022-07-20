@@ -22,15 +22,15 @@
     "@types/ws": "^8.2.2",
     "concurrently": "^6.4.0",
     "cross-env": "^7.0.3",
-    "dotenv": "^16.0.0",
     "globby": "^13.1.2",
     "localhost-lambdas": "^0.5.5",
-    "roamjs-scripts": "^0.19.10",
+    "roamjs-scripts": "^0.21.0",
     "ts-node": "^10.4.0",
     "ws": "^8.4.2"
   },
   "dependencies": {
     "aws-sdk": "^2.1066.0",
-    "roamjs-components": "^0.70.0"
+    "dotenv": "^16.0.1",
+    "roamjs-components": "^0.70.1"
   }
 }

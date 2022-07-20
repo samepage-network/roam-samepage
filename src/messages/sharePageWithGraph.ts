@@ -2,7 +2,7 @@ import { Intent } from "@blueprintjs/core";
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
-import type { ViewType } from "roamjs-components/types";
+import type { PullBlock, ViewType } from "roamjs-components/types";
 import apiPost from "roamjs-components/util/apiPost";
 import type { Action } from "../../lambdas/multiplayer_post";
 import { notify } from "../components/NotificationContainer";
@@ -14,7 +14,6 @@ import {
 import { render } from "../components/SharePageAlert";
 import { render as renderStatus } from "../components/SharedPageStatus";
 import { SharedPages } from "../types";
-import getUids from "roamjs-components/dom/getUids";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 
@@ -22,6 +21,135 @@ export const sharedPages: SharedPages = {
   indices: {},
   ids: new Set(),
   idToUid: {},
+};
+const COMMAND_PALETTE_LABEL = "Share Page With Graph";
+const AUTHENTICATED_LABEL = "LIST_SHARED_PAGES";
+const SHARE_PAGE_OPERATION = "SHARE_PAGE";
+const SHARE_PAGE_UPDATE_OPERATION = "SHARE_PAGE_UPDATE";
+const SHARE_PAGE_RESPONSE_OPERATION = "SHARE_PAGE_RESPONSE";
+const observers: Set<MutationObserver> = new Set();
+const blocksObserved = new Set();
+
+if (process.env.NODE_ENV === "development") {
+  // @ts-ignore
+  window.debug = {
+    blocksObserved,
+    sharedPages,
+  };
+}
+
+// replace with Roam global listener
+const blockUidWatchCallback: Parameters<
+  typeof window.roamAlphaAPI.data.addPullWatch
+>[2] = (before, after) => {
+  const parentUid =
+    sharedPages.idToUid[after[":db/id"]] ||
+    sharedPages.idToUid[
+      after[":block/parents"].find((node) =>
+        sharedPages.ids.has(node[":db/id"])
+      )[":db/id"]
+    ];
+  if (
+    before[":block/open"] !== after[":block/open"] ||
+    before[":block/string"] !== after[":block/string"] ||
+    before[":block/heading"] !== after[":block/heading"] ||
+    before[":block/text-align"] !== after[":block/text-align"] ||
+    before[":children/view-type"] !== after[":children/view-type"]
+  ) {
+    const action: Action = {
+      action: "updateBlock",
+      params: {
+        block: {
+          string: after[":block/string"],
+          open: after[":block/open"],
+          heading: after[":block/heading"],
+          "children-view-type": after[":children/view-type"]
+            ? (after[":children/view-type"].slice(1) as ViewType)
+            : undefined,
+          "text-align": after[":block/text-align"],
+          uid: after[":block/uid"],
+        },
+      },
+    };
+    return apiPost<{ newIndex: number }>("multiplayer", {
+      method: "update-shared-page",
+      graph: window.roamAlphaAPI.graph.name,
+      uid: parentUid,
+      log: [action],
+    }).then((r) => {
+      sharedPages.indices[parentUid] = r.newIndex;
+    });
+  }
+  const beforeChildren = before[":block/children"] || [];
+  const afterChildren = after[":block/children"] || [];
+  if (beforeChildren.length > afterChildren.length) {
+    const alive = new Set(afterChildren.map((node) => node[":db/id"]));
+    const deleted = beforeChildren
+      .map((c) => c[":db/id"])
+      .filter((c) => !alive.has(c))
+      .map((id) => window.roamAlphaAPI.pull("[:block/uid]", id)[":block/uid"]);
+    deleted.forEach((d) => {
+      blocksObserved.delete(d);
+      window.roamAlphaAPI.data.removePullWatch(
+        "[*]",
+        `[:block/uid "${d}"]`,
+        blockUidWatchCallback
+      );
+    });
+    return apiPost<{ newIndex: number }>("multiplayer", {
+      method: "update-shared-page",
+      graph: window.roamAlphaAPI.graph.name,
+      uid: parentUid,
+      log: deleted.map((d) => ({
+        action: "deleteBlock",
+        params: {
+          block: {
+            uid: d,
+          },
+        },
+      })),
+    }).then((r) => {
+      sharedPages.indices[parentUid] = r.newIndex;
+    });
+  } else if (beforeChildren.length < afterChildren.length) {
+    const old = new Set(beforeChildren.map((node) => node[":db/id"]));
+    const created = afterChildren
+      .map((c) => c[":db/id"])
+      .filter((c) => !old.has(c))
+      .map((id) =>
+        window.roamAlphaAPI.pull("[:block/uid :block/order :block/string]", id)
+      );
+    created.forEach((d) => watchUid(d[":block/uid"]));
+    return apiPost<{ newIndex: number }>("multiplayer", {
+      method: "update-shared-page",
+      graph: window.roamAlphaAPI.graph.name,
+      uid: parentUid,
+      log: created.map((d) => ({
+        action: "createBlock",
+        params: {
+          block: {
+            uid: d[":block/uid"],
+            string: d[":block/string"] || "",
+          },
+          location: {
+            "parent-uid": after[":block/uid"],
+            order: d[":block/order"],
+          },
+        },
+      })),
+    }).then((r) => {
+      sharedPages.indices[parentUid] = r.newIndex;
+    });
+  }
+};
+
+const watchUid = (uid: string) => {
+  blocksObserved.add(uid);
+  window.roamAlphaAPI.data.addPullWatch(
+    "[*]",
+    `[:block/uid "${uid}"]`,
+    blockUidWatchCallback
+  );
 };
 
 export const addSharedPage = (uid: string, index = 0) => {
@@ -32,53 +160,19 @@ export const addSharedPage = (uid: string, index = 0) => {
   if (dbId) {
     sharedPages.ids.add(dbId);
     sharedPages.idToUid[dbId] = uid;
+    window.roamAlphaAPI.data.fast
+      .q(
+        `[:find [pull ?b [:block/uid]] :where [?p :block/uid "${uid}"] [?b :block/parents ?p]]`
+      )
+      .map((b) => (b[0] as PullBlock)[":block/uid"])
+      .forEach(watchUid);
+    watchUid(uid);
+
+    const event = new CustomEvent("roamjs:multiplayer:shared", { detail: uid });
+    document
+      .querySelectorAll("h1.rm-title-display")
+      .forEach((h1) => h1.dispatchEvent(event));
   }
-  const event = new CustomEvent("roamjs:multiplayer:shared", { detail: uid });
-  document
-    .querySelectorAll("h1.rm-title-display")
-    .forEach((h1) => h1.dispatchEvent(event));
-};
-
-const COMMAND_PALETTE_LABEL = "Share Page With Graph";
-const AUTHENTICATED_LABEL = "LIST_SHARED_PAGES";
-const SHARE_PAGE_OPERATION = "SHARE_PAGE";
-const SHARE_PAGE_UPDATE_OPERATION = "SHARE_PAGE_UPDATE";
-const SHARE_PAGE_RESPONSE_OPERATION = "SHARE_PAGE_RESPONSE";
-const observers: Set<MutationObserver> = new Set();
-const blocksObserved = new Set();
-
-// replace with Roam global listener
-const blockUidWatchCallback: Parameters<
-  typeof window.roamAlphaAPI.data.addPullWatch
->[2] = (_, after) => {
-  after[":block/parents"]
-    .filter((a) => sharedPages.ids.has(a[":db/id"]))
-    .map((parent) => {
-      const action: Action = {
-        action: "updateBlock",
-        params: {
-          block: {
-            string: after[":block/string"],
-            open: after[":block/open"],
-            heading: after[":block/heading"],
-            "children-view-type": after[":children/view-type"]
-              ? (after[":children/view-type"].slice(1) as ViewType)
-              : undefined,
-            "text-align": after[":block/text-align"],
-            uid: after[":block/uid"],
-          },
-        },
-      };
-      const parentUid = sharedPages.idToUid[parent[":db/id"]];
-      return apiPost<{ newIndex: number }>("multiplayer", {
-        method: "update-shared-page",
-        graph: window.roamAlphaAPI.graph.name,
-        uid: parentUid,
-        log: [action],
-      }).then((r) => {
-        sharedPages.indices[parentUid] = r.newIndex;
-      });
-    });
 };
 
 const load = ({ addGraphListener }: MessageLoaderProps) => {
@@ -194,31 +288,6 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
         .then(() => (sharedPages.indices[uid] = index));
     },
   });
-
-  observers.add(
-    createHTMLObserver({
-      tag: "TEXTAREA",
-      className: "rm-block-input",
-      callback: (t: HTMLTextAreaElement) => {
-        const { blockUid } = getUids(t);
-        window.roamAlphaAPI.data.addPullWatch(
-          "[*]",
-          `[:block/uid "${blockUid}"]`,
-          blockUidWatchCallback
-        );
-        blocksObserved.add(blockUid);
-      },
-      removeCallback: (t: HTMLTextAreaElement) => {
-        const { blockUid } = getUids(t);
-        window.roamAlphaAPI.data.removePullWatch(
-          "[*]",
-          `[:block/uid "${blockUid}"]`,
-          blockUidWatchCallback
-        );
-        blocksObserved.delete(blockUid);
-      },
-    })
-  );
 
   observers.add(
     createHTMLObserver({

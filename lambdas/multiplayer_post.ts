@@ -559,7 +559,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           .catch(emailCatch("Failed to update a shared page with empty log"));
       }
       return getRoamJSUser({ token })
-        .then((user) => {
+        .then(() => {
           return getSharedPage({ graph, uid }).then((item) => {
             if (!item) {
               return {
@@ -569,7 +569,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               };
             }
             const id = item.id.S;
-
             return s3
               .getObject({
                 Bucket: "roamjs-data",

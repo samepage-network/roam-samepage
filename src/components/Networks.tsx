@@ -8,14 +8,12 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import {
-  messageHandlers,
   roamJsBackend,
   ONLINE_GRAPHS_ID,
 } from "./setupMultiplayer";
 import renderToast from "roamjs-components/components/Toast";
 import StatusIndicator from "./StatusIndicator";
 import apiPost from "roamjs-components/util/apiPost";
-import useRoamJSTokenWarning from "roamjs-components/hooks/useRoamJSTokenWarning";
 
 const Network = (r: {
   id: string;
@@ -179,6 +177,7 @@ const Networks = () => {
             style={{ margin: "0 16px" }}
             onClick={() => {
               setLoading(true);
+              setError("");
               apiPost(`multiplayer`, {
                 method: "create-network",
                 graph: window.roamAlphaAPI.graph.name,
@@ -203,6 +202,7 @@ const Networks = () => {
             text={"JOIN"}
             onClick={() => {
               setLoading(true);
+              setError("");
               apiPost(`multiplayer`, {
                 method: "join-network",
                 graph: window.roamAlphaAPI.graph.name,
