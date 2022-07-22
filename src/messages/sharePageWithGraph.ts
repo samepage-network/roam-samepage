@@ -88,14 +88,7 @@ const blockUidWatchCallback: Parameters<
       .map((c) => c[":db/id"])
       .filter((c) => !alive.has(c))
       .map((id) => window.roamAlphaAPI.pull("[:block/uid]", id)[":block/uid"]);
-    deleted.forEach((d) => {
-      blocksObserved.delete(d);
-      window.roamAlphaAPI.data.removePullWatch(
-        "[*]",
-        `[:block/uid "${d}"]`,
-        blockUidWatchCallback
-      );
-    });
+    deleted.forEach(unwatchUid);
     return apiPost<{ newIndex: number }>("multiplayer", {
       method: "update-shared-page",
       graph: window.roamAlphaAPI.graph.name,
@@ -152,6 +145,22 @@ const watchUid = (uid: string) => {
   );
 };
 
+const unwatchUid = (uid: string) => {
+  blocksObserved.delete(uid);
+  window.roamAlphaAPI.data.removePullWatch(
+    "[*]",
+    `[:block/uid "${uid}"]`,
+    blockUidWatchCallback
+  );
+};
+
+const getDescendentUidsByParentUid = (uid: string) =>
+  window.roamAlphaAPI.data.fast
+    .q(
+      `[:find [pull ?b [:block/uid]] :where [?p :block/uid "${uid}"] [?b :block/parents ?p]]`
+    )
+    .map((b) => (b[0] as PullBlock)[":block/uid"]);
+
 export const addSharedPage = (uid: string, index = 0) => {
   sharedPages.indices[uid] = index;
   const dbId = window.roamAlphaAPI.pull(`[:db/id]`, `[:block/uid "${uid}"]`)?.[
@@ -160,18 +169,26 @@ export const addSharedPage = (uid: string, index = 0) => {
   if (dbId) {
     sharedPages.ids.add(dbId);
     sharedPages.idToUid[dbId] = uid;
-    window.roamAlphaAPI.data.fast
-      .q(
-        `[:find [pull ?b [:block/uid]] :where [?p :block/uid "${uid}"] [?b :block/parents ?p]]`
-      )
-      .map((b) => (b[0] as PullBlock)[":block/uid"])
-      .forEach(watchUid);
+    getDescendentUidsByParentUid(uid).forEach(watchUid);
     watchUid(uid);
 
     const event = new CustomEvent("roamjs:multiplayer:shared", { detail: uid });
     document
       .querySelectorAll("h1.rm-title-display")
       .forEach((h1) => h1.dispatchEvent(event));
+  }
+};
+
+export const removeSharedPage = (uid: string) => {
+  delete sharedPages.indices[uid];
+  const dbId = window.roamAlphaAPI.pull(`[:db/id]`, `[:block/uid "${uid}"]`)?.[
+    ":db/id"
+  ];
+  if (dbId) {
+    sharedPages.ids.delete(dbId);
+    delete sharedPages.idToUid[dbId];
+    getDescendentUidsByParentUid(uid).forEach(unwatchUid);
+    unwatchUid(uid);
   }
 };
 
@@ -311,7 +328,7 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
                 parent,
                 h.parentElement?.nextElementSibling || null
               );
-              renderStatus({ parent });
+              renderStatus({ parent, parentUid: uid });
             };
             if (r.exists) {
               execRender();
@@ -332,13 +349,7 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
 };
 
 export const unload = ({ removeGraphListener }: MessageLoaderProps) => {
-  blocksObserved.forEach((blockUid) =>
-    window.roamAlphaAPI.data.removePullWatch(
-      "[*]",
-      `[:block/uid "${blockUid}"]`,
-      blockUidWatchCallback
-    )
-  );
+  blocksObserved.forEach(unwatchUid);
   blocksObserved.clear();
   observers.forEach((o) => o.disconnect());
   removeGraphListener({ operation: SHARE_PAGE_RESPONSE_OPERATION });

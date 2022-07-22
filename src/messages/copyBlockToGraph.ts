@@ -50,4 +50,13 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   });
 };
 
+export const unload = ({ removeGraphListener }: MessageLoaderProps) => {
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({
+    label: "Copy Block to Graph",
+  });
+  removeGraphListener({
+    operation: "COPY_BLOCK",
+  });
+};
+
 export default load;

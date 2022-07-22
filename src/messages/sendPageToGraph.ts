@@ -63,4 +63,11 @@ const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   });
 };
 
+export const unload = ({ removeGraphListener }: MessageLoaderProps) => {
+  removeGraphListener({ operation: "SEND_PAGE" });
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({
+    label: "Send Page to Graph",
+  });
+};
+
 export default load;

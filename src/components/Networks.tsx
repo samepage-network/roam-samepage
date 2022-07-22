@@ -7,12 +7,7 @@ import {
   Spinner,
   Tooltip,
 } from "@blueprintjs/core";
-import {
-  roamJsBackend,
-  ONLINE_GRAPHS_ID,
-} from "./setupMultiplayer";
 import renderToast from "roamjs-components/components/Toast";
-import StatusIndicator from "./StatusIndicator";
 import apiPost from "roamjs-components/util/apiPost";
 
 const Network = (r: {
@@ -22,7 +17,7 @@ const Network = (r: {
 }) => {
   const [loading, setLoading] = useState(false);
   return (
-    <li className="roamjs-multiplayer-connected-network">
+    <li className="roamjs-samepage-connected-network">
       <div
         style={{
           display: "flex",
@@ -92,13 +87,8 @@ const Networks = () => {
     },
     [networks, setNetworks]
   );
-  const [status, setStatus] = useState(roamJsBackend.status);
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    containerRef.current.addEventListener("roamjs:multiplayer:graphs", () => {
-      setStatus(roamJsBackend.status);
-    });
-
     apiPost<{ networks: string[] }>(`multiplayer`, {
       method: "list-networks",
       graph: window.roamAlphaAPI.graph.name,
@@ -107,9 +97,9 @@ const Networks = () => {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
     return () => clearTimeout(errorTimeout.current);
-  }, [setLoading, setNetworks, setError, setStatus]);
+  }, [setLoading, setNetworks, setError]);
   return (
-    <>
+    <div>
       <div style={{ height: 120, position: "relative" }}>
         {loading ? (
           <Spinner />
@@ -135,16 +125,7 @@ const Networks = () => {
           {error}
         </p>
       </div>
-      <div
-        id={ONLINE_GRAPHS_ID}
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-        ref={containerRef}
-      >
-        <StatusIndicator status={status} />
+      <div className="flex items-center justify-between" ref={containerRef}>
         <Label>
           Network Name
           <InputGroup
@@ -164,70 +145,69 @@ const Networks = () => {
             type={"password"}
           />
         </Label>
-        <div
-          style={{
-            display: "flex",
-            minWidth: 160,
-          }}
-        >
-          <Button
-            intent={Intent.PRIMARY}
-            disabled={!newNetwork || !password || loading}
-            text={"CREATE"}
-            style={{ margin: "0 16px" }}
-            onClick={() => {
-              setLoading(true);
-              setError("");
-              apiPost(`multiplayer`, {
-                method: "create-network",
-                graph: window.roamAlphaAPI.graph.name,
-                name: newNetwork,
-                password,
-              })
-                .then(() => {
-                  setNetworks([...networks, { id: newNetwork }]);
-                  setNewNetwork("");
-                  setPassword("");
-                  renderToast({
-                    content: `Successfully created network ${newNetwork}!`,
-                    id: "network-success",
-                    intent: Intent.SUCCESS,
-                  });
-                })
-                .catch((e) => setError(e.message))
-                .finally(() => setLoading(false));
-            }}
-          />
-          <Button
-            text={"JOIN"}
-            onClick={() => {
-              setLoading(true);
-              setError("");
-              apiPost(`multiplayer`, {
-                method: "join-network",
-                graph: window.roamAlphaAPI.graph.name,
-                name: newNetwork,
-                password,
-              })
-                .then(() => {
-                  setNetworks([...networks, { id: newNetwork }]);
-                  setNewNetwork("");
-                  setPassword("");
-                  renderToast({
-                    content: `Successfully joined network ${newNetwork}!`,
-                    id: "network-success",
-                    intent: Intent.SUCCESS,
-                  });
-                })
-                .catch((e) => setError(e.message))
-                .finally(() => setLoading(false));
-            }}
-            disabled={!newNetwork || !password || loading}
-            intent={Intent.SUCCESS}
-          />
-        </div>
       </div>
-    </>
+      <div
+        className={"gap-4 flex mt-4"}
+        style={{
+          minWidth: 160,
+        }}
+      >
+        <Button
+          intent={Intent.PRIMARY}
+          disabled={!newNetwork || !password || loading}
+          text={"CREATE"}
+          onClick={() => {
+            setLoading(true);
+            setError("");
+            apiPost(`multiplayer`, {
+              method: "create-network",
+              graph: window.roamAlphaAPI.graph.name,
+              name: newNetwork,
+              password,
+            })
+              .then(() => {
+                setNetworks([...networks, { id: newNetwork }]);
+                setNewNetwork("");
+                setPassword("");
+                renderToast({
+                  content: `Successfully created network ${newNetwork}!`,
+                  id: "network-success",
+                  intent: Intent.SUCCESS,
+                });
+              })
+              .catch((e) => setError(e.message))
+              .finally(() => setLoading(false));
+          }}
+        />
+        <Button
+          text={"JOIN"}
+          onClick={() => {
+            setLoading(true);
+            setError("");
+            apiPost(`multiplayer`, {
+              method: "join-network",
+              graph: window.roamAlphaAPI.graph.name,
+              name: newNetwork,
+              password,
+            })
+              .then(() => {
+                setNetworks([...networks, { id: newNetwork }]);
+                setNewNetwork("");
+                setPassword("");
+                renderToast({
+                  content: `Successfully joined network ${newNetwork}!`,
+                  id: "network-success",
+                  intent: Intent.SUCCESS,
+                });
+              })
+              .catch((e) => setError(e.message))
+              .finally(() => setLoading(false));
+          }}
+          disabled={!newNetwork || !password || loading}
+          intent={Intent.SUCCESS}
+        />
+      </div>
+    </div>
   );
 };
 

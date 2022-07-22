@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
-import createBlock from "roamjs-components/writes/createBlock";
-import deleteBlock from "roamjs-components/writes/deleteBlock";
 import rejectSharePageResponse from "../actions/rejectSharePageResponse";
 import acceptSharePageResponse from "../actions/acceptSharePageResponse";
 import getSubTree from "roamjs-components/util/getSubTree";
-import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
 import { render as renderToast } from "roamjs-components/components/Toast";
+import { PullBlock } from "roamjs-components/types/native";
+import createPage from "roamjs-components/writes/createPage";
 
 const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
 
@@ -30,10 +29,6 @@ type Notification = {
   description: string;
   actions: NotificationAction[];
 };
-
-type Props = { configUid: string };
-
-const KEY = "Notifications";
 
 const ActionButtons = ({
   actions,
@@ -73,20 +68,27 @@ const ActionButtons = ({
   );
 };
 
-const NotificationContainer = ({ configUid }: Props) => {
+const NotificationContainer = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, _setNotificatons] = useState<Notification[]>(() => {
-    const tree = getBasicTreeByParentUid(configUid);
-    const notificationTree = getSubTree({ tree, key: KEY });
-    return notificationTree.children.map((node) => ({
-      title: node.text,
-      uid: node.uid,
-      description: getSettingValueFromTree({
-        tree: node.children,
-        key: "Description",
-      }),
-      actions: getSubTree({ tree: node.children, key: "Actions" }).children.map(
-        (act) => ({
+    const pages = window.roamAlphaAPI.data.fast
+      .q(
+        `[:find (pull ?b [:block/uid :node/title]) :where [?b :node/title ?title] [(clojure.string/starts-with? ?title  "roam/js/notifications/")]]`
+      )
+      .map((r) => r[0] as PullBlock);
+    return pages.map((block) => {
+      const tree = getBasicTreeByParentUid(block[":block/uid"]);
+      return {
+        title: block[":node/title"],
+        uid: block[":block/uid"],
+        description: getSettingValueFromTree({
+          tree,
+          key: "Description",
+        }),
+        actions: getSubTree({
+          tree,
+          key: "Actions",
+        }).children.map((act) => ({
           label: act.text,
           method: getSettingValueFromTree({
             tree: act.children,
@@ -97,60 +99,45 @@ const NotificationContainer = ({ configUid }: Props) => {
               (arg) => [arg.text, arg.children[0]?.text]
             )
           ),
-        })
-      ),
-    }));
+        })),
+      };
+    });
   });
   const notificationsRef = useRef<Notification[]>([]);
   const addNotificaton = useCallback(
     (not: Notification) => {
-      const parentUid = getSubTree({
-        parentUid: configUid,
-        key: KEY,
-      }).uid;
-      (parentUid
-        ? Promise.resolve(parentUid)
-        : createBlock({ parentUid, order: 10, node: { text: KEY } })
-      )
-        .then((parentUid) =>
-          createBlock({
-            parentUid,
-            order: getChildrenLengthByPageUid(parentUid),
-            node: {
-              uid: not.uid,
-              text: not.title,
+      createPage({
+        title: `roam/js/notifications/${not.title}`,
+        uid: not.uid,
+        tree: [
+          { text: "Description", children: [{ text: not.description }] },
+          {
+            text: "Actions",
+            children: not.actions.map((a) => ({
+              text: a.label,
               children: [
-                { text: "Description", children: [{ text: not.description }] },
+                { text: "Method", children: [{ text: a.method }] },
                 {
-                  text: "Actions",
-                  children: not.actions.map((a) => ({
-                    text: a.label,
-                    children: [
-                      { text: "Method", children: [{ text: a.method }] },
-                      {
-                        text: "Args",
-                        children: Object.entries(a.args).map((arg) => ({
-                          text: arg[0],
-                          children: [{ text: arg[1] }],
-                        })),
-                      },
-                    ],
+                  text: "Args",
+                  children: Object.entries(a.args).map((arg) => ({
+                    text: arg[0],
+                    children: [{ text: arg[1] }],
                   })),
                 },
               ],
-            },
-          })
-        )
-        .then(() => {
-          notificationsRef.current.push(not);
-          _setNotificatons(notificationsRef.current);
-        });
+            })),
+          },
+        ],
+      }).then(() => {
+        notificationsRef.current.push(not);
+        _setNotificatons(notificationsRef.current);
+      });
     },
-    [_setNotificatons, notificationsRef, configUid]
+    [_setNotificatons, notificationsRef]
   );
   const removeNotificaton = useCallback(
     (not: Notification) => {
-      deleteBlock(not.uid).then(() => {
+      window.roamAlphaAPI.deletePage({ page: { uid: not.uid } }).then(() => {
         notificationsRef.current = notificationsRef.current.filter(
           (n) => n.uid !== not.uid
         );
@@ -240,7 +227,7 @@ export const notify = (detail: Omit<Notification, "uid">) =>
     })
   );
 
-export const render = createOverlayRender<Props>(
+export const render = createOverlayRender(
   "multiplayer-notifications",
   NotificationContainer
 );

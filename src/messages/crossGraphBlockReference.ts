@@ -6,6 +6,8 @@ import {
 } from "../components/setupMultiplayer";
 import { render as referenceRender } from "../components/CrossGraphReference";
 
+let observer: MutationObserver;
+
 const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
   addGraphListener({
     operation: "QUERY_REF",
@@ -22,7 +24,7 @@ const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
       });
     },
   });
-  createHTMLObserver({
+  observer = createHTMLObserver({
     callback: (s) => referenceRender(s, getNetworkedGraphs),
     tag: "SPAN",
     className: "rm-paren--closed",
@@ -36,6 +38,14 @@ const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
       );
     },
   });
+};
+
+export const unload = ({ removeGraphListener }: MessageLoaderProps) => {
+  removeGraphListener({ operation: "QUERY_REF" });
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({
+    label: "Copy Cross Graph Block Reference",
+  });
+  observer.disconnect();
 };
 
 export default load;

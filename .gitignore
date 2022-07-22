@@ -4,5 +4,6 @@ dist
 out
 .env
 .env.local
-RoamJSMultiplayer.pem
+RoamJSSamePage.pem
 a.js
+extension.js

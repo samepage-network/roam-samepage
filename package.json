@@ -1,18 +1,18 @@
 {
-  "name": "multiplayer",
+  "name": "samepage",
   "version": "1.0.0",
-  "description": "Description for multiplayer.",
+  "description": "Official Roam client into the inter-TFT-protocol",
   "main": "./build/main.js",
   "scripts": {
     "build": "roamjs-scripts build",
-    "dev": "roamjs-scripts dev",
+    "dev": "roamjs-scripts dev --depot",
     "dev:dep": "roamjs-scripts dev --port 3200",
     "preserver": "roamjs-scripts lambdas --build --unset API_URL",
     "lambdas": "roamjs-scripts lambdas",
     "server": "localhost-lambdas",
     "start": "concurrently npm:dev npm:server",
     "start:dep": "concurrently npm:dev:dep npm:server",
-    "ssh": "ssh -i RoamJSMultiplayer.pem ubuntu@35.173.242.123",
+    "ssh": "ssh -i RoamJSSamePage.pem ubuntu@35.173.242.123",
     "ws": "ts-node --project tsconfig.json scripts/ws.ts"
   },
   "license": "MIT",
@@ -24,13 +24,13 @@
     "cross-env": "^7.0.3",
     "globby": "^13.1.2",
     "localhost-lambdas": "^0.5.5",
-    "roamjs-scripts": "^0.21.0",
+    "roamjs-scripts": "^0.21.2",
     "ts-node": "^10.4.0",
     "ws": "^8.4.2"
   },
   "dependencies": {
     "aws-sdk": "^2.1066.0",
     "dotenv": "^16.0.1",
-    "roamjs-components": "^0.70.1"
+    "roamjs-components": "^0.70.6"
   }
 }

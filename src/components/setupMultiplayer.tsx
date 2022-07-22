@@ -192,10 +192,11 @@ export const messageHandlers: MessageHandlers = {
   },
 };
 export const ONLINE_GRAPHS_ID = "roamjs-online-graphs-container";
+export const ONLINE_UPDATE_EVENT_NAME = "roamjs:multiplayer:graphs";
 const updateOnlineGraphs = () => {
   const onlineElement = document.getElementById(ONLINE_GRAPHS_ID);
   if (onlineElement) {
-    onlineElement.dispatchEvent(new Event("roamjs:multiplayer:graphs"));
+    onlineElement.dispatchEvent(new Event(ONLINE_UPDATE_EVENT_NAME));
   }
 };
 export const connectedGraphs: {
@@ -751,7 +752,7 @@ const disconnectFromBackend = () => {
 };
 
 const setupMultiplayer = (
-  configUid: string
+  isAutoConnect: () => boolean
 ): typeof window.roamjs.extension.multiplayer => {
   const getConnectedGraphs = () =>
     Object.keys(connectedGraphs).filter(
@@ -802,11 +803,7 @@ const setupMultiplayer = (
         new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
       ),
     enable: () => {
-      const tree = getBasicTreeByParentUid(configUid);
-      const autoConnect = getSubTree({
-        tree,
-        key: "Auto Connect",
-      }).uid;
+      const autoConnect = isAutoConnect();
       addConnectCommand();
       addTokenDialogCommand();
       if (autoConnect) {

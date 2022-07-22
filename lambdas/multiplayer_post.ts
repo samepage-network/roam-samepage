@@ -754,6 +754,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }))
         .catch(emailCatch("Failed to retrieve shared pages"));
     }
+    case "disconnect-shared-page": {
+      const { uid } = rest as {
+        uid: string;
+      };
+      return getRoamJSUser({ token })
+        .then(() => getSharedPage({ graph, uid }))
+        .then((item) =>
+          !item
+            ? { statusCode: 400, body: `Page ${uid} is not connected`, headers }
+            : dynamo
+                .deleteItem({
+                  TableName: "RoamJSMultiplayer",
+                  Key: {
+                    id: { S: item.id.S },
+                    entity: { S: toEntity(`$shared:${graph}:${uid}`) },
+                  },
+                })
+                .promise()
+                .then(() => ({
+                  statusCode: 200,
+                  body: JSON.stringify({}),
+                  headers,
+                }))
+        )
+        .catch(emailCatch("Failed to disconnect a shared page"));
+    }
     default:
       return {
         statusCode: 400,

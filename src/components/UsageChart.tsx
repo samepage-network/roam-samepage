@@ -5,23 +5,25 @@ import apiPost from "roamjs-components/util/apiPost";
 const UsageChart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [stats, setStats] = useState({ networks: 0, minutes: 0, messages: 0, date: '' });
+  const [stats, setStats] = useState({
+    networks: 0,
+    minutes: 0,
+    messages: 0,
+    date: "",
+  });
   useEffect(() => {
-    apiPost<typeof stats>("multiplayer", { method: "usage", graph: window.roamAlphaAPI.graph.name })
+    apiPost<typeof stats>("multiplayer", {
+      method: "usage",
+      graph: window.roamAlphaAPI.graph.name,
+    })
       .then((r) => setStats(r))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [setStats, setLoading, setError]);
   return (
-    <div>
+    <div style={{ minWidth: 360 }}>
       <div style={loading ? { opacity: 0.5 } : {}}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <div className={"flex justify-between items-center"}>
           <b>Description</b>
           <span>
             <b style={{ minWidth: 80, display: "inline-block" }}>Price</b>
@@ -29,14 +31,8 @@ const UsageChart = () => {
             <b style={{ minWidth: 80, display: "inline-block" }}>Total</b>
           </span>
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>Minutes Connected to RoamJS</span>
+        <div className={"flex justify-between items-center"}>
+          <span>Mins Conn.</span>
           <span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
               $0.002
@@ -49,14 +45,8 @@ const UsageChart = () => {
             </span>
           </span>
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>Messages Sent</span>
+        <div className={"flex justify-between items-center"}>
+          <span>Messages</span>
           <span>
             <span style={{ minWidth: 80, display: "inline-block" }}>$0.01</span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
@@ -67,14 +57,8 @@ const UsageChart = () => {
             </span>
           </span>
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>Networks Owned</span>
+        <div className={"flex justify-between items-center"}>
+          <span>Networks</span>
           <span>
             <span style={{ minWidth: 80, display: "inline-block" }}>$1</span>
             <span style={{ minWidth: 80, display: "inline-block" }}>
@@ -86,14 +70,10 @@ const UsageChart = () => {
           </span>
         </div>
         <hr />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span><b>Total</b> {stats.date && `(Billed: ${stats.date})`}</span>
+        <div className={"flex justify-between items-center"}>
+          <span>
+            <b>Total</b> {stats.date && `(Billed: ${stats.date})`}
+          </span>
           <span style={{ display: "flex", alignItems: "center" }}>
             <span style={{ minWidth: 160 }}>
               {loading && <Spinner size={16} />}

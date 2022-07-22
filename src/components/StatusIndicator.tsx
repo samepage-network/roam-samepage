@@ -2,7 +2,7 @@ import type { Status } from "./setupMultiplayer";
 import { Tooltip } from "@blueprintjs/core";
 
 const StatusIndicator = ({ status }: { status: Status }) => (
-  <Tooltip content={status} className="roamjs-multiplayer-status-indicator">
+  <Tooltip content={status} className="roamjs-samepage-status-indicator">
     <div
       style={{
         width: 12,

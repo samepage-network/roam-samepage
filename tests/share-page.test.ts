@@ -11,7 +11,7 @@ runE2eTest("Share Page Across Graphs", ({ cy, Cypress }) => {
   cy.get('input[placeholder="New Network"]').type("Vargas");
   cy.get('input[type="password"]').type("password");
   cy.get("button.bp3-intent-success").click();
-  cy.get("li.roamjs-multiplayer-connected-network").should(
+  cy.get("li.roamjs-samepage-connected-network").should(
     "have.text",
     "Vargas"
   );

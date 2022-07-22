@@ -1,14 +1,20 @@
 import toConfigPageName from "roamjs-components/util/toConfigPageName";
 import runExtension from "roamjs-components/util/runExtension";
 import { createConfigObserver } from "roamjs-components/components/ConfigPage";
-import setupMultiplayer from "./components/setupMultiplayer";
+import setupSamePageClient from "./components/setupMultiplayer";
 import OnlineGraphs from "./components/OnlineGraphs";
 import Networks from "./components/Networks";
 import addStyle from "roamjs-components/dom/addStyle";
 import UsageChart from "./components/UsageChart";
-import loadSendPageToGraph from "./messages/sendPageToGraph";
-import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
-import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
+import loadSendPageToGraph, {
+  unload as unloadSendPageToGraph,
+} from "./messages/sendPageToGraph";
+import loadCopyBlockToGraph, {
+  unload as unloadCopyBlockToGraph,
+} from "./messages/copyBlockToGraph";
+import loadCrossGraphBlockReference, {
+  unload as unloadCrossGraphBlockReference,
+} from "./messages/crossGraphBlockReference";
 import loadSharePageWithGraph, {
   unload as unloadSharePageWithGraph,
 } from "./messages/sharePageWithGraph";
@@ -21,20 +27,30 @@ import type {
 } from "roamjs-components/components/ConfigPanels/types";
 import registerExperimentalMode from "roamjs-components/util/registerExperimentalMode";
 import SharedPagesDashboard from "./components/SharedPagesDashboard";
+import migrateLegacySettings from "roamjs-components/util/migrateLegacySettings";
+import React from "react";
 
-const loadedElsewhere = !!document.currentScript.getAttribute("data-source");
-const ID = "multiplayer";
-const CONFIG = toConfigPageName(ID);
-addStyle(`.roamjs-multiplayer-connected-network {
+const loadedElsewhere =
+  document.currentScript &&
+  !!document.currentScript.getAttribute("data-source");
+const extensionId = "multiplayer";
+const CONFIG = toConfigPageName(extensionId);
+
+export default runExtension({
+  // uncomment when V1 is live in RoamDepot
+  // migratedTo: "SamePage",
+  extensionId,
+  run: async ({ extensionAPI }) => {
+    const styleEl = addStyle(`.roamjs-samepage-connected-network {
   padding: 8px;
   border-radius: 8px;
 }
 
-.roamjs-multiplayer-connected-network:hover {
+.roamjs-samepage-connected-network:hover {
   background: #33333330;
 }
 
-.roamjs-multiplayer-status-indicator {
+.roamjs-samepage-status-indicator {
   min-width: 12px;
   margin-right: 8px
 }
@@ -42,70 +58,90 @@ addStyle(`.roamjs-multiplayer-connected-network {
 .bp3-alert > .bp3-dialog-header {
   margin: -20px -20px 20px;
 }`);
-
-runExtension(ID, async () => {
-  const { pageUid } = await createConfigObserver({
-    title: CONFIG,
-    config: [
-      {
-        title: "Connected Graphs",
-        Panel: CustomPanel,
-        options: {
-          component: OnlineGraphs,
+    extensionAPI.settings.panel.create({
+      tabTitle: "SamePage",
+      settings: [
+        {
+          id: "connected-graphs",
+          name: "Connected Graphs",
+          action: {
+            type: "reactComponent",
+            component: OnlineGraphs,
+          },
+          description: "Graphs that are within your network",
         },
-        description: "Graphs that are within your network",
-      } as Field<CustomField>,
-      {
-        title: "Networks",
-        Panel: CustomPanel,
-        description: "View all the networks that your graph is currently in",
-        options: {
-          component: Networks,
+        {
+          id: "networks",
+          name: "Networks",
+          action: {
+            type: "reactComponent",
+            component: Networks,
+          },
+          description: "View all the networks that your graph is currently in",
         },
-      } as Field<CustomField>,
-      {
-        title: "Shared Pages",
-        Panel: CustomPanel,
-        description: "View all of the shared with other graphs.",
-        options: {
-          component: SharedPagesDashboard,
-        }
-      } as Field<CustomField>,
-      {
-        title: "Auto Connect",
-        Panel: FlagPanel,
-        description:
-          "Automatically connect to RoamJS backend and your configured networks",
-      },
-      {
-        title: "Usage",
-        Panel: CustomPanel,
-        description:
-          "Displays how much the user has used Multiplayer this month",
-        options: {
-          component: UsageChart,
+        {
+          id: "shared-pages",
+          name: "Shared Pages",
+          action: {
+            type: "reactComponent",
+            component: SharedPagesDashboard,
+          },
+          description: "View all of the shared with other graphs.",
         },
-      } as Field<CustomField>,
-    ],
-  });
+        {
+          id: "auto-connect",
+          name: "Auto Connect",
+          action: {
+            type: "switch",
+          },
+          description: "Automatically connect to SamePage Network",
+        },
+        {
+          id: "usage",
+          name: "Usage",
+          action: {
+            type: "reactComponent",
+            component: UsageChart,
+          },
+          description:
+            "Displays how much the user has used the SamePage network this month. Price is not actually charged, but to inform what might be used in the future.",
+        },
+      ],
+    });
+    migrateLegacySettings({ extensionAPI, extensionId });
 
-  render({ configUid: pageUid });
+    render({});
 
-  const multiplayerApi = setupMultiplayer(pageUid);
-  const { enable, ...api } = multiplayerApi;
+    const samePageApi = setupSamePageClient(
+      () => extensionAPI.settings.get("auto-connect") as boolean
+    );
+    const { enable, ...api } = samePageApi;
 
-  loadSendPageToGraph(api);
-  loadCopyBlockToGraph(api);
-  loadCrossGraphBlockReference(api);
-  registerExperimentalMode({
-    feature: "Shared Pages",
-    onEnable: () => loadSharePageWithGraph(api),
-    onDisable: () => unloadSharePageWithGraph(api),
-  });
+    loadSendPageToGraph(api);
+    loadCopyBlockToGraph(api);
+    loadCrossGraphBlockReference(api);
+    const experimentalLabel = registerExperimentalMode({
+      feature: "Shared Pages",
+      onEnable: () => loadSharePageWithGraph(api),
+      onDisable: () => unloadSharePageWithGraph(api),
+    });
 
-  if (!loadedElsewhere) {
-    enable();
-  }
+    if (!loadedElsewhere) {
+      enable();
+    }
 
-  window.roamjs.extension["multiplayer"] = multiplayerApi;
+    window.roamjs.extension[extensionId] = samePageApi;
+    return {
+      elements: [styleEl],
+      commands: [experimentalLabel],
+    };
+  },
+  unload: () => {
+    const api = window.roamjs.extension[extensionId];
+    unloadSharePageWithGraph(api);
+    unloadSendPageToGraph(api);
+    unloadCopyBlockToGraph(api);
+    unloadCrossGraphBlockReference(api);
+    api.disable();
+  },
 });
