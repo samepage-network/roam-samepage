@@ -1,4 +1,4 @@
-import type { Status } from "./setupMultiplayer";
+import type { Status } from "./setupSamePageClient";
 import { Tooltip } from "@blueprintjs/core";
 
 const StatusIndicator = ({ status }: { status: Status }) => (

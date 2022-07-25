@@ -11,6 +11,7 @@ env:
   API_URL: https://lambda.roamjs.com
   ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
   ROAMJS_EMAIL: support@roamjs.com
+  ROAMJS_EXTENSION_ID: multiplayer
   ROAMJS_RELEASE_TOKEN: ${{ secrets.ROAMJS_RELEASE_TOKEN }}
   WEB_SOCKET_URL: ${{ secrets.WEB_SOCKET_URL }}
 
@@ -24,4 +25,4 @@ jobs:
       - name: build
         run: npx roamjs-scripts build
       - name: publish
-        run: npx roamjs-scripts publish --path multiplayer
+        run: npx roamjs-scripts publish --path $ROAMJS_EXTENSION_ID

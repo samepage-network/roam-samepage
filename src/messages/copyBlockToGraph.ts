@@ -4,7 +4,7 @@ import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTit
 import type { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
-import { MessageLoaderProps } from "../components/setupMultiplayer";
+import { MessageLoaderProps } from "../components/setupSamePageClient";
 import { render as copyRender } from "../components/CopyBlockAlert";
 
 const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {

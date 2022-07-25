@@ -12,18 +12,13 @@ import queryByEntity from "./common/queryByEntity";
 import postToConnection from "./common/postToConnection";
 import nanoid from "nanoid";
 import { HmacSHA512, enc } from "crypto-js";
-import type { ActionParams } from "roamjs-components/types";
 import { v4 } from "uuid";
 import messageGraph from "./common/messageGraph";
 import fromEntity from "./common/fromEntity";
+import { Action } from "./common/types";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
-
-export type Action = {
-  action: "createBlock" | "updateBlock" | "deleteBlock";
-  params: ActionParams;
-};
 
 const getUsersByGraph = (graph: string) =>
   dynamo
@@ -146,7 +141,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           }),
           headers,
         }))
-        .catch(emailCatch("Failed to retrieve Multiplayer usage"));
+        .catch(emailCatch("Failed to retrieve usage"));
     case "list-networks":
       return getRoamJSUser({ token })
         .then(() => listNetworks(graph))
@@ -155,7 +150,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           body: JSON.stringify({ networks }),
           headers,
         }))
-        .catch(emailCatch("Failed to list Multiplayer networks"));
+        .catch(emailCatch("Failed to list networks"));
     case "leave-network":
       const { name } = rest as { name: string };
       return Promise.all([
@@ -222,7 +217,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               headers,
             }));
         })
-        .catch(emailCatch("Failed to leave Multiplayer network"));
+        .catch(emailCatch("Failed to leave network"));
     case "create-network": {
       const { name, password } = rest as { name: string; password: string };
       if (!password) {
@@ -297,7 +292,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             headers,
           }));
         })
-        .catch(emailCatch("Failed to create Multiplayer network"));
+        .catch(emailCatch("Failed to create network"));
     }
     case "join-network": {
       const { name, password } = rest as { name: string; password: string };

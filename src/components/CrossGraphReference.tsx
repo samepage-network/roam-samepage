@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import type { InputTextNode } from "roamjs-components/types";
-import { sendToBackend } from "./setupMultiplayer";
+import { sendToBackend } from "./setupSamePageClient";
 
 const references: Record<string, Record<string, string>> = {};
 

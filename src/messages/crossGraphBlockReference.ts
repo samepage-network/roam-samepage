@@ -3,7 +3,7 @@ import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParen
 import {
   MessageLoaderProps,
   sendToBackend,
-} from "../components/setupMultiplayer";
+} from "../components/setupSamePageClient";
 import { render as referenceRender } from "../components/CrossGraphReference";
 
 let observer: MutationObserver;

@@ -12,7 +12,6 @@
     "server": "localhost-lambdas",
     "start": "concurrently npm:dev npm:server",
     "start:dep": "concurrently npm:dev:dep npm:server",
-    "ssh": "ssh -i RoamJSSamePage.pem ubuntu@35.173.242.123",
     "ws": "ts-node --project tsconfig.json scripts/ws.ts"
   },
   "license": "MIT",

@@ -4,7 +4,7 @@ import {
   ONLINE_GRAPHS_ID,
   ONLINE_UPDATE_EVENT_NAME,
   roamJsBackend,
-} from "./setupMultiplayer";
+} from "./setupSamePageClient";
 import StatusIndicator from "./StatusIndicator";
 
 const OnlineGraphs = () => {

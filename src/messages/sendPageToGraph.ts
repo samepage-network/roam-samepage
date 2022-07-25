@@ -6,7 +6,7 @@ import { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
 import { render as pageRender } from "../components/SendPageAlert";
-import type { MessageLoaderProps } from "../components/setupMultiplayer";
+import type { MessageLoaderProps } from "../components/setupSamePageClient";
 
 const load = ({ addGraphListener, sendToGraph }: MessageLoaderProps) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({

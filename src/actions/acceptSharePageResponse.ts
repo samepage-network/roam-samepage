@@ -10,7 +10,7 @@ import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLen
 import { Intent } from "@blueprintjs/core";
 import apiPost from "roamjs-components/util/apiPost";
 import { addSharedPage, sharedPages } from "../messages/sharePageWithGraph";
-import type { Action } from "../../lambdas/multiplayer_post";
+import type { Action } from "../../lambdas/common/types";
 import { TreeNode } from "roamjs-components/types";
 
 const acceptSharePageResponse = async ({

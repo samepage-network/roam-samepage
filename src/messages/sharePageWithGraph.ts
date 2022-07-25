@@ -10,7 +10,7 @@ import {
   addAuthenticationHandler,
   removeAuthenticationHandler,
   MessageLoaderProps,
-} from "../components/setupMultiplayer";
+} from "../components/setupSamePageClient";
 import { render } from "../components/SharePageAlert";
 import { render as renderStatus } from "../components/SharedPageStatus";
 import { SharedPages } from "../types";

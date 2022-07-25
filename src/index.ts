@@ -1,7 +1,6 @@
 import toConfigPageName from "roamjs-components/util/toConfigPageName";
 import runExtension from "roamjs-components/util/runExtension";
-import { createConfigObserver } from "roamjs-components/components/ConfigPage";
-import setupSamePageClient from "./components/setupMultiplayer";
+import setupSamePageClient from "./components/setupSamePageClient";
 import OnlineGraphs from "./components/OnlineGraphs";
 import Networks from "./components/Networks";
 import addStyle from "roamjs-components/dom/addStyle";
@@ -19,22 +18,14 @@ import loadSharePageWithGraph, {
   unload as unloadSharePageWithGraph,
 } from "./messages/sharePageWithGraph";
 import { render } from "./components/NotificationContainer";
-import CustomPanel from "roamjs-components/components/ConfigPanels/CustomPanel";
-import FlagPanel from "roamjs-components/components/ConfigPanels/FlagPanel";
-import type {
-  Field,
-  CustomField,
-} from "roamjs-components/components/ConfigPanels/types";
 import registerExperimentalMode from "roamjs-components/util/registerExperimentalMode";
 import SharedPagesDashboard from "./components/SharedPagesDashboard";
 import migrateLegacySettings from "roamjs-components/util/migrateLegacySettings";
-import React from "react";
 
 const loadedElsewhere =
   document.currentScript &&
   !!document.currentScript.getAttribute("data-source");
-const extensionId = "multiplayer";
-const CONFIG = toConfigPageName(extensionId);
+const extensionId = process.env.ROAMJS_EXTENSION_ID;
 
 export default runExtension({
   // uncomment when V1 is live in RoamDepot
@@ -137,7 +128,7 @@ export default runExtension({
     };
   },
   unload: () => {
-    const api = window.roamjs.extension[extensionId];
+    const api = window.roamjs.extension[extensionId] as ReturnType<typeof setupSamePageClient>;
     unloadSharePageWithGraph(api);
     unloadSendPageToGraph(api);
     unloadCopyBlockToGraph(api);
