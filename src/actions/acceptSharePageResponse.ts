@@ -12,6 +12,7 @@ import apiPost from "roamjs-components/util/apiPost";
 import { addSharedPage, sharedPages } from "../messages/sharePageWithGraph";
 import type { Action } from "../../lambdas/common/types";
 import { TreeNode } from "roamjs-components/types";
+import apiClient from "../apiClient";
 
 const acceptSharePageResponse = async ({
   isPage,
@@ -40,14 +41,9 @@ const acceptSharePageResponse = async ({
   )
     .then((nodes) => {
       addSharedPage(uid);
-      return apiPost<{ log: Action[] }>({
-        path: "multiplayer",
-        data: {
-          method: "join-shared-page",
-          id,
-          uid,
-          graph: window.roamAlphaAPI.graph.name,
-        },
+      return apiClient<{ log: Action[] }>({
+        data: { id, uid },
+        method: "join-shared-page",
       })
         .then((r) =>
           r.log
@@ -55,11 +51,9 @@ const acceptSharePageResponse = async ({
             .reduce((p, c) => p.then(c), Promise.resolve())
         )
         .then(() =>
-          apiPost<{ newIndex: number }>({
-            path: "multiplayer",
+          apiClient<{ newIndex: number }>({
+            method: "update-shared-page",
             data: {
-              method: "update-shared-page",
-              graph: window.roamAlphaAPI.graph.name,
               uid,
               log: nodes
                 .flatMap((node, order) =>

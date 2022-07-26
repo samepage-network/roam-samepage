@@ -12,6 +12,7 @@ import fromEntity from "./common/fromEntity";
 import type { InputTextNode } from "roamjs-components/types";
 import messageGraph from "./common/messageGraph";
 import listNetworks from "./common/listNetworks";
+import { v4 } from "uuid";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
@@ -284,7 +285,7 @@ const dataHandler = async (
             uid,
             operation: "QUERY_REF",
           },
-          messageUuid,
+          messageUuid: v4(),
         })
       );
   } else if (operation === "QUERY_REF_RESPONSE") {
@@ -328,7 +329,7 @@ const dataHandler = async (
           found,
           ephemeral: true,
         },
-        messageUuid,
+        messageUuid: v4(),
       })
     );
   } else {
@@ -431,7 +432,7 @@ export const handler: WSHandler = (event) =>
         .then(() => getGraphByClient(event))
         // END of THIS IS CRAZY
         .then(() => {
-          console.log('Uncaught WebSocket error: ', e);
+          console.log("Uncaught WebSocket error: ", e);
           return {
             statusCode: 500,
             body: `Uncaught WebSocket Error: ${e.message}`,
