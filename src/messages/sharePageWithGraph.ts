@@ -4,7 +4,7 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
 import type { PullBlock, ViewType } from "roamjs-components/types";
 import apiPost from "roamjs-components/util/apiPost";
-import type { Action } from "../../lambdas/multiplayer_post";
+import type { Action } from "../../lambdas/common/types";
 import { notify } from "../components/NotificationContainer";
 import {
   addAuthenticationHandler,
