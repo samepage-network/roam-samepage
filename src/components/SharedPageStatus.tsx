@@ -23,17 +23,17 @@ type Props = {
   sendToGraph: SamePageProps["sendToGraph"];
 };
 
-type Client = { instance: string };
+type Notebooks = { instance: string };
 
-const ConnectedClients = ({ uid }: { uid: string }) => {
+const ConnectedNotebooks = ({ uid }: { uid: string }) => {
   const [loading, setLoading] = useState(true);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [notebooks, setNotebooks] = useState<Notebooks[]>([]);
   useEffect(() => {
-    apiClient<{ clients: Client[] }>({
+    apiClient<{ notebooks: Notebooks[] }>({
       method: "list-page-instances",
       data: { uid },
     })
-      .then((r) => setClients(r.clients))
+      .then((r) => setNotebooks(r.notebooks))
       .finally(() => setLoading(false));
   }, [setLoading]);
   return (
@@ -42,7 +42,7 @@ const ConnectedClients = ({ uid }: { uid: string }) => {
         <Spinner />
       ) : (
         <ul>
-          {clients.map((c) => (
+          {notebooks.map((c) => (
             <li key={c.instance}>{c.instance}</li>
           ))}
         </ul>
@@ -51,7 +51,7 @@ const ConnectedClients = ({ uid }: { uid: string }) => {
   );
 };
 
-const InviteClient = ({
+const InviteNotebook = ({
   parentUid,
   sendToGraph,
   loading,
@@ -98,7 +98,7 @@ const InviteClient = ({
   }, [parentUid, instance, closeDialog]);
   return (
     <>
-      <Tooltip content={"Invite Client"}>
+      <Tooltip content={"Invite Notebook"}>
         <Button
           icon={"plus"}
           minimal
@@ -111,7 +111,7 @@ const InviteClient = ({
       </Tooltip>
       <Dialog
         isOpen={isOpen}
-        title={"Invite Client"}
+        title={"Invite Notebook"}
         onClose={closeDialog}
         canOutsideClickClose
         canEscapeKeyClose
@@ -152,13 +152,13 @@ const SharedPageStatus = ({ parentUid, sendToGraph }: Props) => {
   return (
     <span className="flex gap-4 items-center text-lg mb-8" ref={containerRef}>
       <i>Shared</i>
-      <Tooltip content={"Clients Connected"}>
+      <Tooltip content={"Notebooks Connected"}>
         <Popover
-          content={<ConnectedClients uid={parentUid} />}
+          content={<ConnectedNotebooks uid={parentUid} />}
           target={<Button icon={"info-sign"} minimal disabled={loading} />}
         />
       </Tooltip>
-      <InviteClient
+      <InviteNotebook
         parentUid={parentUid}
         sendToGraph={sendToGraph}
         loading={loading}

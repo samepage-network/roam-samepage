@@ -58,7 +58,9 @@ const ActionButtons = ({
                   console.error("Failed to process notification:", e);
                   renderToast({
                     id: "notification-error",
-                    content: `Failed to process notification: ${e.message || e}`,
+                    content: `Failed to process notification: ${
+                      e.message || e
+                    }`,
                     intent: "danger",
                   });
                 })
@@ -113,9 +115,10 @@ const NotificationContainer = (props: SamePageProps) => {
   const addNotificaton = useCallback(
     (not: Notification) => {
       createPage({
-        title: `roam/js/notifications/${not.title}`,
+        title: `roam/js/notifications/${not.uid}`,
         uid: not.uid,
         tree: [
+          { text: "Title", children: [{ text: not.title }] },
           { text: "Description", children: [{ text: not.description }] },
           {
             text: "Actions",

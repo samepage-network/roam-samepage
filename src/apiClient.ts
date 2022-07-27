@@ -23,9 +23,9 @@ const apiClient = <T extends Record<string, unknown>>({
         path: "page",
         data: {
           method,
-          clientId: 1, // Roam
+          app: 1, // Roam
           instance: window.roamAlphaAPI.graph.name,
-          clientPageId: data.uid,
+          notebookPageId: data.uid,
           pageUuid: data.id,
           networkName: data.name,
           ...data,

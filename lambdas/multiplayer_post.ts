@@ -787,7 +787,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         .then((r) => ({
           statusCode: 200,
           body: JSON.stringify({
-            clients: r.Items.map((i) => ({ instance: i.graph?.S })),
+            notebooks: r.Items.map((i) => ({ instance: i.graph?.S })),
           }),
           headers,
         }))

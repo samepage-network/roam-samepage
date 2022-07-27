@@ -18,7 +18,7 @@ const acceptSharePageResponse: NotificationHandler = async (
   { isPage, uid, graph, title, id },
   { sendToGraph }
 ) => {
-  const localTitle = isPage
+  const localTitle = isPage === "true"
     ? getPageTitleByPageUid(uid)
     : getTextByBlockUid(uid);
   return (
