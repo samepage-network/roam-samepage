@@ -6,19 +6,21 @@ import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import apiPost from "roamjs-components/util/apiPost";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { gatherActions } from "roamjs-components/writes/createBlock";
-import type { SharedPages } from "../types";
+import type { SamePageProps, SharedPages } from "../types";
 import { addSharedPage } from "../messages/sharePageWithGraph";
 import { render as renderToast } from "roamjs-components/components/Toast";
 
 type Props = {
   pageUid: string;
   sharedPages: SharedPages;
-};
+} & SamePageProps;
 
 const SharePageAlert = ({
   onClose,
   pageUid,
   sharedPages,
+  sendToGraph,
+  getNetworkedGraphs,
 }: { onClose: () => void } & Props) => {
   const onSubmit = useCallback(
     (graph: string) => {
@@ -30,7 +32,7 @@ const SharePageAlert = ({
         .then((r) => {
           addSharedPage(pageUid);
           const title = getPageTitleByPageUid(pageUid);
-          window.roamjs.extension.multiplayer.sendToGraph({
+          sendToGraph({
             graph,
             operation: "SHARE_PAGE",
             data: {
@@ -71,6 +73,7 @@ const SharePageAlert = ({
         title={`Share Page with Graph`}
         onClose={onClose}
         onSubmitToGraph={onSubmit}
+        allGraphs={getNetworkedGraphs()}
       >
         <p>
           Sharing this page means that all graphs with access to it will be able

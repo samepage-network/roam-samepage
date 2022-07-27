@@ -9,11 +9,10 @@ import { notify } from "../components/NotificationContainer";
 import {
   addAuthenticationHandler,
   removeAuthenticationHandler,
-  MessageLoaderProps,
 } from "../components/setupSamePageClient";
 import { render } from "../components/SharePageAlert";
 import { render as renderStatus } from "../components/SharedPageStatus";
-import { SharedPages } from "../types";
+import type { SharedPages, SamePageProps } from "../types";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 
@@ -192,11 +191,12 @@ export const removeSharedPage = (uid: string) => {
   }
 };
 
-const load = ({ addGraphListener }: MessageLoaderProps) => {
+const load = (props: SamePageProps) => {
+  const { addGraphListener } = props;
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: COMMAND_PALETTE_LABEL,
     callback: () => {
-      render({ pageUid: getCurrentPageUid(), sharedPages });
+      render({ pageUid: getCurrentPageUid(), sharedPages, ...props });
     },
   });
   addAuthenticationHandler({
@@ -348,7 +348,7 @@ const load = ({ addGraphListener }: MessageLoaderProps) => {
   );
 };
 
-export const unload = ({ removeGraphListener }: MessageLoaderProps) => {
+export const unload = ({ removeGraphListener }: SamePageProps) => {
   blocksObserved.forEach(unwatchUid);
   blocksObserved.clear();
   observers.forEach((o) => o.disconnect());

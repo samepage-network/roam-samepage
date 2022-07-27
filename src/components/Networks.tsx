@@ -9,6 +9,7 @@ import {
 } from "@blueprintjs/core";
 import renderToast from "roamjs-components/components/Toast";
 import apiPost from "roamjs-components/util/apiPost";
+import apiClient from "../apiClient";
 
 const Network = (r: {
   id: string;

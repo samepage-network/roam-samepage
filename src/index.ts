@@ -101,13 +101,12 @@ export default runExtension({
     });
     migrateLegacySettings({ extensionAPI, extensionId });
 
-    render({});
-
     const samePageApi = setupSamePageClient(
       () => extensionAPI.settings.get("auto-connect") as boolean
     );
     const { enable, ...api } = samePageApi;
-
+    
+    render(api);
     loadSendPageToGraph(api);
     loadCopyBlockToGraph(api);
     loadCrossGraphBlockReference(api);
@@ -128,7 +127,9 @@ export default runExtension({
     };
   },
   unload: () => {
-    const api = window.roamjs.extension[extensionId] as ReturnType<typeof setupSamePageClient>;
+    const api = window.roamjs.extension[extensionId] as ReturnType<
+      typeof setupSamePageClient
+    >;
     unloadSharePageWithGraph(api);
     unloadSendPageToGraph(api);
     unloadCopyBlockToGraph(api);

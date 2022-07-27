@@ -7,17 +7,15 @@ const GraphMessageAlert = ({
   disabled = false,
   onSubmitToGraph,
   title,
+  allGraphs,
 }: {
   onClose: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
   onSubmitToGraph: (graph: string) => Promise<void>;
   title: string;
+  allGraphs: string[];
 }) => {
-  const allGraphs = useMemo(
-    () => window.roamjs.extension.multiplayer.getNetworkedGraphs(),
-    []
-  );
   const [graphs, setGraphs] = useState(new Set<string>());
   const [loading, setLoading] = useState(false);
   const onSubmit = useCallback(() => {

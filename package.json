@@ -30,6 +30,6 @@
   "dependencies": {
     "aws-sdk": "^2.1066.0",
     "dotenv": "^16.0.1",
-    "roamjs-components": "^0.70.6"
+    "roamjs-components": "^0.70.12"
   }
 }

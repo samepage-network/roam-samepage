@@ -8,19 +8,16 @@ import createBlock, {
 } from "roamjs-components/writes/createBlock";
 import getChildrenLengthByPageUid from "roamjs-components/queries/getChildrenLengthByPageUid";
 import { Intent } from "@blueprintjs/core";
-import apiPost from "roamjs-components/util/apiPost";
 import { addSharedPage, sharedPages } from "../messages/sharePageWithGraph";
 import type { Action } from "../../lambdas/common/types";
 import { TreeNode } from "roamjs-components/types";
 import apiClient from "../apiClient";
+import type { NotificationHandler } from "../types";
 
-const acceptSharePageResponse = async ({
-  isPage,
-  uid,
-  graph,
-  title,
-  id,
-}: Record<string, string>) => {
+const acceptSharePageResponse: NotificationHandler = async (
+  { isPage, uid, graph, title, id },
+  { sendToGraph }
+) => {
   const localTitle = isPage
     ? getPageTitleByPageUid(uid)
     : getTextByBlockUid(uid);
@@ -65,7 +62,7 @@ const acceptSharePageResponse = async ({
         )
         .then((r) => {
           sharedPages.indices[uid] = r.newIndex;
-          window.roamjs.extension.multiplayer.sendToGraph({
+          sendToGraph({
             graph,
             operation: `SHARE_PAGE_RESPONSE`,
             data: {
@@ -76,13 +73,13 @@ const acceptSharePageResponse = async ({
           });
         });
     })
-    .then(() =>
+    .then(() => {
       renderToast({
         id: "share-page-success",
         content: `Successfully shared page ${uid}`,
         intent: Intent.SUCCESS,
-      })
-    );
+      });
+    });
 };
 
 export default acceptSharePageResponse;

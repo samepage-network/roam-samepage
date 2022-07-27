@@ -1,14 +1,15 @@
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import {
-  MessageLoaderProps,
   sendToBackend,
 } from "../components/setupSamePageClient";
 import { render as referenceRender } from "../components/CrossGraphReference";
+import { SamePageProps } from "../types";
 
 let observer: MutationObserver;
 
-const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
+const load = (props: SamePageProps) => {
+  const { addGraphListener } = props;
   addGraphListener({
     operation: "QUERY_REF",
     handler: (e, graph) => {
@@ -25,7 +26,7 @@ const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
     },
   });
   observer = createHTMLObserver({
-    callback: (s) => referenceRender(s, getNetworkedGraphs),
+    callback: (s) => referenceRender(s, props),
     tag: "SPAN",
     className: "rm-paren--closed",
   });
@@ -40,7 +41,7 @@ const load = ({ addGraphListener, getNetworkedGraphs }: MessageLoaderProps) => {
   });
 };
 
-export const unload = ({ removeGraphListener }: MessageLoaderProps) => {
+export const unload = ({ removeGraphListener }: SamePageProps) => {
   removeGraphListener({ operation: "QUERY_REF" });
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: "Copy Cross Graph Block Reference",

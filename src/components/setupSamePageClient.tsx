@@ -11,13 +11,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import renderToast from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
-import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
-import getSubTree from "roamjs-components/util/getSubTree";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
 import {
   addTokenDialogCommand,
   checkRoamJSTokenWarning,
 } from "roamjs-components/components/TokenDialog";
+import { SamePageApi } from "roamjs-components/types/samepage";
 
 const FAILED_STATES = ["failed", "closed"];
 
@@ -751,9 +750,7 @@ const disconnectFromBackend = () => {
   addConnectCommand();
 };
 
-const setupMultiplayer = (
-  isAutoConnect: () => boolean
-): typeof window.roamjs.extension.multiplayer => {
+const setupMultiplayer = (isAutoConnect: () => boolean): SamePageApi => {
   const getConnectedGraphs = () =>
     Object.keys(connectedGraphs).filter(
       (g) => connectedGraphs[g].status === "CONNECTED"
@@ -842,13 +839,5 @@ const setupMultiplayer = (
     },
   };
 };
-
-export type MessageLoaderProps = Pick<
-  ReturnType<typeof setupMultiplayer>,
-  | "addGraphListener"
-  | "sendToGraph"
-  | "getNetworkedGraphs"
-  | "removeGraphListener"
->;
 
 export default setupMultiplayer;

@@ -23,7 +23,7 @@ export const messageGraphBase = ({
   getClientsByGraph(targetGraph).then((ConnectionIds) => {
     const Data = {
       ...data,
-      graph: targetGraph,
+      graph: sourceGraph,
     };
     return (
       ConnectionIds.length

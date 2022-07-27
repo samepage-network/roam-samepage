@@ -9,17 +9,21 @@ import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromT
 import { render as renderToast } from "roamjs-components/components/Toast";
 import { PullBlock } from "roamjs-components/types/native";
 import createPage from "roamjs-components/writes/createPage";
+import type { SamePageProps } from "../types";
 
 const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
 
-const ACTIONS = {
+const ACTIONS: Record<
+  string,
+  (args: Record<string, string>, api: SamePageProps) => Promise<void>
+> = {
   "reject share page response": rejectSharePageResponse,
   "accept share page response": acceptSharePageResponse,
-};
+} as const;
 
 type NotificationAction = {
   label: string;
-  method: keyof typeof ACTIONS;
+  method: string;
   args: Record<string, string>;
 };
 
@@ -31,9 +35,11 @@ type Notification = {
 };
 
 const ActionButtons = ({
+  api,
   actions,
   onSuccess,
 }: {
+  api: SamePageProps;
   actions: NotificationAction[];
   onSuccess: () => void;
 }) => {
@@ -46,7 +52,7 @@ const ActionButtons = ({
             text={action.label}
             onClick={() => {
               setLoading(true);
-              ACTIONS[action.method]?.(action.args)
+              ACTIONS[action.method]?.(action.args, api)
                 .then(onSuccess)
                 .catch((e) => {
                   console.error(e);
@@ -68,7 +74,7 @@ const ActionButtons = ({
   );
 };
 
-const NotificationContainer = () => {
+const NotificationContainer = (props: SamePageProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, _setNotificatons] = useState<Notification[]>(() => {
     const pages = window.roamAlphaAPI.data.fast
@@ -194,6 +200,7 @@ const NotificationContainer = () => {
                 <p>{not.description}</p>
                 <div style={{ gap: 8 }} className={"flex"}>
                   <ActionButtons
+                    api={props}
                     actions={not.actions}
                     onSuccess={() => removeNotificaton(not)}
                   />
@@ -228,7 +235,7 @@ export const notify = (detail: Omit<Notification, "uid">) =>
   );
 
 export const render = createOverlayRender(
-  "multiplayer-notifications",
+  "samepage-notifications",
   NotificationContainer
 );
 

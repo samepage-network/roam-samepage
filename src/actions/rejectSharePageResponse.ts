@@ -1,5 +1,10 @@
-const rejectSharePageResponse = async ({ graph }: Record<string, string>) => {
-  window.roamjs.extension.multiplayer.sendToGraph({
+import type { NotificationHandler } from "../types";
+
+const rejectSharePageResponse: NotificationHandler = async (
+  { graph },
+  { sendToGraph }
+) => {
+  sendToGraph({
     graph,
     operation: `SHARE_PAGE_RESPONSE`,
     data: {

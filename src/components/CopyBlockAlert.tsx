@@ -1,19 +1,21 @@
 import React, { useCallback, useMemo, useState } from "react";
-import {
-  InputGroup,
-  Label,
-} from "@blueprintjs/core";
+import { InputGroup, Label } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import GraphMessageAlert from "./GraphMessageAlert";
+import type { SamePageProps } from "../types";
 
 type Props = {
   blockUid: string;
-};
+} & SamePageProps;
 
 const CopyBlockAlert = ({
   onClose,
   blockUid,
+  sendToGraph,
+  addGraphListener,
+  removeGraphListener,
+  getNetworkedGraphs,
 }: { onClose: () => void } & Props) => {
   const [page, setPage] = useState("");
   const block = useMemo(
@@ -25,15 +27,15 @@ const CopyBlockAlert = ({
   );
   const onSubmit = useCallback(
     async (graph: string) => {
-      window.roamjs.extension.multiplayer.sendToGraph({
+      sendToGraph({
         graph,
         operation: "COPY_BLOCK",
         data: { block, page, blockUid },
       });
-      window.roamjs.extension.multiplayer.addGraphListener({
+      addGraphListener({
         operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
         handler: (_, graph) => {
-          window.roamjs.extension.multiplayer.removeGraphListener({
+          removeGraphListener({
             operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
           });
           renderToast({
@@ -51,6 +53,7 @@ const CopyBlockAlert = ({
       onClose={onClose}
       onSubmitToGraph={onSubmit}
       disabled={!page}
+      allGraphs={getNetworkedGraphs()}
     >
       <Label>
         Page

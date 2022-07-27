@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import type { InputTextNode } from "roamjs-components/types";
+import type { SamePageProps } from "../types";
 import { sendToBackend } from "./setupSamePageClient";
 
 const references: Record<string, Record<string, string>> = {};
@@ -8,10 +9,12 @@ const references: Record<string, Record<string, string>> = {};
 const CrossGraphReference = ({
   graph,
   uid,
+  addGraphListener,
+  removeGraphListener,
 }: {
   graph: string;
   uid: string;
-}) => {
+} & SamePageProps) => {
   /* the dream
     window.roamAlphaAPI.ui.components.renderBlockText({
         text: node.text,
@@ -23,7 +26,7 @@ const CrossGraphReference = ({
   );
   useEffect(() => {
     const operation = `QUERY_REF_RESPONSE/${graph}/${uid}`;
-    window.roamjs.extension.multiplayer.addGraphListener({
+    addGraphListener({
       operation,
       handler: (e) => {
         const { found, node, fromCache } = e as {
@@ -32,7 +35,7 @@ const CrossGraphReference = ({
           fromCache?: true;
         };
         if (!fromCache)
-          window.roamjs.extension.multiplayer.removeGraphListener({
+          removeGraphListener({
             operation,
           });
         const newText = found ? node.text : `Reference not found`;
@@ -49,15 +52,22 @@ const CrossGraphReference = ({
   return <span className="roamjs-connected-ref">{text}</span>;
 };
 
-export const render = (s: HTMLSpanElement, getGraphs: () => string[]) => {
+export const render = (s: HTMLSpanElement, props: SamePageProps) => {
   const text = s.getAttribute("data-paren-str");
   if (text) {
     const [graph, uid] = text.split(":");
-    if (uid && getGraphs().includes(graph) && /[\w\d-]{9}/.test(uid)) {
+    if (
+      uid &&
+      props.getNetworkedGraphs().includes(graph) &&
+      /[\w\d-]{9}/.test(uid)
+    ) {
       s.classList.remove("rm-paren");
       s.classList.remove("rm-paren--closed");
       s.classList.add("rm-block-ref");
-      ReactDOM.render(<CrossGraphReference graph={graph} uid={uid} />, s);
+      ReactDOM.render(
+        <CrossGraphReference graph={graph} uid={uid} {...props} />,
+        s
+      );
     }
   }
 };
