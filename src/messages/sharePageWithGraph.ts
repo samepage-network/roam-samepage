@@ -205,9 +205,8 @@ const load = (props: SamePageProps) => {
   addAuthenticationHandler({
     label: AUTHENTICATED_LABEL,
     handler: () =>
-      apiPost<{ indices: Record<string, number> }>("multiplayer", {
+      apiClient<{ indices: Record<string, number> }>({
         method: "list-shared-pages",
-        graph: window.roamAlphaAPI.graph.name,
       }).then((r) => {
         const { indices } = r;
         Object.keys(indices).forEach((uid) => addSharedPage(uid, indices[uid]));
@@ -254,11 +253,12 @@ const load = (props: SamePageProps) => {
         uid: string;
       };
       if (success)
-        apiPost<{ log: Action[]; exists: boolean }>("multiplayer", {
+        apiClient<{ log: Action[]; exists: boolean }>({
           method: "get-shared-page",
-          graph: window.roamAlphaAPI.graph.name,
-          uid,
-          localIndex: sharedPages.indices[uid],
+          data: {
+            uid,
+            localIndex: sharedPages.indices[uid],
+          },
         })
           .then((r) =>
             !r.exists
@@ -320,10 +320,11 @@ const load = (props: SamePageProps) => {
         const containerParent = h.parentElement?.parentElement;
         if (containerParent && !containerParent.hasAttribute(attribute)) {
           containerParent.setAttribute(attribute, "true");
-          apiPost<{ log: Action[]; exists: boolean }>("multiplayer", {
+          apiClient<{ log: Action[]; exists: boolean }>({
             method: "get-shared-page",
-            graph: window.roamAlphaAPI.graph.name,
-            uid,
+            data: {
+              uid,
+            },
           }).then((r) => {
             const execRender = () => {
               const parent = document.createElement("div");
@@ -336,9 +337,7 @@ const load = (props: SamePageProps) => {
             if (r.exists) {
               execRender();
             } else {
-              h.addEventListener(EVENT_NAME, ((
-                e: CustomEvent
-              ) => {
+              h.addEventListener(EVENT_NAME, ((e: CustomEvent) => {
                 if (e.detail === uid) {
                   execRender();
                 }

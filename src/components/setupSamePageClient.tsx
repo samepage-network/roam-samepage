@@ -103,7 +103,9 @@ export const messageHandlers: MessageHandlers = {
       content: message,
       intent: "danger",
     });
-    if (roamJsBackend.status === "PENDING") disconnectFromBackend();
+    if (roamJsBackend.status === "PENDING") {
+      disconnectFromBackend("Error during pending connection");
+    }
   },
   AUTHENTICATION: (props: {
     success: boolean;
@@ -689,7 +691,7 @@ const removeConnectCommand = () => {
 const addDisconnectCommand = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Disconnect from SamePage Network",
-    callback: disconnectFromBackend,
+    callback: () => disconnectFromBackend("User Command"),
   });
 };
 
@@ -714,7 +716,10 @@ const connectToBackend = () => {
       });
     };
 
-    roamJsBackend.channel.onclose = disconnectFromBackend;
+    roamJsBackend.channel.onclose = (...args) => {
+      console.warn("Same page network disconnected:", ...args);
+      disconnectFromBackend("Network Disconnected");
+    };
     roamJsBackend.channel.onerror = (ev) => {
       onError(ev);
     };
@@ -735,14 +740,14 @@ const connectToBackend = () => {
   }
 };
 
-const disconnectFromBackend = () => {
+const disconnectFromBackend = (reason: string) => {
   if (roamJsBackend.status !== "DISCONNECTED") {
     roamJsBackend.status = "DISCONNECTED";
     roamJsBackend.networkedGraphs.clear();
     roamJsBackend.channel = undefined;
     renderToast({
       id: "samepage-disconnect",
-      content: "Disconnected from SamePage Network",
+      content: `Disconnected from SamePage Network: ${reason}`,
       intent: Intent.WARNING,
     });
     updateOnlineGraphs();
@@ -829,7 +834,7 @@ const setupSamePageClient = (isAutoConnect: () => boolean): SamePageApi => {
       });
     },
     disable: () => {
-      disconnectFromBackend();
+      disconnectFromBackend("Disabled Client");
       removeConnectCommand();
       removeDisconnectCommand();
       window.roamAlphaAPI.ui.commandPalette.removeCommand({
