@@ -50,10 +50,11 @@ const Network = (r: {
                 minimal
                 onClick={() => {
                   setLoading(true);
-                  apiPost(`multiplayer`, {
+                  apiClient({
                     method: "leave-network",
-                    graph: window.roamAlphaAPI.graph.name,
-                    name: r.id,
+                    data: {
+                      name: r.id,
+                    },
                   })
                     .then(() => {
                       r.onDelete(r.id);
@@ -90,9 +91,8 @@ const Networks = () => {
   );
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    apiPost<{ networks: string[] }>(`multiplayer`, {
+    apiClient<{ networks: string[] }>({
       method: "list-networks",
-      graph: window.roamAlphaAPI.graph.name,
     })
       .then((r) => setNetworks(r.networks.map((id: string) => ({ id }))))
       .catch((e) => setError(e.message))
@@ -160,11 +160,12 @@ const Networks = () => {
           onClick={() => {
             setLoading(true);
             setError("");
-            apiPost(`multiplayer`, {
+            apiClient({
               method: "create-network",
-              graph: window.roamAlphaAPI.graph.name,
-              name: newNetwork,
-              password,
+              data: {
+                name: newNetwork,
+                password,
+              },
             })
               .then(() => {
                 setNetworks([...networks, { id: newNetwork }]);
@@ -185,11 +186,12 @@ const Networks = () => {
           onClick={() => {
             setLoading(true);
             setError("");
-            apiPost(`multiplayer`, {
+            apiClient({
               method: "join-network",
-              graph: window.roamAlphaAPI.graph.name,
-              name: newNetwork,
-              password,
+              data: {
+                name: newNetwork,
+                password,
+              },
             })
               .then(() => {
                 setNetworks([...networks, { id: newNetwork }]);

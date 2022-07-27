@@ -392,19 +392,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                 );
               });
             })
-            .then((clients) => {
+            .then(async (clients) => {
+              const myIds = await getClientsByGraph(graph);
               return Promise.all(
                 clients
                   .flat()
-                  .filter(
-                    (id) => id && id !== event.requestContext.connectionId
-                  )
+                  .filter((id) => id && !myIds.includes(id))
                   .map((ConnectionId) =>
                     postToConnection({
                       ConnectionId,
                       Data: {
                         operation: `INITIALIZE_P2P`,
-                        to: event.requestContext.connectionId,
+                        to: myIds[0],
                         graph,
                       },
                     })
@@ -418,7 +417,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               });
             });
         })
-        .catch(emailCatch("Failed to join Multiplayer network"));
+        .catch(emailCatch("Failed to join network"));
     }
     case "init-shared-page": {
       const { uid } = rest as {

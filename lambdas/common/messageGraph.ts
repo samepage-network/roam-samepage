@@ -1,10 +1,8 @@
 import AWS from "aws-sdk";
-import emailCatch from "roamjs-components/backend/emailCatch";
 import { endClient } from "../ondisconnect";
 import getClientsByGraph from "./getClientsByGraph";
 import postToConnection, { removeLocalSocket } from "./postToConnection";
 import toEntity from "./toEntity";
-import { WSEvent } from "./types";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();

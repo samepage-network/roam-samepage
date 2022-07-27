@@ -1,13 +1,12 @@
 import apiPost from "roamjs-components/util/apiPost";
-import { Action } from "../lambdas/common/types";
 
 const isLegacy = process.env.ROAMJS_EXTENSION_ID !== "samepage";
 
 const apiClient = <T extends Record<string, unknown>>({
-  data,
+  data = {},
   method,
 }: {
-  data: Record<string, unknown>;
+  data?: Record<string, unknown>;
   method: string;
 }) =>
   isLegacy
@@ -28,37 +27,9 @@ const apiClient = <T extends Record<string, unknown>>({
           instance: window.roamAlphaAPI.graph.name,
           clientPageId: data.uid,
           pageUuid: data.id,
+          networkName: data.name,
           ...data,
         },
       });
 
 export default apiClient;
-
-export const updateSharedPage = ({
-  uid,
-  log,
-}: {
-  uid: string;
-  log: Action[];
-}) =>
-  isLegacy
-    ? apiPost<{ newIndex: number }>({
-        path: "multiplayer",
-        data: {
-          method: "update-shared-page",
-          graph: window.roamAlphaAPI.graph.name,
-          uid,
-          log,
-        },
-      })
-    : apiPost<{ newIndex: number }>({
-        domain: "https://api.samepage.network",
-        path: "page",
-        data: {
-          method: "update-shared-page",
-          clientId: 1,
-          instance: window.roamAlphaAPI.graph.name,
-          clientPageId: uid,
-          log,
-        },
-      });

@@ -11,7 +11,7 @@ import { PullBlock } from "roamjs-components/types/native";
 import createPage from "roamjs-components/writes/createPage";
 import type { SamePageProps } from "../types";
 
-const NOTIFICATION_EVENT = "roamjs:multiplayer:notification";
+const NOTIFICATION_EVENT = "roamjs:samepage:notification";
 
 const ACTIONS: Record<
   string,
