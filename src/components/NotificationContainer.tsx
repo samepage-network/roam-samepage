@@ -55,10 +55,10 @@ const ActionButtons = ({
               ACTIONS[action.method]?.(action.args, api)
                 .then(onSuccess)
                 .catch((e) => {
-                  console.error(e);
+                  console.error("Failed to process notification:", e);
                   renderToast({
                     id: "notification-error",
-                    content: `Failed to process notification: ${e.message}`,
+                    content: `Failed to process notification: ${e.message || e}`,
                     intent: "danger",
                   });
                 })

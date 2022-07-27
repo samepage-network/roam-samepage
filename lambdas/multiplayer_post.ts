@@ -748,6 +748,51 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }))
         .catch(emailCatch("Failed to retrieve shared pages"));
     }
+    case "list-page-instances": {
+      const { uid } = rest as { uid: string };
+      return getRoamJSUser({ token })
+        .then(() =>
+          dynamo
+            .query({
+              TableName: "RoamJSMultiplayer",
+              IndexName: "graph-entity-index",
+              ExpressionAttributeNames: {
+                "#s": "entity",
+                "#d": "graph",
+              },
+              ExpressionAttributeValues: {
+                ":s": { S: `$shared:${graph}:${uid}` },
+                ":d": { S: graph },
+              },
+              KeyConditionExpression: "begins_with(#s, :s) and #d = :d",
+            })
+            .promise()
+        )
+        .then((r) =>
+          dynamo
+            .query({
+              TableName: "RoamJSMultiplayer",
+              ExpressionAttributeNames: {
+                "#s": "entity",
+                "#d": "id",
+              },
+              ExpressionAttributeValues: {
+                ":s": { S: `$shared` },
+                ":d": { S: r.Items[0]?.id?.S },
+              },
+              KeyConditionExpression: "begins_with(#s, :s) and #d = :d",
+            })
+            .promise()
+        )
+        .then((r) => ({
+          statusCode: 200,
+          body: JSON.stringify({
+            clients: r.Items.map((i) => ({ instance: i.graph?.S })),
+          }),
+          headers,
+        }))
+        .catch(emailCatch("Failed to retrieve page instances"));
+    }
     case "disconnect-shared-page": {
       const { uid } = rest as {
         uid: string;

@@ -195,7 +195,7 @@ export const removeSharedPage = (uid: string) => {
 };
 
 const load = (props: SamePageProps) => {
-  const { addGraphListener } = props;
+  const { addGraphListener, sendToGraph } = props;
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: COMMAND_PALETTE_LABEL,
     callback: () => {
@@ -332,7 +332,7 @@ const load = (props: SamePageProps) => {
                 parent,
                 h.parentElement?.nextElementSibling || null
               );
-              renderStatus({ parent, parentUid: uid });
+              renderStatus({ parent, parentUid: uid, sendToGraph });
             };
             if (r.exists) {
               execRender();

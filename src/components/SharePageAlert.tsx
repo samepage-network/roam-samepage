@@ -3,7 +3,6 @@ import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import GraphMessageAlert from "./GraphMessageAlert";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
-import apiPost from "roamjs-components/util/apiPost";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { gatherActions } from "roamjs-components/writes/createBlock";
 import type { SamePageProps, SharedPages } from "../types";
