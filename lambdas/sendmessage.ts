@@ -159,8 +159,6 @@ const dataHandler = async (
       },
     });
   } else if (operation === "PROXY") {
-    // TODO - Storing + Replaying Proxied Messages
-    // - We will probably need to handle batch processing for large messages
     const { proxyOperation, graph, ...proxyData } = props as {
       proxyOperation: string;
       graph: string;
@@ -176,72 +174,6 @@ const dataHandler = async (
         messageUuid,
       })
     );
-  } else if (operation === "LOAD_MESSAGE") {
-    const { messageUuid } = props as { messageUuid: string };
-    return Promise.all([
-      s3
-        .getObject({
-          Bucket: "roamjs-data",
-          Key: `multiplayer/messages/${messageUuid}.json`,
-        })
-        .promise()
-        .then((r) => r.Body.toString())
-        .catch(() => {
-          console.error(`Could not load message ${messageUuid}`);
-          return JSON.stringify("{}");
-        }),
-      getGraphByClient(event).then((graph) =>
-        dynamo
-          .getItem({
-            TableName: "RoamJSMultiplayer",
-            Key: {
-              id: { S: messageUuid },
-              entity: { S: toEntity(`${graph}-$message`) },
-            },
-          })
-          .promise()
-          .then((r) =>
-            dynamo
-              .putItem({
-                TableName: "RoamJSMultiplayer",
-                Item: {
-                  ...r.Item,
-                  entity: { S: toEntity(`${graph}-$synced`) },
-                },
-              })
-              .promise()
-              .then(() => r.Item?.graph?.S)
-          )
-          .then((sourceGraph) =>
-            dynamo
-              .deleteItem({
-                TableName: "RoamJSMultiplayer",
-                Key: {
-                  id: { S: messageUuid },
-                  entity: { S: toEntity(`${graph}-$message`) },
-                },
-              })
-              .promise()
-              .then(() => sourceGraph)
-          )
-      ),
-    ]).then(([Data, sourceGraph]) => {
-      return postToConnection({
-        ConnectionId: event.requestContext.connectionId,
-        Data: {
-          ...JSON.parse(Data),
-          graph: sourceGraph,
-        },
-      }).then(() =>
-        postToConnection({
-          ConnectionId: event.requestContext.connectionId,
-          Data: {
-            operation: `LOAD_MESSAGE/${messageUuid}`,
-            graph: sourceGraph,
-          },
-        })
-      );
-    });
   } else if (operation === "QUERY_REF") {
     const { graph, uid } = props as { graph: string; uid: string };
     const dynamoId = `${graph}:${uid}`;

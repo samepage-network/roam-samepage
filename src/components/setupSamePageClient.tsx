@@ -17,6 +17,7 @@ import {
   checkRoamJSTokenWarning,
 } from "roamjs-components/components/TokenDialog";
 import { SamePageApi } from "roamjs-components/types/samepage";
+import apiClient from "../apiClient";
 
 const FAILED_STATES = ["failed", "closed"];
 
@@ -130,20 +131,17 @@ export const messageHandlers: MessageHandlers = {
               timeout: 0,
             });
             Promise.all(
-              props.messages.map(
-                (msg) =>
-                  new Promise<void>((innerResolve) => {
-                    const response = `LOAD_MESSAGE/${msg}`;
-                    messageHandlers[response] = () => {
-                      delete messageHandlers[response];
-                      progress = progress + 1;
-                      innerResolve();
-                    };
-                    sendToBackend({
-                      operation: "LOAD_MESSAGE",
-                      data: { messageUuid: msg },
-                    });
-                  })
+              props.messages.map((msg) =>
+                apiClient<{
+                  data: string;
+                  source: { instance: string; app: number };
+                }>({
+                  method: "load-message",
+                  data: { messageUuid: msg },
+                }).then((r) => {
+                  progress = progress + 1;
+                  handleMessage(r.data, r.source.instance);
+                })
               )
             ).then(() => toaster.clear());
           } else {
@@ -244,6 +242,20 @@ const sendChunkedMessage = ({
   }
 };
 
+const handleMessage = (content: string, graph?: string) => {
+  const { operation, ...props } = JSON.parse(content);
+  const handler = messageHandlers[operation];
+  if (handler) handler(props, graph || props.graph || "");
+  else if (!props.ephemeral)
+    renderToast({
+      id: `network-error-${operation}`,
+      content: `Unknown network operation: ${
+        operation || "No operation specified"
+      }`,
+      intent: "danger",
+    });
+};
+
 const ongoingMessages: { [uuid: string]: string[] } = {};
 const receiveChunkedMessage = (str: string, graph?: string) => {
   const { message, uuid, chunk, total } = JSON.parse(str);
@@ -254,17 +266,7 @@ const receiveChunkedMessage = (str: string, graph?: string) => {
   ongoingMessage[chunk] = message;
   if (ongoingMessage.filter((c) => !!c).length === total) {
     delete ongoingMessages[uuid];
-    const { operation, ...props } = JSON.parse(ongoingMessage.join(""));
-    const handler = messageHandlers[operation];
-    if (handler) handler(props, graph || props.graph || "");
-    else if (!props.ephemeral)
-      renderToast({
-        id: `network-error-${operation}`,
-        content: `Unknown network operation: ${
-          operation || "No operation specified"
-        }`,
-        intent: "danger",
-      });
+    handleMessage(ongoingMessage.join(""), graph);
   }
 };
 

@@ -109,11 +109,7 @@ export default runExtension({
     loadSendPageToGraph(api);
     loadCopyBlockToGraph(api);
     loadCrossGraphBlockReference(api);
-    const experimentalLabel = registerExperimentalMode({
-      feature: "Shared Pages",
-      onEnable: () => loadSharePageWithGraph(api),
-      onDisable: () => unloadSharePageWithGraph(api),
-    });
+    loadSharePageWithGraph(api);
 
     if (!loadedElsewhere) {
       enable();
@@ -122,7 +118,6 @@ export default runExtension({
     window.roamjs.extension[extensionId] = samePageApi;
     return {
       elements: [styleEl],
-      commands: [experimentalLabel],
     };
   },
   unload: () => {

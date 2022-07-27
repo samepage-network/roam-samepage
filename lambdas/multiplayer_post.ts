@@ -819,6 +819,64 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         )
         .catch(emailCatch("Failed to disconnect a shared page"));
     }
+    case "load-message": {
+      const { messageUuid } = rest as { messageUuid: string };
+      return Promise.all([
+        s3
+          .getObject({
+            Bucket: "roamjs-data",
+            Key: `multiplayer/messages/${messageUuid}.json`,
+          })
+          .promise()
+          .then((r) => r.Body.toString())
+          .catch(() => {
+            console.error(`Could not load message ${messageUuid}`);
+            return JSON.stringify("{}");
+          }),
+        dynamo
+          .getItem({
+            TableName: "RoamJSMultiplayer",
+            Key: {
+              id: { S: messageUuid },
+              entity: { S: toEntity(`${graph}-$message`) },
+            },
+          })
+          .promise()
+          .then((r) =>
+            dynamo
+              .putItem({
+                TableName: "RoamJSMultiplayer",
+                Item: {
+                  ...r.Item,
+                  entity: { S: toEntity(`${graph}-$synced`) },
+                },
+              })
+              .promise()
+              .then(() => r.Item?.graph?.S)
+          )
+          .then((sourceGraph) =>
+            dynamo
+              .deleteItem({
+                TableName: "RoamJSMultiplayer",
+                Key: {
+                  id: { S: messageUuid },
+                  entity: { S: toEntity(`${graph}-$message`) },
+                },
+              })
+              .promise()
+              .then(() => sourceGraph)
+          ),
+      ])
+        .then(([Data, sourceGraph]) => ({
+          statusCode: 200,
+          body: JSON.stringify({
+            data: Data,
+            source: { instance: sourceGraph, app: 1 },
+          }),
+          headers,
+        }))
+        .catch(emailCatch("Failed to load a message"));
+    }
     default:
       return {
         statusCode: 400,
