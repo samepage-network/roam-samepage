@@ -9,6 +9,7 @@ import { gatherActions } from "roamjs-components/writes/createBlock";
 import type { SamePageProps, SharedPages } from "../types";
 import { addSharedPage } from "../messages/sharePageWithGraph";
 import { render as renderToast } from "roamjs-components/components/Toast";
+import apiClient from "../apiClient";
 
 type Props = {
   pageUid: string;
@@ -24,10 +25,11 @@ const SharePageAlert = ({
 }: { onClose: () => void } & Props) => {
   const onSubmit = useCallback(
     (graph: string) => {
-      return apiPost<{ id: string; created: boolean }>("multiplayer", {
+      return apiClient<{ id: string; created: boolean }>({
         method: "init-shared-page",
-        graph: window.roamAlphaAPI.graph.name,
-        uid: pageUid,
+        data: {
+          uid: pageUid,
+        },
       })
         .then((r) => {
           addSharedPage(pageUid);
@@ -50,11 +52,12 @@ const SharePageAlert = ({
               )
               .map((params) => ({ params, action: "createBlock" }));
             sharedPages.indices[pageUid] = log.length;
-            return apiPost("multiplayer", {
+            return apiClient({
               method: "update-shared-page",
-              graph: window.roamAlphaAPI.graph.name,
-              uid: pageUid,
-              log,
+              data: {
+                uid: pageUid,
+                log,
+              },
             });
           }
         })

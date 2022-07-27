@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   connectedGraphs,
+  getNetworkedGraphs,
   ONLINE_GRAPHS_ID,
   ONLINE_UPDATE_EVENT_NAME,
   roamJsBackend,
@@ -11,9 +12,10 @@ const OnlineGraphs = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const refreshGraphs = useCallback(() => {
     return Object.fromEntries(
-      (window.roamjs.extension.multiplayer?.getNetworkedGraphs() || []).map(
-        (s) => [s, connectedGraphs[s]?.status || "DISCONNECTED"]
-      )
+      getNetworkedGraphs().map((s) => [
+        s,
+        connectedGraphs[s]?.status || "DISCONNECTED",
+      ])
     );
   }, []);
   const [graphs, setGraphs] = useState(refreshGraphs);

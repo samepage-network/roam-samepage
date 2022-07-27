@@ -1,4 +1,3 @@
-import toConfigPageName from "roamjs-components/util/toConfigPageName";
 import runExtension from "roamjs-components/util/runExtension";
 import setupSamePageClient from "./components/setupSamePageClient";
 import OnlineGraphs from "./components/OnlineGraphs";

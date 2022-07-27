@@ -94,6 +94,8 @@ export const removeAuthenticationHandler = (label: string) =>
     1
   );
 
+const CONNECTED_EVENT = "roamjs:samepage:connected";
+
 export const messageHandlers: MessageHandlers = {
   ERROR: ({ message }: { message: string }) => {
     renderToast({
@@ -112,7 +114,7 @@ export const messageHandlers: MessageHandlers = {
     if (props.success) {
       roamJsBackend.status = "CONNECTED";
       roamJsBackend.networkedGraphs = new Set(props.graphs);
-      document.body.dispatchEvent(new Event("roamjs:multiplayer:connected"));
+      document.body.dispatchEvent(new Event(CONNECTED_EVENT));
       updateOnlineGraphs();
       removeConnectCommand();
       addAuthenticationHandler({
@@ -151,8 +153,8 @@ export const messageHandlers: MessageHandlers = {
       Promise.all(authenticationHandlers.map(({ handler }) => handler())).then(
         () => {
           renderToast({
-            id: "multiplayer-success",
-            content: "Successfully connected to RoamJS Multiplayer!",
+            id: "samepage-success",
+            content: "Successfully connected to SamePage Network!",
             intent: Intent.SUCCESS,
           });
         }
@@ -161,8 +163,8 @@ export const messageHandlers: MessageHandlers = {
       roamJsBackend.status = "DISCONNECTED";
       roamJsBackend.channel.close();
       renderToast({
-        id: "multiplayer-failure",
-        content: `Failed to connect to RoamJS Multiplayer: ${
+        id: "samepage-failure",
+        content: `Failed to connect to SamePage Network: ${
           props.reason.includes("401") ? "Incorrect RoamJS Token" : props.reason
         }`,
         intent: Intent.DANGER,
@@ -191,7 +193,7 @@ export const messageHandlers: MessageHandlers = {
   },
 };
 export const ONLINE_GRAPHS_ID = "roamjs-online-graphs-container";
-export const ONLINE_UPDATE_EVENT_NAME = "roamjs:multiplayer:graphs";
+export const ONLINE_UPDATE_EVENT_NAME = "roamjs:samepage:graphs";
 const updateOnlineGraphs = () => {
   const onlineElement = document.getElementById(ONLINE_GRAPHS_ID);
   if (onlineElement) {
@@ -289,11 +291,9 @@ export const sendToBackend = ({
     });
   if (unauthenticated || roamJsBackend.status === "CONNECTED") send();
   else
-    document.body.addEventListener(
-      "roamjs:multiplayer:connected",
-      () => send(),
-      { once: true }
-    );
+    document.body.addEventListener(CONNECTED_EVENT, () => send(), {
+      once: true,
+    });
 };
 
 type AlertProps = { onClose: () => void };
@@ -306,8 +306,8 @@ const onError = (e: { error: Error } | Event) => {
     // handled in disconnect
     console.error(e);
     renderToast({
-      id: "multiplayer-send-error",
-      content: `Multiplayer Error: ${e.error}`,
+      id: "samepage-send-error",
+      content: `SamePage Error: ${e.error}`,
       intent: "danger",
     });
   }
@@ -315,7 +315,7 @@ const onError = (e: { error: Error } | Event) => {
 const onDisconnect = (graph: string) => () => {
   if (connectedGraphs[graph].status !== "DISCONNECTED") {
     renderToast({
-      id: "multiplayer-disconnect",
+      id: "samepage-disconnect",
       content: `Disconnected from graph ${graph}`,
       intent: "warning",
     });
@@ -336,7 +336,7 @@ const onConnect = ({
 }) => {
   const name = e.data;
   renderToast({
-    id: `multiplayer-on-connect`,
+    id: `samepage-on-connect`,
     content: `Successfully connected to graph: ${name}!`,
   });
   callback();
@@ -371,7 +371,7 @@ const getPeerConnection = (onClose?: () => void) => {
   const disconnectStateHandler = () => {
     if (FAILED_STATES.includes(connection.iceConnectionState)) {
       renderToast({
-        id: "multiplayer-failed-connection",
+        id: "samepage-failed-connection",
         content: "Failed to connect to graph",
         intent: Intent.DANGER,
       });
@@ -557,7 +557,7 @@ const SetupAlert = ({ onClose }: AlertProps) => {
       }}
       style={isSafari ? { minWidth: 800 } : {}}
       // @ts-ignore
-      title={"Setup Multiplayer Connection"}
+      title={"Setup Connection"}
       isCloseButtonShown={false}
     >
       {!isSafari ? (
@@ -635,7 +635,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
       }}
       style={isSafari ? { minWidth: 800 } : {}}
       // @ts-ignore
-      title={"Connect to Multiplayer Host"}
+      title={"Connect to Host"}
       isCloseButtonShown={false}
     >
       {copied ? (
@@ -674,7 +674,7 @@ const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
 const addConnectCommand = () => {
   removeDisconnectCommand();
   window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Connect to RoamJS Multiplayer",
+    label: "Connect to SamePage Network",
     callback: connectToBackend,
   });
 };
@@ -682,20 +682,20 @@ const addConnectCommand = () => {
 const removeConnectCommand = () => {
   addDisconnectCommand();
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
-    label: "Connect to RoamJS Multiplayer",
+    label: "Connect to SamePage Network",
   });
 };
 
 const addDisconnectCommand = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Disconnect from RoamJS Multiplayer",
+    label: "Disconnect from SamePage Network",
     callback: disconnectFromBackend,
   });
 };
 
 const removeDisconnectCommand = () => {
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
-    label: "Disconnect from RoamJS Multiplayer",
+    label: "Disconnect from SamePage Network",
   });
 };
 
@@ -741,8 +741,8 @@ const disconnectFromBackend = () => {
     roamJsBackend.networkedGraphs.clear();
     roamJsBackend.channel = undefined;
     renderToast({
-      id: "multiplayer-disconnect",
-      content: "Disconnected from RoamJS Multiplayer",
+      id: "samepage-disconnect",
+      content: "Disconnected from SamePage Network",
       intent: Intent.WARNING,
     });
     updateOnlineGraphs();
@@ -750,11 +750,17 @@ const disconnectFromBackend = () => {
   addConnectCommand();
 };
 
-const setupMultiplayer = (isAutoConnect: () => boolean): SamePageApi => {
-  const getConnectedGraphs = () =>
-    Object.keys(connectedGraphs).filter(
-      (g) => connectedGraphs[g].status === "CONNECTED"
-    );
+const getConnectedGraphs = () =>
+  Object.keys(connectedGraphs).filter(
+    (g) => connectedGraphs[g].status === "CONNECTED"
+  );
+
+export const getNetworkedGraphs = () =>
+  Array.from(
+    new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
+  );
+
+const setupSamePageClient = (isAutoConnect: () => boolean): SamePageApi => {
   return {
     addGraphListener: ({
       operation,
@@ -795,10 +801,7 @@ const setupMultiplayer = (isAutoConnect: () => boolean): SamePageApi => {
       }
     },
     getConnectedGraphs,
-    getNetworkedGraphs: () =>
-      Array.from(
-        new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
-      ),
+    getNetworkedGraphs,
     enable: () => {
       const autoConnect = isAutoConnect();
       addConnectCommand();
@@ -807,19 +810,19 @@ const setupMultiplayer = (isAutoConnect: () => boolean): SamePageApi => {
         checkRoamJSTokenWarning().then((token) => token && connectToBackend());
       }
       window.roamAlphaAPI.ui.commandPalette.addCommand({
-        label: "Setup Multiplayer",
+        label: "Setup Direct SamePage Connection",
         callback: () => {
           createOverlayRender<Omit<AlertProps, "onClose">>(
-            "multiplayer-setup",
+            "samepage-p2p-setup",
             SetupAlert
           )({ messageHandlers });
         },
       });
       window.roamAlphaAPI.ui.commandPalette.addCommand({
-        label: "Connect To Graph",
+        label: "Connect To SamePage Instance",
         callback: () => {
           createOverlayRender<Omit<AlertProps, "onClose">>(
-            "multiplayer-connect",
+            "samepage-p2p-connect",
             ConnectAlert
           )({ messageHandlers });
         },
@@ -830,14 +833,14 @@ const setupMultiplayer = (isAutoConnect: () => boolean): SamePageApi => {
       removeConnectCommand();
       removeDisconnectCommand();
       window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Connect To Graph",
+        label: "Connect To SamePage Instance",
       });
       window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Setup Multiplayer",
+        label: "Setup Direct SamePage Connection",
       });
       Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
     },
   };
 };
 
-export default setupMultiplayer;
+export default setupSamePageClient;

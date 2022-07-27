@@ -4,6 +4,7 @@ import apiPost from "roamjs-components/util/apiPost";
 import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
 import { removeSharedPage } from "../messages/sharePageWithGraph";
 import { render as renderToast } from "roamjs-components/components/Toast";
+import apiClient from "../apiClient";
 
 type Props = {
   parentUid: string;
@@ -25,10 +26,9 @@ const SharedPageStatus = ({ parentUid }: Props) => {
           minimal
           onClick={() => {
             setLoading(true);
-            apiPost<{ id: string; created: boolean }>("multiplayer", {
+            apiClient<{ id: string; created: boolean }>({
               method: "disconnect-shared-page",
-              graph: window.roamAlphaAPI.graph.name,
-              uid: parentUid,
+              data: { uid: parentUid },
             })
               .then(() => {
                 removeSharedPage(parentUid);

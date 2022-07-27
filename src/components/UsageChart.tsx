@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Spinner } from "@blueprintjs/core";
 import apiPost from "roamjs-components/util/apiPost";
+import apiClient from "../apiClient";
 
 const UsageChart = () => {
   const [loading, setLoading] = useState(true);
@@ -12,9 +13,8 @@ const UsageChart = () => {
     date: "",
   });
   useEffect(() => {
-    apiPost<typeof stats>("multiplayer", {
+    apiClient<typeof stats>({
       method: "usage",
-      graph: window.roamAlphaAPI.graph.name,
     })
       .then((r) => setStats(r))
       .catch((e) => setError(e.message))

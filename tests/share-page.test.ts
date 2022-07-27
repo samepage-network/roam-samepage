@@ -2,12 +2,7 @@ import runE2eTest from "roamjs-scripts/dist/utils/runE2eTest";
 import nanoid from "nanoid";
 
 runE2eTest("Share Page Across Graphs", ({ cy, Cypress }) => {
-  cy.get('input[placeholder="Find or Create Page"]').type(
-    "roam/js/multiplayer"
-  );
-  cy.get("ul.rm-find-or-create__menu").children().first().click();
-  cy.get("#bp3-tab-title_multiplayer-config-tabs_Home").click();
-  cy.get("#bp3-tab-title_Home-field-tabs_Networks").click();
+  // TODO create network from Roam Depo
   cy.get('input[placeholder="New Network"]').type("Vargas");
   cy.get('input[type="password"]').type("password");
   cy.get("button.bp3-intent-success").click();
@@ -16,7 +11,7 @@ runE2eTest("Share Page Across Graphs", ({ cy, Cypress }) => {
     "Vargas"
   );
 
-  const title = `Multiplayer Test Page - ${nanoid()}`;
+  const title = `SamePage Test Page - ${nanoid()}`;
   cy.get('input[placeholder="Find or Create Page"]').type(title);
   cy.get("ul.rm-find-or-create__menu").children().first().click();
   cy.get(".roam-block").first().click();

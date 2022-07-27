@@ -15,6 +15,7 @@ import { render as renderStatus } from "../components/SharedPageStatus";
 import type { SharedPages, SamePageProps } from "../types";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
+import apiClient from "../apiClient";
 
 export const sharedPages: SharedPages = {
   indices: {},
@@ -70,11 +71,9 @@ const blockUidWatchCallback: Parameters<
         },
       },
     };
-    return apiPost<{ newIndex: number }>("multiplayer", {
+    return apiClient<{ newIndex: number }>({
       method: "update-shared-page",
-      graph: window.roamAlphaAPI.graph.name,
-      uid: parentUid,
-      log: [action],
+      data: { uid: parentUid, log: [action] },
     }).then((r) => {
       sharedPages.indices[parentUid] = r.newIndex;
     });
@@ -88,18 +87,19 @@ const blockUidWatchCallback: Parameters<
       .filter((c) => !alive.has(c))
       .map((id) => window.roamAlphaAPI.pull("[:block/uid]", id)[":block/uid"]);
     deleted.forEach(unwatchUid);
-    return apiPost<{ newIndex: number }>("multiplayer", {
+    return apiClient<{ newIndex: number }>({
       method: "update-shared-page",
-      graph: window.roamAlphaAPI.graph.name,
-      uid: parentUid,
-      log: deleted.map((d) => ({
-        action: "deleteBlock",
-        params: {
-          block: {
-            uid: d,
+      data: {
+        uid: parentUid,
+        log: deleted.map((d) => ({
+          action: "deleteBlock",
+          params: {
+            block: {
+              uid: d,
+            },
           },
-        },
-      })),
+        })),
+      },
     }).then((r) => {
       sharedPages.indices[parentUid] = r.newIndex;
     });
@@ -112,23 +112,24 @@ const blockUidWatchCallback: Parameters<
         window.roamAlphaAPI.pull("[:block/uid :block/order :block/string]", id)
       );
     created.forEach((d) => watchUid(d[":block/uid"]));
-    return apiPost<{ newIndex: number }>("multiplayer", {
+    return apiClient<{ newIndex: number }>({
       method: "update-shared-page",
-      graph: window.roamAlphaAPI.graph.name,
-      uid: parentUid,
-      log: created.map((d) => ({
-        action: "createBlock",
-        params: {
-          block: {
-            uid: d[":block/uid"],
-            string: d[":block/string"] || "",
+      data: {
+        uid: parentUid,
+        log: created.map((d) => ({
+          action: "createBlock",
+          params: {
+            block: {
+              uid: d[":block/uid"],
+              string: d[":block/string"] || "",
+            },
+            location: {
+              "parent-uid": after[":block/uid"],
+              order: d[":block/order"],
+            },
           },
-          location: {
-            "parent-uid": after[":block/uid"],
-            order: d[":block/order"],
-          },
-        },
-      })),
+        })),
+      },
     }).then((r) => {
       sharedPages.indices[parentUid] = r.newIndex;
     });
@@ -160,6 +161,8 @@ const getDescendentUidsByParentUid = (uid: string) =>
     )
     .map((b) => (b[0] as PullBlock)[":block/uid"]);
 
+const EVENT_NAME = "roamjs:samepage:shared";
+
 export const addSharedPage = (uid: string, index = 0) => {
   sharedPages.indices[uid] = index;
   const dbId = window.roamAlphaAPI.pull(`[:db/id]`, `[:block/uid "${uid}"]`)?.[
@@ -171,7 +174,7 @@ export const addSharedPage = (uid: string, index = 0) => {
     getDescendentUidsByParentUid(uid).forEach(watchUid);
     watchUid(uid);
 
-    const event = new CustomEvent("roamjs:multiplayer:shared", { detail: uid });
+    const event = new CustomEvent(EVENT_NAME, { detail: uid });
     document
       .querySelectorAll("h1.rm-title-display")
       .forEach((h1) => h1.dispatchEvent(event));
@@ -333,7 +336,7 @@ const load = (props: SamePageProps) => {
             if (r.exists) {
               execRender();
             } else {
-              h.addEventListener("roamjs:multiplayer:shared", ((
+              h.addEventListener(EVENT_NAME, ((
                 e: CustomEvent
               ) => {
                 if (e.detail === uid) {
