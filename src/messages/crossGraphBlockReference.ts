@@ -1,27 +1,44 @@
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { sendToBackend } from "../components/setupSamePageClient";
-import { render as referenceRender } from "../components/CrossGraphReference";
+import { references, render as referenceRender } from "../components/CrossGraphReference";
 import { SamePageProps } from "../types";
+import apiClient from "../apiClient";
+import { InputTextNode } from "roamjs-components/types/native";
 
 let observer: MutationObserver;
 
 const load = (props: SamePageProps) => {
   const { addGraphListener } = props;
   addGraphListener({
-    operation: "QUERY_REF",
+    operation: "QUERY",
     handler: (e, graph) => {
       const { request } = e as { request: string };
       const [, uid] = request.split(":");
       const node = getFullTreeByParentUid(uid);
-      sendToBackend({
-        operation: "QUERY_REF_RESPONSE",
+      apiClient({
+        method: "query-response",
         data: {
-          found: !!node.uid,
-          node,
-          graph,
-        },
+          response: {
+            found: !!node.uid,
+            node,
+          },
+          target: {
+            instance: graph,
+            app: 1,
+          }
+        }
       });
+    },
+  });
+  addGraphListener({
+    operation: "QUERY_RESPONSE",
+    handler: (e, graph) => {
+      const { found, node } = e as { found: boolean; node: InputTextNode };
+      const newText = found ? node.text : `Reference not found`;
+      if (!references[graph]) references[graph] = {};
+      references[graph][node.uid] = newText;
+      // setText(newText); dispatch event to ongoing refs
     },
   });
   observer = createHTMLObserver({
@@ -41,7 +58,8 @@ const load = (props: SamePageProps) => {
 };
 
 export const unload = ({ removeGraphListener }: SamePageProps) => {
-  removeGraphListener({ operation: "QUERY_REF" });
+  removeGraphListener({ operation: "QUERY" });
+  removeGraphListener({ operation: "QUERY_RESPONSE" });
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: "Copy Cross Graph Block Reference",
   });

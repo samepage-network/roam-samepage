@@ -16,6 +16,7 @@ import { v4 } from "uuid";
 import messageGraph from "./common/messageGraph";
 import fromEntity from "./common/fromEntity";
 import { Action } from "./common/types";
+import { InputTextNode } from "roamjs-components/types/native";
 
 const dynamo = new AWS.DynamoDB();
 const s3 = new AWS.S3();
@@ -917,7 +918,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             targetGraph,
             data: {
               request,
-              method: "query",
+              operation: "QUERY",
             },
             messageUuid: v4(),
           }).then(() => ({
@@ -927,6 +928,57 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           }))
         )
         .catch(emailCatch("Failed to query across graphs"));
+    }
+    case "query-response": {
+      const {
+        response: { found, node },
+        target,
+      } = rest as {
+        response: { found: boolean; node: InputTextNode };
+        target: { instance: string };
+      };
+      if (found) {
+        await s3
+          .upload({
+            Bucket: "roamjs-data",
+            Body: JSON.stringify(node),
+            Key: `multiplayer/references/${target.instance}/${node.uid}.json`,
+            ContentType: "application/json",
+          })
+          .promise()
+          .then(() =>
+            dynamo
+              .putItem({
+                TableName: "RoamJSMultiplayer",
+                Item: {
+                  id: { S: `${target.instance}:${node.uid}` },
+                  entity: { S: toEntity(`$reference`) },
+                  date: {
+                    S: new Date().toJSON(),
+                  },
+                  graph: { S: target.instance },
+                },
+              })
+              .promise()
+          );
+      }
+      return messageGraph({
+        targetGraph: target.instance,
+        sourceGraph: graph,
+        data: {
+          method: `QUERY_RESPONSE`,
+          node,
+          found,
+          ephemeral: true,
+        },
+        messageUuid: v4(),
+      })
+        .then(() => ({
+          statusCode: 200,
+          body: JSON.stringify({}),
+          headers,
+        }))
+        .catch(emailCatch("Failed to respond to query"));
     }
     default:
       return {

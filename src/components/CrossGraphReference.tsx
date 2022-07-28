@@ -3,15 +3,12 @@ import ReactDOM from "react-dom";
 import type { InputTextNode } from "roamjs-components/types";
 import apiClient from "../apiClient";
 import type { SamePageProps } from "../types";
-import { sendToBackend } from "./setupSamePageClient";
 
-const references: Record<string, Record<string, string>> = {};
+export const references: Record<string, Record<string, string>> = {};
 
 const CrossGraphReference = ({
   graph,
   uid,
-  addGraphListener,
-  removeGraphListener,
 }: {
   graph: string;
   uid: string;
