@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import type { InputTextNode } from "roamjs-components/types";
+import apiClient from "../apiClient";
 import type { SamePageProps } from "../types";
 import { sendToBackend } from "./setupSamePageClient";
 
@@ -25,28 +26,29 @@ const CrossGraphReference = ({
     references[graph]?.[uid] || `Loading reference from ${graph}`
   );
   useEffect(() => {
-    const operation = `QUERY_REF_RESPONSE/${graph}/${uid}`;
-    addGraphListener({
-      operation,
-      handler: (e) => {
-        const { found, node, fromCache } = e as {
-          found: boolean;
-          node: InputTextNode;
-          fromCache?: true;
-        };
-        if (!fromCache)
-          removeGraphListener({
-            operation,
-          });
-        const newText = found ? node.text : `Reference not found`;
-        if (!references[graph]) references[graph] = {};
-        references[graph][uid] = newText;
-        setText(newText);
+    apiClient<{
+      found: boolean;
+      node: InputTextNode;
+      fromCache?: true;
+    }>({
+      method: "query",
+      data: { 
+        // TODO: replace with a datalog query
+        // [:find 
+        //    (pull ?b [:content]) 
+        //  :where 
+        //    [?b :uid "${uid}"]
+        //    [?b :notebook "${graph}"]
+        //    [?b :app "Roam"]
+        // ]
+        request: `${graph}:${uid}` 
       },
-    });
-    sendToBackend({
-      operation: "QUERY_REF",
-      data: { uid, graph },
+    }).then((e) => {
+      const { found, node } = e;
+      const newText = found ? node.text : `Reference not found`;
+      if (!references[graph]) references[graph] = {};
+      references[graph][uid] = newText;
+      setText(newText);
     });
   }, []);
   return <span className="roamjs-connected-ref">{text}</span>;

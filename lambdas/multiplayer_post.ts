@@ -877,6 +877,57 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }))
         .catch(emailCatch("Failed to load a message"));
     }
+    case "query": {
+      const { request } = rest as {
+        request: string;
+      };
+      const [targetGraph, uid] = request.split(":");
+      const dynamoId = `${targetGraph}:${uid}`;
+      return dynamo
+        .getItem({
+          TableName: "RoamJSMultiplayer",
+          Key: {
+            id: { S: dynamoId },
+            entity: { S: toEntity("$reference") },
+          },
+        })
+        .promise()
+        .then((r) => {
+          if (r.Item)
+            return s3
+              .getObject({
+                Bucket: "roamjs-data",
+                Key: `multiplayer/references/${targetGraph}/${uid}.json`,
+              })
+              .promise()
+              .then((r) =>
+                JSON.stringify({
+                  node: JSON.parse(r.Body.toString()),
+                  found: true,
+                  fromCache: true,
+                  ephemeral: true,
+                })
+              )
+              .catch();
+          else return JSON.stringify({ found: false });
+        })
+        .then((body) =>
+          messageGraph({
+            sourceGraph: graph,
+            targetGraph,
+            data: {
+              request,
+              method: "query",
+            },
+            messageUuid: v4(),
+          }).then(() => ({
+            statusCode: 200,
+            body,
+            headers,
+          }))
+        )
+        .catch(emailCatch("Failed to query across graphs"));
+    }
     default:
       return {
         statusCode: 400,

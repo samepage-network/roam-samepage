@@ -1,8 +1,6 @@
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import {
-  sendToBackend,
-} from "../components/setupSamePageClient";
+import { sendToBackend } from "../components/setupSamePageClient";
 import { render as referenceRender } from "../components/CrossGraphReference";
 import { SamePageProps } from "../types";
 
@@ -13,7 +11,8 @@ const load = (props: SamePageProps) => {
   addGraphListener({
     operation: "QUERY_REF",
     handler: (e, graph) => {
-      const { uid } = e as { uid: string };
+      const { request } = e as { request: string };
+      const [, uid] = request.split(":");
       const node = getFullTreeByParentUid(uid);
       sendToBackend({
         operation: "QUERY_REF_RESPONSE",

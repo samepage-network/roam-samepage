@@ -174,52 +174,6 @@ const dataHandler = async (
         messageUuid,
       })
     );
-  } else if (operation === "QUERY_REF") {
-    const { graph, uid } = props as { graph: string; uid: string };
-    const dynamoId = `${graph}:${uid}`;
-    return dynamo
-      .getItem({
-        TableName: "RoamJSMultiplayer",
-        Key: {
-          id: { S: dynamoId },
-          entity: { S: toEntity("$reference") },
-        },
-      })
-      .promise()
-      .then((r) => {
-        if (r.Item)
-          return s3
-            .getObject({
-              Bucket: "roamjs-data",
-              Key: `multiplayer/references/${graph}/${uid}.json`,
-            })
-            .promise()
-            .then((r) =>
-              postToConnection({
-                ConnectionId: event.requestContext.connectionId,
-                Data: {
-                  operation: `QUERY_REF_RESPONSE/${graph}/${uid}`,
-                  node: JSON.parse(r.Body.toString()),
-                  found: true,
-                  fromCache: true,
-                  ephemeral: true,
-                },
-              })
-            )
-            .catch();
-      })
-      .then(() => getGraphByClient(event))
-      .then((targetGraph) =>
-        messageGraph({
-          sourceGraph: graph,
-          targetGraph,
-          data: {
-            uid,
-            operation: "QUERY_REF",
-          },
-          messageUuid: v4(),
-        })
-      );
   } else if (operation === "QUERY_REF_RESPONSE") {
     const { found, node, graph } = props as {
       found: boolean;
