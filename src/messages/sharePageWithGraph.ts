@@ -42,6 +42,32 @@ if (process.env.NODE_ENV === "development") {
 const blockUidWatchCallback: Parameters<
   typeof window.roamAlphaAPI.data.addPullWatch
 >[2] = (before, after) => {
+  if (!after) {
+    const parentUid =
+      sharedPages.idToUid[
+        before[":block/parents"].find((node) =>
+          sharedPages.ids.has(node[":db/id"])
+        )[":db/id"]
+      ];
+    return apiClient<{ newIndex: number }>({
+      method: "update-shared-page",
+      data: {
+        uid: parentUid,
+        log: [
+          {
+            action: "deleteBlock",
+            params: {
+              block: {
+                uid: before[":block/uid"],
+              },
+            },
+          },
+        ],
+      },
+    }).then((r) => {
+      sharedPages.indices[parentUid] = r.newIndex;
+    });
+  }
   const parentUid =
     sharedPages.idToUid[after[":db/id"]] ||
     sharedPages.idToUid[
@@ -85,7 +111,8 @@ const blockUidWatchCallback: Parameters<
     const deleted = beforeChildren
       .map((c) => c[":db/id"])
       .filter((c) => !alive.has(c))
-      .map((id) => window.roamAlphaAPI.pull("[:block/uid]", id)[":block/uid"]);
+      .map((id) => window.roamAlphaAPI.pull("[:block/uid]", id)?.[":block/uid"])
+      .filter((uid) => !!uid);
     deleted.forEach(unwatchUid);
     return apiClient<{ newIndex: number }>({
       method: "update-shared-page",

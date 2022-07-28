@@ -25,4 +25,4 @@ jobs:
       - name: build
         run: npx roamjs-scripts build
       - name: publish
-        run: npx roamjs-scripts publish --path $ROAMJS_EXTENSION_ID
+        run: npx roamjs-scripts publish --path $ROAMJS_EXTENSION_ID --nocache

@@ -1,6 +1,5 @@
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import { sendToBackend } from "../components/setupSamePageClient";
 import { references, render as referenceRender } from "../components/CrossGraphReference";
 import { SamePageProps } from "../types";
 import apiClient from "../apiClient";
@@ -63,7 +62,7 @@ export const unload = ({ removeGraphListener }: SamePageProps) => {
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: "Copy Cross Graph Block Reference",
   });
-  observer.disconnect();
+  observer?.disconnect();
 };
 
 export default load;
