@@ -19,7 +19,6 @@ const apiClient = <T extends Record<string, unknown>>({
         },
       })
     : apiPost<T>({
-        domain: "https://api.samepage.network",
         path: "page",
         data: {
           method,
@@ -27,7 +26,6 @@ const apiClient = <T extends Record<string, unknown>>({
           instance: window.roamAlphaAPI.graph.name,
           notebookPageId: data.uid,
           pageUuid: data.id,
-          networkName: data.name,
           ...data,
         },
       });
