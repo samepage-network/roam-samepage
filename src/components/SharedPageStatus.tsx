@@ -14,13 +14,13 @@ import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
 import { removeSharedPage } from "../messages/sharePageWithGraph";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import apiClient from "../apiClient";
-import type { SamePageProps } from "../types";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 
 type Props = {
   parentUid: string;
-  sendToGraph: SamePageProps["sendToGraph"];
+  sendToGraph: SamePageApi["sendToGraph"];
 };
 
 type Notebooks = { instance: string };
@@ -58,7 +58,7 @@ const InviteNotebook = ({
   setLoading,
 }: {
   loading: boolean;
-  sendToGraph: SamePageProps["sendToGraph"];
+  sendToGraph: SamePageApi["sendToGraph"];
   parentUid: string;
   setLoading: (f: boolean) => void;
 }) => {

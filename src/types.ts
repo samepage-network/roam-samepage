@@ -1,5 +1,19 @@
 import type { SamePageApi } from "roamjs-components/types/samepage";
 
+export type json =
+  | string
+  | number
+  | boolean
+  | null
+  | { toJSON: () => string }
+  | json[]
+  | { [key: string]: json };
+
+export type MessageHandlers = {
+  [operation: string]: (data: json, graph: string) => void;
+};
+export type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
+
 export type SharedPages = {
   indices: Record<string, number>;
   ids: Set<number>;
@@ -8,13 +22,5 @@ export type SharedPages = {
 
 export type NotificationHandler = (
   args: Record<string, string>,
-  api: SamePageProps
+  api: SamePageApi
 ) => Promise<void>;
-
-export type SamePageProps = Pick<
-  SamePageApi,
-  | "addGraphListener"
-  | "sendToGraph"
-  | "getNetworkedGraphs"
-  | "removeGraphListener"
->;

@@ -1,5 +1,12 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Button, Checkbox, Classes, Dialog, Intent } from "@blueprintjs/core";
+import {
+  Button,
+  InputGroup,
+  Classes,
+  Dialog,
+  Intent,
+  Label,
+} from "@blueprintjs/core";
 
 const GraphMessageAlert = ({
   onClose,
@@ -7,16 +14,15 @@ const GraphMessageAlert = ({
   disabled = false,
   onSubmitToGraph,
   title,
-  allGraphs,
 }: {
   onClose: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
   onSubmitToGraph: (graph: string) => Promise<void>;
   title: string;
-  allGraphs: string[];
 }) => {
-  const [graphs, setGraphs] = useState(new Set<string>());
+  const [graphs, setGraphs] = useState<string[]>([]);
+  const [currentGraph, setCurrentGraph] = useState("");
   const [loading, setLoading] = useState(false);
   const onSubmit = useCallback(() => {
     setLoading(true);
@@ -24,10 +30,7 @@ const GraphMessageAlert = ({
       .then(onClose)
       .catch(() => setLoading(false));
   }, [onSubmitToGraph, onClose, graphs]);
-  const submitDisabled = useMemo(
-    () => disabled || !graphs.size,
-    [disabled, graphs.size]
-  );
+  const submitDisabled = useMemo(() => disabled || !graphs, [disabled, graphs]);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (
@@ -55,39 +58,34 @@ const GraphMessageAlert = ({
         autoFocus={false}
       >
         <div className={Classes.DIALOG_BODY} onKeyDown={onKeyDown}>
-          {allGraphs.length > 0
-            ? children
-            : `There are no graphs available to send.`}
-          {allGraphs.length > 1 && (
-            <Checkbox
-              labelElement={<b>Select All</b>}
-              checked={graphs.size >= allGraphs.length}
-              onChange={(e) => {
-                const val = (e.target as HTMLInputElement).checked;
-                if (val) {
-                  setGraphs(new Set(allGraphs));
-                } else {
-                  setGraphs(new Set());
-                }
-              }}
-            />
-          )}
-          {allGraphs.map((g) => (
-            <Checkbox
-              label={g}
-              key={g}
-              checked={graphs.has(g)}
-              onChange={(e) => {
-                const val = (e.target as HTMLInputElement).checked;
-                if (val) {
-                  graphs.add(g);
-                } else {
-                  graphs.delete(g);
-                }
-                setGraphs(new Set(graphs));
-              }}
-            />
+          {children}
+          {graphs.map((g, i) => (
+            <div className="flex gap-4 items-center">
+              <span className={"flex-grow"}>{g}</span>
+              <Button
+                minimal
+                icon={"trash"}
+                onClick={() => setGraphs(graphs.filter((_, j) => j !== i))}
+              />
+            </div>
           ))}
+          <Label>
+            Graph
+            <InputGroup
+              rightElement={
+                <Button
+                  minimal
+                  icon={"plus"}
+                  onClick={() => {
+                    setGraphs([...graphs, currentGraph]);
+                    setCurrentGraph("");
+                  }}
+                />
+              }
+              value={currentGraph}
+              onChange={e => setCurrentGraph(e.target.value)}
+            />
+          </Label>
         </div>
         <div className={Classes.DIALOG_FOOTER}>
           <div className={Classes.DIALOG_FOOTER_ACTIONS}>

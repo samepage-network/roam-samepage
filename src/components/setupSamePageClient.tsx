@@ -1,84 +1,23 @@
-import {
-  Alert,
-  Button,
-  InputGroup,
-  Label,
-  Intent,
-  Position,
-  Toaster,
-} from "@blueprintjs/core";
-import React, { useCallback, useEffect, useState } from "react";
-import createOverlayRender from "roamjs-components/util/createOverlayRender";
+import { Intent, Position, Toaster } from "@blueprintjs/core";
 import renderToast from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 import {
-  addTokenDialogCommand,
-  checkRoamJSTokenWarning,
-} from "roamjs-components/components/TokenDialog";
-import { SamePageApi } from "roamjs-components/types/samepage";
+  connectedGraphs,
+  getConnectCode,
+  getSetupCode,
+  load as loadP2P,
+  receiveAnswer,
+  unload as unloadP2P,
+} from "./setupP2PFeatures";
 import apiClient from "../apiClient";
-
-const FAILED_STATES = ["failed", "closed"];
-
-// These RTC objects are not JSON serializable -.-
-const serialize = ({
-  candidates,
-  description,
-  label,
-}: {
-  candidates: RTCIceCandidate[];
-  description: RTCSessionDescriptionInit;
-  label: string;
-}) =>
-  window.btoa(
-    JSON.stringify({
-      description: {
-        type: description.type,
-        sdp: description.sdp,
-      },
-      candidates: candidates.map((c) => c.toJSON()),
-      label,
-    })
-  );
-
-const deserialize = (
-  s: string
-): {
-  candidates: RTCIceCandidate[];
-  description: RTCSessionDescriptionInit;
-  label: string;
-} => JSON.parse(window.atob(s));
-
-const gatherCandidates = (con: RTCPeerConnection) => {
-  const candidates: RTCIceCandidate[] = [];
-  return new Promise<RTCIceCandidate[]>((resolve) => {
-    con.onicegatheringstatechange = (e) => {
-      const state = (e.target as RTCPeerConnection).iceGatheringState;
-      if (state === "complete") {
-        resolve(candidates);
-      }
-    };
-    con.onicecandidate = (c) => {
-      if (c.candidate) {
-        candidates.push(c.candidate);
-      }
-    };
-  });
-};
-
-export type json =
-  | string
-  | number
-  | boolean
-  | null
-  | { toJSON: () => string }
-  | json[]
-  | { [key: string]: json };
-type MessageHandlers = {
-  [operation: string]: (data: json, graph: string) => void;
-};
-export type Status = "DISCONNECTED" | "PENDING" | "CONNECTED";
+import type { Status, json, MessageHandlers } from "../types";
+import {
+  addGraphListener,
+  receiveChunkedMessage,
+  removeGraphListener,
+} from "./setupMessageHandlers";
 
 const authenticationHandlers: {
   handler: () => Promise<unknown>;
@@ -97,116 +36,6 @@ export const removeAuthenticationHandler = (label: string) =>
 
 const CONNECTED_EVENT = "roamjs:samepage:connected";
 
-export const messageHandlers: MessageHandlers = {
-  ERROR: ({ message }: { message: string }) => {
-    renderToast({
-      id: "websocket-error",
-      content: message,
-      intent: "danger",
-    });
-    if (roamJsBackend.status === "PENDING") {
-      disconnectFromBackend("Error during pending connection");
-    }
-  },
-  AUTHENTICATION: (props: {
-    success: boolean;
-    reason?: string;
-    messages: string[];
-    graphs: string[];
-  }) => {
-    if (props.success) {
-      roamJsBackend.status = "CONNECTED";
-      roamJsBackend.networkedGraphs = new Set(props.graphs);
-      document.body.dispatchEvent(new Event(CONNECTED_EVENT));
-      updateOnlineGraphs();
-      removeConnectCommand();
-      addAuthenticationHandler({
-        handler: () => {
-          if (props.messages.length) {
-            const toaster = Toaster.create({ position: Position.BOTTOM_RIGHT });
-            let progress = 0;
-            toaster.show({
-              intent: Intent.PRIMARY,
-              message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
-              timeout: 0,
-            });
-            Promise.all(
-              props.messages.map((msg) =>
-                apiClient<{
-                  data: string;
-                  source: { instance: string; app: number };
-                }>({
-                  method: "load-message",
-                  data: { messageUuid: msg },
-                }).then((r) => {
-                  progress = progress + 1;
-                  handleMessage(r.data, r.source.instance);
-                })
-              )
-            ).then(() => toaster.clear());
-          } else {
-            return Promise.resolve();
-          }
-        },
-        label: "LOAD_MESSAGES",
-      });
-      Promise.all(authenticationHandlers.map(({ handler }) => handler())).then(
-        () => {
-          renderToast({
-            id: "samepage-success",
-            content: "Successfully connected to SamePage Network!",
-            intent: Intent.SUCCESS,
-          });
-        }
-      );
-    } else {
-      roamJsBackend.status = "DISCONNECTED";
-      roamJsBackend.channel.close();
-      renderToast({
-        id: "samepage-failure",
-        content: `Failed to connect to SamePage Network: ${
-          props.reason.includes("401") ? "Incorrect RoamJS Token" : props.reason
-        }`,
-        intent: Intent.DANGER,
-      });
-      updateOnlineGraphs();
-    }
-  },
-  INITIALIZE_P2P: (props: { to: string; graph: string }) => {
-    roamJsBackend.networkedGraphs.add(props.graph);
-    getSetupCode({ label: props.graph }).then((offer) =>
-      sendToBackend({ operation: "OFFER", data: { to: props.to, offer } })
-    );
-  },
-  OFFER: (props: { to: string; offer: string; graph: string }) => {
-    getConnectCode({ offer: props.offer, label: props.graph }).then((answer) =>
-      sendToBackend({ operation: "ANSWER", data: { to: props.to, answer } })
-    );
-  },
-  ANSWER: (props: { answer: string }) => {
-    receiveAnswer({ answer: props.answer });
-  },
-  LEAVE_NETWORK: (props: { graph: string }) => {
-    roamJsBackend.networkedGraphs.delete(props.graph);
-    delete connectedGraphs[props.graph];
-    updateOnlineGraphs();
-  },
-};
-export const ONLINE_GRAPHS_ID = "roamjs-online-graphs-container";
-export const ONLINE_UPDATE_EVENT_NAME = "roamjs:samepage:graphs";
-const updateOnlineGraphs = () => {
-  const onlineElement = document.getElementById(ONLINE_GRAPHS_ID);
-  if (onlineElement) {
-    onlineElement.dispatchEvent(new Event(ONLINE_UPDATE_EVENT_NAME));
-  }
-};
-export const connectedGraphs: {
-  [graph: string]: {
-    connection: RTCPeerConnection;
-    channel: RTCDataChannel;
-    status: Status;
-  };
-} = {};
 export const roamJsBackend: {
   channel?: WebSocket;
   status: Status;
@@ -242,34 +71,6 @@ const sendChunkedMessage = ({
   }
 };
 
-const handleMessage = (content: string, graph?: string) => {
-  const { operation, ...props } = JSON.parse(content);
-  const handler = messageHandlers[operation];
-  if (handler) handler(props, graph || props.graph || "");
-  else if (!props.ephemeral)
-    renderToast({
-      id: `network-error-${operation}`,
-      content: `Unknown network operation: ${
-        operation || "No operation specified"
-      }`,
-      intent: "danger",
-    });
-};
-
-const ongoingMessages: { [uuid: string]: string[] } = {};
-const receiveChunkedMessage = (str: string, graph?: string) => {
-  const { message, uuid, chunk, total } = JSON.parse(str);
-  if (!ongoingMessages[uuid]) {
-    ongoingMessages[uuid] = [];
-  }
-  const ongoingMessage = ongoingMessages[uuid];
-  ongoingMessage[chunk] = message;
-  if (ongoingMessage.filter((c) => !!c).length === total) {
-    delete ongoingMessages[uuid];
-    handleMessage(ongoingMessage.join(""), graph);
-  }
-};
-
 export const sendToBackend = ({
   operation,
   data = {},
@@ -300,7 +101,6 @@ export const sendToBackend = ({
     });
 };
 
-type AlertProps = { onClose: () => void };
 const onError = (e: { error: Error } | Event) => {
   if (
     "error" in e &&
@@ -310,368 +110,11 @@ const onError = (e: { error: Error } | Event) => {
     // handled in disconnect
     console.error(e);
     renderToast({
-      id: "samepage-send-error",
+      id: "samepage-ws-error",
       content: `SamePage Error: ${e.error}`,
       intent: "danger",
     });
   }
-};
-const onDisconnect = (graph: string) => () => {
-  if (connectedGraphs[graph].status !== "DISCONNECTED") {
-    renderToast({
-      id: "samepage-disconnect",
-      content: `Disconnected from graph ${graph}`,
-      intent: "warning",
-    });
-    connectedGraphs[graph].status = "DISCONNECTED";
-    updateOnlineGraphs();
-  }
-};
-const onConnect = ({
-  e,
-  connection,
-  channel,
-  callback,
-}: {
-  e: MessageEvent;
-  channel: RTCDataChannel;
-  connection: RTCPeerConnection;
-  callback: () => void;
-}) => {
-  const name = e.data;
-  renderToast({
-    id: `samepage-on-connect`,
-    content: `Successfully connected to graph: ${name}!`,
-  });
-  callback();
-  connectedGraphs[name] = {
-    connection,
-    channel,
-    status: "CONNECTED",
-  };
-  updateOnlineGraphs();
-  channel.addEventListener("message", (e) => {
-    receiveChunkedMessage(e.data, name);
-  });
-  channel.onclose = onDisconnect(name);
-  connection.addEventListener("connectionstatechange", () => {
-    if (FAILED_STATES.includes(connection.connectionState)) {
-      onDisconnect(name)();
-    }
-  });
-};
-
-const getPeerConnection = (onClose?: () => void) => {
-  const connection = new RTCPeerConnection({
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      {
-        urls: "turn:35.173.242.123:3478?transport=tcp",
-        username: "roamjs",
-        credential: "multiplayer",
-      },
-    ],
-  });
-  const disconnectStateHandler = () => {
-    if (FAILED_STATES.includes(connection.iceConnectionState)) {
-      renderToast({
-        id: "samepage-failed-connection",
-        content: "Failed to connect to graph",
-        intent: Intent.DANGER,
-      });
-      onClose?.();
-    }
-  };
-  connection.addEventListener(
-    "iceconnectionstatechange",
-    disconnectStateHandler
-  );
-  return {
-    connection,
-    cleanup: () => {
-      connection.removeEventListener(
-        "iceconnectionstatechange",
-        disconnectStateHandler
-      );
-    },
-  };
-};
-
-export const getSetupCode = ({
-  onClose,
-  label = v4(),
-}: {
-  onClose?: () => void;
-  label?: string;
-}) => {
-  const { connection, cleanup } = getPeerConnection(onClose);
-  const sendChannel = connection.createDataChannel(label);
-  connectedGraphs[label] = {
-    connection,
-    channel: sendChannel,
-    status: "PENDING",
-  };
-  updateOnlineGraphs();
-  const connectionHandler = (e: MessageEvent) => {
-    onConnect({
-      e,
-      connection,
-      channel: sendChannel,
-      callback: () => {
-        delete connectedGraphs[label];
-        sendChannel.removeEventListener("message", connectionHandler);
-        onClose?.();
-        cleanup();
-      },
-    });
-  };
-  sendChannel.addEventListener("message", connectionHandler);
-  sendChannel.onerror = onError;
-  sendChannel.onopen = () => {
-    sendChannel.send(window.roamAlphaAPI.graph.name);
-  };
-  return Promise.all([
-    gatherCandidates(connection),
-    connection.createOffer().then((offer) => {
-      return connection.setLocalDescription(offer);
-    }),
-  ]).then(([candidates]) => {
-    return serialize({
-      candidates,
-      description: connection.localDescription,
-      label,
-    });
-  });
-};
-
-const getConnectCode = ({
-  offer,
-  onClose,
-  label = v4(),
-}: {
-  offer: string;
-  onClose?: () => void;
-  label?: string;
-}) => {
-  const { connection, cleanup } = getPeerConnection(onClose);
-  connection.ondatachannel = (event) => {
-    const receiveChannel = event.channel;
-    connectedGraphs[label] = {
-      connection,
-      channel: receiveChannel,
-      status: "PENDING",
-    };
-    updateOnlineGraphs();
-    const connectionHandler = (e: MessageEvent) => {
-      onConnect({
-        e,
-        connection,
-        channel: receiveChannel,
-        callback: () => {
-          delete connectedGraphs[label];
-          cleanup();
-          receiveChannel.send(window.roamAlphaAPI.graph.name);
-          receiveChannel.removeEventListener("message", connectionHandler);
-        },
-      });
-    };
-    receiveChannel.addEventListener("message", connectionHandler);
-    receiveChannel.onopen = onClose;
-    receiveChannel.onerror = onError;
-  };
-  return Promise.all([
-    gatherCandidates(connection),
-    new Promise<string>((resolve) => {
-      const { candidates, description, label } = deserialize(offer);
-      connection
-        .setRemoteDescription(new RTCSessionDescription(description))
-        .then(() => {
-          return Promise.all(
-            candidates.map((c) =>
-              connection.addIceCandidate(new RTCIceCandidate(c))
-            )
-          );
-        })
-        .then(() => {
-          return connection.createAnswer();
-        })
-        .then((answer) =>
-          connection.setLocalDescription(answer).then(() => resolve(label))
-        );
-    }),
-  ]).then(([candidates, label]) => {
-    return serialize({
-      candidates,
-      description: connection.localDescription,
-      label,
-    });
-  });
-};
-
-const receiveAnswer = ({ answer }: { answer: string }) => {
-  const { candidates, description, label } = deserialize(answer);
-  const connection = connectedGraphs[label]?.connection;
-  if (connection) {
-    connection
-      .setRemoteDescription(new RTCSessionDescription(description))
-      .then(() =>
-        Promise.all(
-          candidates.map((c) =>
-            connection.addIceCandidate(new RTCIceCandidate(c))
-          )
-        )
-      );
-  } else {
-    renderToast({
-      id: "connection-answer-error",
-      intent: Intent.DANGER,
-      content: `Error: No graph setup for connection with label: ${label}`,
-    });
-    console.error("Available labels:");
-    console.error(Object.keys(connectedGraphs));
-  }
-};
-
-const isSafari =
-  window.navigator.userAgent.includes("Safari") &&
-  !window.navigator.userAgent.includes("Chrome") &&
-  !window.navigator.userAgent.includes("Android");
-
-const SetupAlert = ({ onClose }: AlertProps) => {
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [readyToRecieve, setReadyToRecieve] = useState(isSafari);
-  const [code, setCode] = useState("");
-  const [answer, setAnswer] = useState("");
-  useEffect(() => {
-    getSetupCode({ onClose }).then(setCode);
-  }, [setLoading]);
-  return (
-    <Alert
-      loading={!readyToRecieve || loading}
-      isOpen={true}
-      onConfirm={() => {
-        setLoading(true);
-        receiveAnswer({ answer });
-      }}
-      canOutsideClickCancel
-      confirmButtonText={"Connect"}
-      onCancel={() => {
-        onClose();
-      }}
-      style={isSafari ? { minWidth: 800 } : {}}
-      // @ts-ignore
-      title={"Setup Connection"}
-      isCloseButtonShown={false}
-    >
-      {!isSafari ? (
-        <>
-          <p>
-            Click the button below to copy the handshake code and send it to
-            your peer:
-          </p>
-          <p>
-            <Button
-              style={{ minWidth: 120 }}
-              disabled={!code || loading}
-              onClick={() => {
-                window.navigator.clipboard.writeText(code);
-                setCopied(true);
-                setTimeout(() => {
-                  setReadyToRecieve(true);
-                  setCopied(false);
-                }, 3000);
-              }}
-            >
-              {copied ? "Copied!" : "Copy"}
-            </Button>
-          </p>
-        </>
-      ) : (
-        <>
-          <p>Copy the handshake code and send it to your peer:</p>
-          <pre>{code}</pre>
-        </>
-      )}
-      <p>Then, enter the handshake code sent by your peer:</p>
-      <Label>
-        Peer's Handshake Code
-        <InputGroup
-          value={answer}
-          disabled={!readyToRecieve || loading}
-          onChange={(e) => {
-            setAnswer(e.target.value);
-            setLoading(!e.target.value);
-          }}
-          style={{ wordBreak: "keep-all" }}
-        />
-      </Label>
-      <p>Finally, click connect below:</p>
-    </Alert>
-  );
-};
-
-const ConnectAlert = ({ onClose }: AlertProps) => {
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [offer, setOffer] = useState("");
-  const [code, setCode] = useState("");
-  const onConfirm = useCallback(() => {
-    setLoading(true);
-    getConnectCode({
-      offer,
-      onClose,
-    }).then((code) => {
-      window.navigator.clipboard.writeText(code);
-      setCopied(true);
-      setCode(code);
-    });
-  }, [setLoading, offer, setCopied, setCode]);
-  return (
-    <Alert
-      loading={loading}
-      isOpen={true}
-      onConfirm={onConfirm}
-      canOutsideClickCancel
-      confirmButtonText={"Connect"}
-      onCancel={() => {
-        onClose();
-      }}
-      style={isSafari ? { minWidth: 800 } : {}}
-      // @ts-ignore
-      title={"Connect to Host"}
-      isCloseButtonShown={false}
-    >
-      {copied ? (
-        !isSafari ? (
-          <p>A response handshake code was copied! Send it to your peer.</p>
-        ) : (
-          <>
-            <p>
-              Now copy the handshake code below and send it back to your peer.
-            </p>
-            <pre>{code}</pre>
-          </>
-        )
-      ) : (
-        <>
-          <p>Enter the handshake code sent by your peer:</p>
-          <Label>
-            Peer's Handshake Code
-            <InputGroup
-              value={offer}
-              onChange={(e) => {
-                setOffer(e.target.value);
-              }}
-              disabled={loading}
-              style={{ wordBreak: "keep-all" }}
-            />
-          </Label>
-          <p>Then, click connect below:</p>
-        </>
-      )}
-    </Alert>
-  );
 };
 
 const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
@@ -738,7 +181,6 @@ const connectToBackend = () => {
 
       receiveChunkedMessage(data.data);
     };
-    updateOnlineGraphs();
   }
 };
 
@@ -752,35 +194,131 @@ const disconnectFromBackend = (reason: string) => {
       content: `Disconnected from SamePage Network: ${reason}`,
       intent: Intent.WARNING,
     });
-    updateOnlineGraphs();
   }
   addConnectCommand();
 };
 
-const getConnectedGraphs = () =>
-  Object.keys(connectedGraphs).filter(
-    (g) => connectedGraphs[g].status === "CONNECTED"
-  );
+const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
+  addConnectCommand();
+  if (isAutoConnect) {
+    connectToBackend();
+  }
+  loadP2P();
 
-export const getNetworkedGraphs = () =>
-  Array.from(
-    new Set([...roamJsBackend.networkedGraphs, ...getConnectedGraphs()])
-  );
+  addGraphListener({
+    operation: "ERROR",
+    handler: ({ message }: { message: string }) => {
+      renderToast({
+        id: "websocket-error",
+        content: message,
+        intent: "danger",
+      });
+      if (roamJsBackend.status === "PENDING") {
+        disconnectFromBackend("Error during pending connection");
+      }
+    },
+  });
 
-const setupSamePageClient = (isAutoConnect: () => boolean): SamePageApi => {
-  return {
-    addGraphListener: ({
-      operation,
-      handler,
-    }: {
-      operation: string;
-      handler: (e: json, graph: string) => void;
+  addGraphListener({
+    operation: "AUTHENTICATION",
+    handler: (props: {
+      success: boolean;
+      reason?: string;
+      messages: string[];
+      graphs: string[];
     }) => {
-      messageHandlers[operation] = handler;
+      if (props.success) {
+        roamJsBackend.status = "CONNECTED";
+        roamJsBackend.networkedGraphs = new Set(props.graphs);
+        document.body.dispatchEvent(new Event(CONNECTED_EVENT));
+        removeConnectCommand();
+        addAuthenticationHandler({
+          handler: () => {
+            if (props.messages.length) {
+              const toaster = Toaster.create({
+                position: Position.BOTTOM_RIGHT,
+              });
+              let progress = 0;
+              toaster.show({
+                intent: Intent.PRIMARY,
+                message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
+                timeout: 0,
+              });
+              Promise.all(
+                props.messages.map((msg) =>
+                  apiClient<{
+                    data: string;
+                    source: { instance: string; app: number };
+                  }>({
+                    method: "load-message",
+                    data: { messageUuid: msg },
+                  }).then((r) => {
+                    progress = progress + 1;
+                    receiveChunkedMessage(r.data, r.source.instance);
+                  })
+                )
+              ).then(() => toaster.clear());
+            } else {
+              return Promise.resolve();
+            }
+          },
+          label: "LOAD_MESSAGES",
+        });
+        Promise.all(
+          authenticationHandlers.map(({ handler }) => handler())
+        ).then(() => {
+          renderToast({
+            id: "samepage-success",
+            content: "Successfully connected to SamePage Network!",
+            intent: Intent.SUCCESS,
+          });
+        });
+      } else {
+        roamJsBackend.status = "DISCONNECTED";
+        roamJsBackend.channel.close();
+        renderToast({
+          id: "samepage-failure",
+          content: `Failed to connect to SamePage Network: ${
+            props.reason.includes("401")
+              ? "Incorrect RoamJS Token"
+              : props.reason
+          }`,
+          intent: Intent.DANGER,
+        });
+      }
     },
-    removeGraphListener: ({ operation }: { operation: string }) => {
-      delete messageHandlers[operation];
+  });
+
+  addGraphListener({
+    operation: "INITIALIZE_P2P",
+    handler: (props: { to: string; graph: string }) => {
+      roamJsBackend.networkedGraphs.add(props.graph);
+      getSetupCode({ label: props.graph }).then((offer) =>
+        sendToBackend({ operation: "OFFER", data: { to: props.to, offer } })
+      );
     },
+  });
+
+  addGraphListener({
+    operation: "OFFER",
+    handler: (props: { to: string; offer: string; graph: string }) => {
+      getConnectCode({ offer: props.offer, label: props.graph }).then(
+        (answer) =>
+          sendToBackend({ operation: "ANSWER", data: { to: props.to, answer } })
+      );
+    },
+  });
+
+  addGraphListener({
+    operation: "ANSWER",
+    handler: (props: { answer: string }) => {
+      receiveAnswer({ answer: props.answer });
+    },
+  });
+
+  return {
+    addGraphListener,
+    removeGraphListener,
     sendToGraph: ({
       graph,
       operation,
@@ -807,47 +345,15 @@ const setupSamePageClient = (isAutoConnect: () => boolean): SamePageApi => {
         });
       }
     },
-    getConnectedGraphs,
-    getNetworkedGraphs,
-    enable: () => {
-      const autoConnect = isAutoConnect();
-      addConnectCommand();
-      addTokenDialogCommand();
-      if (autoConnect) {
-        checkRoamJSTokenWarning().then((token) => token && connectToBackend());
-      }
-      window.roamAlphaAPI.ui.commandPalette.addCommand({
-        label: "Setup Direct SamePage Connection",
-        callback: () => {
-          createOverlayRender<Omit<AlertProps, "onClose">>(
-            "samepage-p2p-setup",
-            SetupAlert
-          )({ messageHandlers });
-        },
-      });
-      window.roamAlphaAPI.ui.commandPalette.addCommand({
-        label: "Connect To SamePage Instance",
-        callback: () => {
-          createOverlayRender<Omit<AlertProps, "onClose">>(
-            "samepage-p2p-connect",
-            ConnectAlert
-          )({ messageHandlers });
-        },
-      });
-    },
-    disable: () => {
-      disconnectFromBackend("Disabled Client");
-      removeConnectCommand();
-      removeDisconnectCommand();
-      window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Connect To SamePage Instance",
-      });
-      window.roamAlphaAPI.ui.commandPalette.removeCommand({
-        label: "Setup Direct SamePage Connection",
-      });
-      Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
-    },
   };
+};
+
+export const unloadSamePageClient = () => {
+  disconnectFromBackend("Disabled Client");
+  removeConnectCommand();
+  removeDisconnectCommand();
+  unloadP2P();
+  Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
 };
 
 export default setupSamePageClient;

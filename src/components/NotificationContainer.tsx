@@ -9,13 +9,13 @@ import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromT
 import { render as renderToast } from "roamjs-components/components/Toast";
 import { PullBlock } from "roamjs-components/types/native";
 import createPage from "roamjs-components/writes/createPage";
-import type { SamePageProps } from "../types";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 
 const NOTIFICATION_EVENT = "roamjs:samepage:notification";
 
 const ACTIONS: Record<
   string,
-  (args: Record<string, string>, api: SamePageProps) => Promise<void>
+  (args: Record<string, string>, api: SamePageApi) => Promise<void>
 > = {
   "reject share page response": rejectSharePageResponse,
   "accept share page response": acceptSharePageResponse,
@@ -39,7 +39,7 @@ const ActionButtons = ({
   actions,
   onSuccess,
 }: {
-  api: SamePageProps;
+  api: SamePageApi;
   actions: NotificationAction[];
   onSuccess: () => void;
 }) => {
@@ -76,7 +76,7 @@ const ActionButtons = ({
   );
 };
 
-const NotificationContainer = (props: SamePageProps) => {
+const NotificationContainer = (props: SamePageApi) => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, _setNotificatons] = useState<Notification[]>(() => {
     const pages = window.roamAlphaAPI.data.fast

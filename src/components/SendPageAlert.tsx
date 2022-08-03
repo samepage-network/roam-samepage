@@ -5,11 +5,11 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import GraphMessageAlert from "./GraphMessageAlert";
-import type { SamePageProps } from "../types";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 
 type Props = {
   pageUid: string;
-} & SamePageProps;
+} & SamePageApi;
 
 const SendPageAlert = ({
   onClose,
@@ -17,7 +17,6 @@ const SendPageAlert = ({
   sendToGraph,
   addGraphListener,
   removeGraphListener,
-  getNetworkedGraphs,
 }: { onClose: () => void } & Props) => {
   const [page, setPage] = useState(() => getPageTitleByPageUid(pageUid));
   const tree = useMemo(
@@ -57,7 +56,6 @@ const SendPageAlert = ({
         onClose={onClose}
         disabled={!page}
         onSubmitToGraph={onSubmit}
-        allGraphs={getNetworkedGraphs()}
       >
         <Label>
           Page

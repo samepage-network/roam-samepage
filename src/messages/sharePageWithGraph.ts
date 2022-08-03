@@ -12,7 +12,8 @@ import {
 } from "../components/setupSamePageClient";
 import { render } from "../components/SharePageAlert";
 import { render as renderStatus } from "../components/SharedPageStatus";
-import type { SharedPages, SamePageProps } from "../types";
+import type { SharedPages } from "../types";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 import apiClient from "../apiClient";
@@ -221,7 +222,7 @@ export const removeSharedPage = (uid: string) => {
   }
 };
 
-const load = (props: SamePageProps) => {
+const load = (props: SamePageApi) => {
   const { addGraphListener, sendToGraph } = props;
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: COMMAND_PALETTE_LABEL,
@@ -377,7 +378,7 @@ const load = (props: SamePageProps) => {
   );
 };
 
-export const unload = ({ removeGraphListener }: SamePageProps) => {
+export const unload = ({ removeGraphListener }: SamePageApi) => {
   blocksObserved.forEach(unwatchUid);
   blocksObserved.clear();
   observers.forEach((o) => o.disconnect());

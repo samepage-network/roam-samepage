@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import type { InputTextNode } from "roamjs-components/types";
 import apiClient from "../apiClient";
-import type { SamePageProps } from "../types";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 
 export const references: Record<string, Record<string, string>> = {};
 
@@ -12,7 +12,7 @@ const CrossGraphReference = ({
 }: {
   graph: string;
   uid: string;
-} & SamePageProps) => {
+} & SamePageApi) => {
   /* the dream
     window.roamAlphaAPI.ui.components.renderBlockText({
         text: node.text,
@@ -29,16 +29,16 @@ const CrossGraphReference = ({
       fromCache?: true;
     }>({
       method: "query",
-      data: { 
+      data: {
         // TODO: replace with a datalog query
-        // [:find 
-        //    (pull ?b [:content]) 
-        //  :where 
+        // [:find
+        //    (pull ?b [:content])
+        //  :where
         //    [?b :uid "${uid}"]
         //    [?b :notebook "${graph}"]
         //    [?b :app "Roam"]
         // ]
-        request: `${graph}:${uid}` 
+        request: `${graph}:${uid}`,
       },
     }).then((e) => {
       const { found, node } = e;
@@ -51,15 +51,11 @@ const CrossGraphReference = ({
   return <span className="roamjs-connected-ref">{text}</span>;
 };
 
-export const render = (s: HTMLSpanElement, props: SamePageProps) => {
+export const render = (s: HTMLSpanElement, props: SamePageApi) => {
   const text = s.getAttribute("data-paren-str");
   if (text) {
     const [graph, uid] = text.split(":");
-    if (
-      uid &&
-      props.getNetworkedGraphs().includes(graph) &&
-      /[\w\d-]{9}/.test(uid)
-    ) {
+    if (uid && /[\w\d-]{9}/.test(uid)) {
       s.classList.remove("rm-paren");
       s.classList.remove("rm-paren--closed");
       s.classList.add("rm-block-ref");

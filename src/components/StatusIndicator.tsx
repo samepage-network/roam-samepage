@@ -1,8 +1,8 @@
-import type { Status } from "./setupSamePageClient";
+import type { Status } from "../types";
 import { Tooltip } from "@blueprintjs/core";
 
 const StatusIndicator = ({ status }: { status: Status }) => (
-  <Tooltip content={status} className="roamjs-samepage-status-indicator">
+  <Tooltip content={status} className="w-3 mr-2">
     <div
       style={{
         width: 12,

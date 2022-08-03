@@ -1,13 +1,16 @@
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import { references, render as referenceRender } from "../components/CrossGraphReference";
-import { SamePageProps } from "../types";
+import {
+  references,
+  render as referenceRender,
+} from "../components/CrossGraphReference";
+import type { SamePageApi } from "roamjs-components/types/samepage";
 import apiClient from "../apiClient";
 import { InputTextNode } from "roamjs-components/types/native";
 
 let observer: MutationObserver;
 
-const load = (props: SamePageProps) => {
+const load = (props: SamePageApi) => {
   const { addGraphListener } = props;
   addGraphListener({
     operation: "QUERY",
@@ -25,8 +28,8 @@ const load = (props: SamePageProps) => {
           target: {
             instance: graph,
             app: 1,
-          }
-        }
+          },
+        },
       });
     },
   });
@@ -56,7 +59,7 @@ const load = (props: SamePageProps) => {
   });
 };
 
-export const unload = ({ removeGraphListener }: SamePageProps) => {
+export const unload = ({ removeGraphListener }: SamePageApi) => {
   removeGraphListener({ operation: "QUERY" });
   removeGraphListener({ operation: "QUERY_RESPONSE" });
   window.roamAlphaAPI.ui.commandPalette.removeCommand({

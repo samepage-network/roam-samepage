@@ -1,7 +1,7 @@
 import runExtension from "roamjs-components/util/runExtension";
-import setupSamePageClient from "./components/setupSamePageClient";
-import OnlineGraphs from "./components/OnlineGraphs";
-import Networks from "./components/Networks";
+import setupSamePageClient, {
+  unloadSamePageClient,
+} from "./components/setupSamePageClient";
 import addStyle from "roamjs-components/dom/addStyle";
 import UsageChart from "./components/UsageChart";
 import loadSendPageToGraph, {
@@ -17,13 +17,9 @@ import loadSharePageWithGraph, {
   unload as unloadSharePageWithGraph,
 } from "./messages/sharePageWithGraph";
 import { render } from "./components/NotificationContainer";
-import registerExperimentalMode from "roamjs-components/util/registerExperimentalMode";
 import SharedPagesDashboard from "./components/SharedPagesDashboard";
 import migrateLegacySettings from "roamjs-components/util/migrateLegacySettings";
 
-const loadedElsewhere =
-  document.currentScript &&
-  !!document.currentScript.getAttribute("data-source");
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
 
 export default runExtension({
@@ -31,44 +27,12 @@ export default runExtension({
   // migratedTo: "SamePage",
   extensionId,
   run: async ({ extensionAPI }) => {
-    const styleEl = addStyle(`.roamjs-samepage-connected-network {
-  padding: 8px;
-  border-radius: 8px;
-}
-
-.roamjs-samepage-connected-network:hover {
-  background: #33333330;
-}
-
-.roamjs-samepage-status-indicator {
-  min-width: 12px;
-  margin-right: 8px
-}
-
-.bp3-alert > .bp3-dialog-header {
+    const styleEl = addStyle(`.bp3-alert > .bp3-dialog-header {
   margin: -20px -20px 20px;
 }`);
     extensionAPI.settings.panel.create({
       tabTitle: "SamePage",
       settings: [
-        {
-          id: "connected-graphs",
-          name: "Connected Graphs",
-          action: {
-            type: "reactComponent",
-            component: OnlineGraphs,
-          },
-          description: "Graphs that are within your network",
-        },
-        {
-          id: "networks",
-          name: "Networks",
-          action: {
-            type: "reactComponent",
-            component: Networks,
-          },
-          description: "View all the networks that your graph is currently in",
-        },
         {
           id: "shared-pages",
           name: "Shared Pages",
@@ -76,7 +40,7 @@ export default runExtension({
             type: "reactComponent",
             component: SharedPagesDashboard,
           },
-          description: "View all of the shared with other graphs.",
+          description: "View all of the shared with other notebooks.",
         },
         {
           id: "auto-connect",
@@ -100,22 +64,17 @@ export default runExtension({
     });
     migrateLegacySettings({ extensionAPI, extensionId });
 
-    const samePageApi = setupSamePageClient(
-      () => extensionAPI.settings.get("auto-connect") as boolean
+    const api = setupSamePageClient(
+      extensionAPI.settings.get("auto-connect") as boolean
     );
-    const { enable, ...api } = samePageApi;
-    
+
     render(api);
     loadSendPageToGraph(api);
     loadCopyBlockToGraph(api);
     loadCrossGraphBlockReference(api);
     loadSharePageWithGraph(api);
 
-    if (!loadedElsewhere) {
-      enable();
-    }
-
-    window.roamjs.extension[extensionId] = samePageApi;
+    window.roamjs.extension[extensionId] = api;
     return {
       elements: [styleEl],
     };
@@ -128,6 +87,6 @@ export default runExtension({
     unloadSendPageToGraph(api);
     unloadCopyBlockToGraph(api);
     unloadCrossGraphBlockReference(api);
-    api.disable();
+    unloadSamePageClient();
   },
 });
