@@ -7,9 +7,9 @@ import {
   connectedGraphs,
   getConnectCode,
   getSetupCode,
-  load as loadP2P,
+  // load as loadP2P,
   receiveAnswer,
-  unload as unloadP2P,
+  // unload as unloadP2P,
 } from "./setupP2PFeatures";
 import apiClient from "../apiClient";
 import type { Status, json, MessageHandlers } from "../types";
@@ -203,7 +203,7 @@ const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
   if (isAutoConnect) {
     connectToBackend();
   }
-  loadP2P();
+  // loadP2P();
 
   addGraphListener({
     operation: "ERROR",
@@ -352,7 +352,7 @@ export const unloadSamePageClient = () => {
   disconnectFromBackend("Disabled Client");
   removeConnectCommand();
   removeDisconnectCommand();
-  unloadP2P();
+  // unloadP2P();
   Object.keys(connectedGraphs).forEach((g) => delete connectedGraphs[g]);
 };
 

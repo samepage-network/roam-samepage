@@ -4,28 +4,15 @@
   "description": "Official Roam client into the inter-TFT-protocol",
   "main": "./build/main.js",
   "scripts": {
-    "build": "roamjs-scripts build",
-    "dev": "roamjs-scripts dev --depot",
-    "dev:dep": "roamjs-scripts dev --port 3200",
-    "preserver": "roamjs-scripts lambdas --build --unset API_URL",
-    "lambdas": "roamjs-scripts lambdas",
-    "server": "localhost-lambdas",
-    "start": "concurrently npm:dev npm:server",
-    "start:dep": "concurrently npm:dev:dep npm:server",
-    "ws": "ts-node --project tsconfig.json scripts/ws.ts"
+    "start": "roamjs-scripts dev --depot"
   },
   "license": "MIT",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.88",
     "@types/uuid": "^8.3.3",
-    "@types/ws": "^8.2.2",
-    "concurrently": "^6.4.0",
-    "cross-env": "^7.0.3",
     "globby": "^13.1.2",
-    "localhost-lambdas": "^0.5.5",
     "roamjs-scripts": "^0.21.5",
-    "ts-node": "^10.4.0",
-    "ws": "^8.4.2"
+    "ts-node": "^10.4.0"
   },
   "dependencies": {
     "aws-sdk": "^2.1066.0",

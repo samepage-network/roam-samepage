@@ -30,7 +30,7 @@ const ConnectedNotebooks = ({ uid }: { uid: string }) => {
   const [notebooks, setNotebooks] = useState<Notebooks[]>([]);
   useEffect(() => {
     apiClient<{ notebooks: Notebooks[] }>({
-      method: "list-page-instances",
+      method: "list-page-notebooks",
       data: { uid },
     })
       .then((r) => setNotebooks(r.notebooks))

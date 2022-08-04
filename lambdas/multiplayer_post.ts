@@ -749,7 +749,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }))
         .catch(emailCatch("Failed to retrieve shared pages"));
     }
-    case "list-page-instances": {
+    case "list-page-notebooks": {
       const { uid } = rest as { uid: string };
       return getRoamJSUser({ token })
         .then(() =>
@@ -988,7 +988,3 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
   }
 };
-
-if (process.env.NODE_ENV === "development") {
-  import("../scripts/ws").then(() => console.log("ws running..."));
-}
