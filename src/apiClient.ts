@@ -1,6 +1,6 @@
 import apiPost from "roamjs-components/util/apiPost";
 
-const isLegacy = process.env.ROAMJS_EXTENSION_ID !== "samepage";
+export const isLegacy = process.env.ROAMJS_EXTENSION_ID !== "samepage";
 
 const apiClient = <T extends Record<string, unknown>>({
   data = {},

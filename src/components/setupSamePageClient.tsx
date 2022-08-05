@@ -11,7 +11,7 @@ import {
   receiveAnswer,
   // unload as unloadP2P,
 } from "./setupP2PFeatures";
-import apiClient from "../apiClient";
+import apiClient, { isLegacy } from "../apiClient";
 import type { Status, json, MessageHandlers } from "../types";
 import {
   addGraphListener,
@@ -153,10 +153,15 @@ const connectToBackend = () => {
     roamJsBackend.channel.onopen = () => {
       sendToBackend({
         operation: "AUTHENTICATION",
-        data: {
-          token: getAuthorizationHeader(),
-          graph: window.roamAlphaAPI.graph.name,
-        },
+        data: isLegacy
+          ? {
+              token: getAuthorizationHeader(),
+              graph: window.roamAlphaAPI.graph.name,
+            }
+          : {
+              app: 1,
+              workspace: window.roamAlphaAPI.graph.name,
+            },
         unauthenticated: true,
       });
     };
@@ -341,7 +346,9 @@ const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
       ) {
         sendToBackend({
           operation: "PROXY",
-          data: { ...data, graph, proxyOperation: operation },
+          data: isLegacy
+            ? { ...data, graph, proxyOperation: operation }
+            : { ...data, app: 1, workspace: graph, proxyOperation: operation },
         });
       }
     },

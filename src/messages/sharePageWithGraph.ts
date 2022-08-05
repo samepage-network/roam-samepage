@@ -3,7 +3,6 @@ import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getCurrentPageUid from "roamjs-components/dom/getCurrentPageUid";
 import type { PullBlock, ViewType } from "roamjs-components/types";
-import apiPost from "roamjs-components/util/apiPost";
 import type { Action } from "../../lambdas/common/types";
 import { notify } from "../components/NotificationContainer";
 import {
@@ -12,6 +11,7 @@ import {
 } from "../components/setupSamePageClient";
 import { render } from "../components/SharePageAlert";
 import { render as renderStatus } from "../components/SharedPageStatus";
+import { render as renderView } from "../components/SharedPagesDashboard";
 import type { SharedPages } from "../types";
 import type { SamePageApi } from "roamjs-components/types/samepage";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
@@ -24,6 +24,7 @@ export const sharedPages: SharedPages = {
   idToUid: {},
 };
 const COMMAND_PALETTE_LABEL = "Share Page With Graph";
+const VIEW_COMMAND_PALETTE_LABEL = "View Shared Pages";
 const AUTHENTICATED_LABEL = "LIST_SHARED_PAGES";
 const SHARE_PAGE_OPERATION = "SHARE_PAGE";
 const SHARE_PAGE_UPDATE_OPERATION = "SHARE_PAGE_UPDATE";
@@ -225,6 +226,12 @@ export const removeSharedPage = (uid: string) => {
 const load = (props: SamePageApi) => {
   const { addGraphListener, sendToGraph } = props;
   window.roamAlphaAPI.ui.commandPalette.addCommand({
+    label: VIEW_COMMAND_PALETTE_LABEL,
+    callback: () => {
+      renderView({});
+    }
+  })
+  window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: COMMAND_PALETTE_LABEL,
     callback: () => {
       render({ pageUid: getCurrentPageUid(), sharedPages, ...props });
@@ -388,6 +395,9 @@ export const unload = ({ removeGraphListener }: SamePageApi) => {
   removeAuthenticationHandler(AUTHENTICATED_LABEL);
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: COMMAND_PALETTE_LABEL,
+  });
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({
+    label: VIEW_COMMAND_PALETTE_LABEL,
   });
 };
 

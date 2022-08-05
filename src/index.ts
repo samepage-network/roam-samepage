@@ -17,7 +17,6 @@ import loadSharePageWithGraph, {
   unload as unloadSharePageWithGraph,
 } from "./messages/sharePageWithGraph";
 import { render } from "./components/NotificationContainer";
-import SharedPagesDashboard from "./components/SharedPagesDashboard";
 import migrateLegacySettings from "roamjs-components/util/migrateLegacySettings";
 
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
@@ -34,21 +33,12 @@ export default runExtension({
       tabTitle: "SamePage",
       settings: [
         {
-          id: "shared-pages",
-          name: "Shared Pages",
-          action: {
-            type: "reactComponent",
-            component: SharedPagesDashboard,
-          },
-          description: "View all of the shared with other notebooks.",
-        },
-        {
           id: "auto-connect",
           name: "Auto Connect",
           action: {
             type: "switch",
           },
-          description: "Automatically connect to SamePage Network",
+          description: "Automatically connect to the SamePage Network",
         },
         {
           id: "usage",

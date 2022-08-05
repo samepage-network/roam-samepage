@@ -55,6 +55,7 @@ const GraphMessageAlert = ({
         onClose={onClose}
         canOutsideClickClose
         canEscapeKeyClose
+        isCloseButtonShown={false}
         autoFocus={false}
       >
         <div className={Classes.DIALOG_BODY} onKeyDown={onKeyDown}>
