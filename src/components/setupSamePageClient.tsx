@@ -15,6 +15,7 @@ import apiClient, { isLegacy } from "../apiClient";
 import type { Status, json, MessageHandlers } from "../types";
 import {
   addGraphListener,
+  handleMessage,
   receiveChunkedMessage,
   removeGraphListener,
 } from "./setupMessageHandlers";
@@ -136,7 +137,12 @@ const removeConnectCommand = () => {
 const addDisconnectCommand = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Disconnect from SamePage Network",
-    callback: () => disconnectFromBackend("User Command"),
+    callback: () => {
+      // https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4.1
+      // websocket closure codes
+      roamJsBackend.channel.close(1000, "User Command");
+      disconnectFromBackend("User Command");
+    },
   });
 };
 
@@ -203,7 +209,33 @@ const disconnectFromBackend = (reason: string) => {
   addConnectCommand();
 };
 
-const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
+export const sendToGraph = ({
+  graph,
+  operation,
+  data = {},
+}: {
+  graph: string;
+  operation: string;
+  data?: { [k: string]: json };
+}) => {
+  const connection = connectedGraphs[graph];
+
+  if (connection?.status === "CONNECTED") {
+    sendChunkedMessage({
+      data: { operation, ...data },
+      sender: (d) => connection.channel.send(JSON.stringify(d)),
+    });
+  } else if (roamJsBackend.channel && roamJsBackend.status === "CONNECTED") {
+    sendToBackend({
+      operation: "PROXY",
+      data: isLegacy
+        ? { ...data, graph, proxyOperation: operation }
+        : { ...data, app: 1, workspace: graph, proxyOperation: operation },
+    });
+  }
+};
+
+const setupSamePageClient = (isAutoConnect: boolean): void => {
   addConnectCommand();
   if (isAutoConnect) {
     connectToBackend();
@@ -219,6 +251,7 @@ const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
         intent: "danger",
       });
       if (roamJsBackend.status === "PENDING") {
+        roamJsBackend.channel.close(1000, "Error during pending connection");
         disconnectFromBackend("Error during pending connection");
       }
     },
@@ -253,13 +286,13 @@ const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
                 props.messages.map((msg) =>
                   apiClient<{
                     data: string;
-                    source: { instance: string; app: number };
+                    source: { workspace: string; app: number };
                   }>({
                     method: "load-message",
                     data: { messageUuid: msg },
                   }).then((r) => {
                     progress = progress + 1;
-                    receiveChunkedMessage(r.data, r.source.instance);
+                    handleMessage(r.data, r.source.workspace);
                   })
                 )
               ).then(() => toaster.clear());
@@ -269,15 +302,23 @@ const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
           },
           label: "LOAD_MESSAGES",
         });
-        Promise.all(
-          authenticationHandlers.map(({ handler }) => handler())
-        ).then(() => {
-          renderToast({
-            id: "samepage-success",
-            content: "Successfully connected to SamePage Network!",
-            intent: Intent.SUCCESS,
+        Promise.all(authenticationHandlers.map(({ handler }) => handler()))
+          .then(() => {
+            renderToast({
+              id: "samepage-success",
+              content: "Successfully connected to SamePage Network!",
+              intent: Intent.SUCCESS,
+            });
+          })
+          .catch((e) => {
+            roamJsBackend.status = "DISCONNECTED";
+            roamJsBackend.channel.close();
+            renderToast({
+              id: "samepage-failure",
+              content: `Failed to connect to SamePage Network: ${e.message}`,
+              intent: Intent.DANGER,
+            });
           });
-        });
       } else {
         roamJsBackend.status = "DISCONNECTED";
         roamJsBackend.channel.close();
@@ -320,42 +361,10 @@ const setupSamePageClient = (isAutoConnect: boolean): SamePageApi => {
       receiveAnswer({ answer: props.answer });
     },
   });
-
-  return {
-    addGraphListener,
-    removeGraphListener,
-    sendToGraph: ({
-      graph,
-      operation,
-      data = {},
-    }: {
-      graph: string;
-      operation: string;
-      data?: { [k: string]: json };
-    }) => {
-      const connection = connectedGraphs[graph];
-
-      if (connection?.status === "CONNECTED") {
-        sendChunkedMessage({
-          data: { operation, ...data },
-          sender: (d) => connection.channel.send(JSON.stringify(d)),
-        });
-      } else if (
-        roamJsBackend.channel &&
-        roamJsBackend.status === "CONNECTED"
-      ) {
-        sendToBackend({
-          operation: "PROXY",
-          data: isLegacy
-            ? { ...data, graph, proxyOperation: operation }
-            : { ...data, app: 1, workspace: graph, proxyOperation: operation },
-        });
-      }
-    },
-  };
 };
 
 export const unloadSamePageClient = () => {
+  roamJsBackend.channel.close(1000, "Disabled Client");
   disconnectFromBackend("Disabled Client");
   removeConnectCommand();
   removeDisconnectCommand();

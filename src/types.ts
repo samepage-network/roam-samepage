@@ -21,6 +21,5 @@ export type SharedPages = {
 };
 
 export type NotificationHandler = (
-  args: Record<string, string>,
-  api: SamePageApi
+  args: Record<string, string>
 ) => Promise<void>;

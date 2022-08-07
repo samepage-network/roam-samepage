@@ -6,14 +6,14 @@ import { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
 import { render as pageRender } from "../components/SendPageAlert";
-import type { SamePageApi } from "roamjs-components/types/samepage";
+import { addGraphListener, removeGraphListener } from "../components/setupMessageHandlers";
+import { sendToGraph } from "../components/setupSamePageClient";
 
-const load = (props: SamePageApi) => {
-  const { addGraphListener, sendToGraph } = props;
+const load = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Send Page to Graph",
     callback: () => {
-      pageRender({ pageUid: getCurrentPageUid(), ...props });
+      pageRender({ pageUid: getCurrentPageUid() });
     },
   });
   addGraphListener({
@@ -64,7 +64,7 @@ const load = (props: SamePageApi) => {
   });
 };
 
-export const unload = ({ removeGraphListener }: SamePageApi) => {
+export const unload = () => {
   removeGraphListener({ operation: "SEND_PAGE" });
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: "Send Page to Graph",

@@ -3,7 +3,7 @@ import { json, MessageHandlers } from "../types";
 
 const messageHandlers: MessageHandlers = {}
 
-const handleMessage = (content: string, graph?: string) => {
+export const handleMessage = (content: string, graph?: string) => {
   const { operation, ...props } = JSON.parse(content);
   const handler = messageHandlers[operation];
   if (handler) handler(props, graph || props.graph || "");

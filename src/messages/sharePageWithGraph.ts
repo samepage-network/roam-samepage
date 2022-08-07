@@ -8,15 +8,19 @@ import { notify } from "../components/NotificationContainer";
 import {
   addAuthenticationHandler,
   removeAuthenticationHandler,
+  sendToGraph,
 } from "../components/setupSamePageClient";
 import { render } from "../components/SharePageAlert";
 import { render as renderStatus } from "../components/SharedPageStatus";
 import { render as renderView } from "../components/SharedPagesDashboard";
 import type { SharedPages } from "../types";
-import type { SamePageApi } from "roamjs-components/types/samepage";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 import apiClient from "../apiClient";
+import {
+  addGraphListener,
+  removeGraphListener,
+} from "../components/setupMessageHandlers";
 
 export const sharedPages: SharedPages = {
   indices: {},
@@ -191,6 +195,9 @@ const getDescendentUidsByParentUid = (uid: string) =>
     .map((b) => (b[0] as PullBlock)[":block/uid"]);
 
 const EVENT_NAME = "roamjs:samepage:shared";
+const eventListener: EventListener = (e: CustomEvent) => {
+  renderStatus({ parentUid: e.detail });
+};
 
 export const addSharedPage = (uid: string, index = 0) => {
   sharedPages.indices[uid] = index;
@@ -204,9 +211,7 @@ export const addSharedPage = (uid: string, index = 0) => {
     watchUid(uid);
 
     const event = new CustomEvent(EVENT_NAME, { detail: uid });
-    document
-      .querySelectorAll("h1.rm-title-display")
-      .forEach((h1) => h1.dispatchEvent(event));
+    document.body.dispatchEvent(event);
   }
 };
 
@@ -223,18 +228,17 @@ export const removeSharedPage = (uid: string) => {
   }
 };
 
-const load = (props: SamePageApi) => {
-  const { addGraphListener, sendToGraph } = props;
+const load = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: VIEW_COMMAND_PALETTE_LABEL,
     callback: () => {
       renderView({});
-    }
-  })
+    },
+  });
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: COMMAND_PALETTE_LABEL,
     callback: () => {
-      render({ pageUid: getCurrentPageUid(), sharedPages, ...props });
+      render({ pageUid: getCurrentPageUid(), sharedPages });
     },
   });
   addAuthenticationHandler({
@@ -361,31 +365,20 @@ const load = (props: SamePageApi) => {
               uid,
             },
           }).then((r) => {
-            const execRender = () => {
-              const parent = document.createElement("div");
-              containerParent.insertBefore(
-                parent,
-                h.parentElement?.nextElementSibling || null
-              );
-              renderStatus({ parent, parentUid: uid, sendToGraph });
-            };
             if (r.exists) {
-              execRender();
-            } else {
-              h.addEventListener(EVENT_NAME, ((e: CustomEvent) => {
-                if (e.detail === uid) {
-                  execRender();
-                }
-              }) as EventListener);
+              renderStatus({ parentUid: uid });
             }
           });
         }
       },
     })
   );
+
+  document.body.addEventListener(EVENT_NAME, eventListener);
 };
 
-export const unload = ({ removeGraphListener }: SamePageApi) => {
+export const unload = () => {
+  document.body.removeEventListener(EVENT_NAME, eventListener);
   blocksObserved.forEach(unwatchUid);
   blocksObserved.clear();
   observers.forEach((o) => o.disconnect());

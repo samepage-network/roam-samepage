@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import type { InputTextNode } from "roamjs-components/types";
 import apiClient from "../apiClient";
-import type { SamePageApi } from "roamjs-components/types/samepage";
 
 export const references: Record<string, Record<string, string>> = {};
 
@@ -12,7 +11,7 @@ const CrossGraphReference = ({
 }: {
   graph: string;
   uid: string;
-} & SamePageApi) => {
+}) => {
   /* the dream
     window.roamAlphaAPI.ui.components.renderBlockText({
         text: node.text,
@@ -51,7 +50,7 @@ const CrossGraphReference = ({
   return <span className="roamjs-connected-ref">{text}</span>;
 };
 
-export const render = (s: HTMLSpanElement, props: SamePageApi) => {
+export const render = (s: HTMLSpanElement) => {
   const text = s.getAttribute("data-paren-str");
   if (text) {
     const [graph, uid] = text.split(":");
@@ -60,7 +59,7 @@ export const render = (s: HTMLSpanElement, props: SamePageApi) => {
       s.classList.remove("rm-paren--closed");
       s.classList.add("rm-block-ref");
       ReactDOM.render(
-        <CrossGraphReference graph={graph} uid={uid} {...props} />,
+        <CrossGraphReference graph={graph} uid={uid}/>,
         s
       );
     }

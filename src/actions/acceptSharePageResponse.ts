@@ -13,14 +13,17 @@ import type { Action } from "../../lambdas/common/types";
 import { TreeNode } from "roamjs-components/types";
 import apiClient from "../apiClient";
 import type { NotificationHandler } from "../types";
+import { sendToGraph } from "../components/setupSamePageClient";
 
-const acceptSharePageResponse: NotificationHandler = async (
-  { isPage, uid, graph, title, id },
-  { sendToGraph }
-) => {
-  const localTitle = isPage === "true"
-    ? getPageTitleByPageUid(uid)
-    : getTextByBlockUid(uid);
+const acceptSharePageResponse: NotificationHandler = async ({
+  isPage,
+  uid,
+  graph,
+  title,
+  id,
+}) => {
+  const localTitle =
+    isPage === "true" ? getPageTitleByPageUid(uid) : getTextByBlockUid(uid);
   return (
     localTitle
       ? Promise.resolve(getFullTreeByParentUid(uid).children)

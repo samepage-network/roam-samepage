@@ -4,16 +4,16 @@ import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTit
 import type { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
-import type { SamePageApi } from "roamjs-components/types/samepage";
 import { render as copyRender } from "../components/CopyBlockAlert";
+import { addGraphListener, removeGraphListener } from "../components/setupMessageHandlers";
+import { sendToGraph } from "../components/setupSamePageClient";
 
-const load = (props: SamePageApi) => {
-  const { addGraphListener, sendToGraph } = props;
+const load = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Copy Block to Graph",
     callback: () => {
       const blockUid = window.roamAlphaAPI.ui.getFocusedBlock()["block-uid"];
-      copyRender({ blockUid, ...props });
+      copyRender({ blockUid });
     },
   });
   addGraphListener({
@@ -51,7 +51,7 @@ const load = (props: SamePageApi) => {
   });
 };
 
-export const unload = ({ removeGraphListener }: SamePageApi) => {
+export const unload = () => {
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: "Copy Block to Graph",
   });

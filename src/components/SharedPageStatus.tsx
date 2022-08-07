@@ -17,19 +17,22 @@ import apiClient from "../apiClient";
 import type { SamePageApi } from "roamjs-components/types/samepage";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+import { sendToGraph } from "./setupSamePageClient";
+
+type Notebook = {
+  workspace: string;
+  app: number;
+};
 
 type Props = {
   parentUid: string;
-  sendToGraph: SamePageApi["sendToGraph"];
 };
-
-type Notebooks = { instance: string };
 
 const ConnectedNotebooks = ({ uid }: { uid: string }) => {
   const [loading, setLoading] = useState(true);
-  const [notebooks, setNotebooks] = useState<Notebooks[]>([]);
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   useEffect(() => {
-    apiClient<{ notebooks: Notebooks[] }>({
+    apiClient<{ notebooks: Notebook[] }>({
       method: "list-page-notebooks",
       data: { uid },
     })
@@ -43,7 +46,7 @@ const ConnectedNotebooks = ({ uid }: { uid: string }) => {
       ) : (
         <ul>
           {notebooks.map((c) => (
-            <li key={c.instance}>{c.instance}</li>
+            <li key={`${c.app}-${c.workspace}`}>{c.workspace}</li>
           ))}
         </ul>
       )}
@@ -53,12 +56,10 @@ const ConnectedNotebooks = ({ uid }: { uid: string }) => {
 
 const InviteNotebook = ({
   parentUid,
-  sendToGraph,
   loading,
   setLoading,
 }: {
   loading: boolean;
-  sendToGraph: SamePageApi["sendToGraph"];
   parentUid: string;
   setLoading: (f: boolean) => void;
 }) => {
@@ -68,7 +69,7 @@ const InviteNotebook = ({
     setIsOpen(false);
     setLoading(false);
   }, [setIsOpen, setLoading]);
-  const [instance, setInstance] = useState("");
+  const [workspace, setWorkspace] = useState("");
   const onSubmit = useCallback(() => {
     setInnerLoading(true);
     return apiClient<{ id: string; created: boolean }>({
@@ -77,25 +78,27 @@ const InviteNotebook = ({
       data: {
         uid: parentUid,
       },
-    }).then((r) => {
-      const title = getPageTitleByPageUid(parentUid);
-      sendToGraph({
-        graph: instance,
-        operation: "SHARE_PAGE",
-        data: {
-          id: r.id,
-          uid: parentUid,
-          title: title || getTextByBlockUid(parentUid),
-          isPage: !!title,
-        },
-      });
-      renderToast({
-        id: "share-page-success",
-        content: `Successfully shared page with ${instance}! We will now await for them to accept.`,
-      });
-      closeDialog();
-    });
-  }, [parentUid, instance, closeDialog]);
+    })
+      .then((r) => {
+        const title = getPageTitleByPageUid(parentUid);
+        sendToGraph({
+          graph: workspace,
+          operation: "SHARE_PAGE",
+          data: {
+            id: r.id,
+            uid: parentUid,
+            title: title || getTextByBlockUid(parentUid),
+            isPage: !!title,
+          },
+        });
+        renderToast({
+          id: "share-page-success",
+          content: `Successfully shared page with ${workspace}! We will now await for them to accept.`,
+        });
+        closeDialog();
+      })
+      .finally(() => setInnerLoading(false));
+  }, [parentUid, workspace, closeDialog, setInnerLoading]);
   return (
     <>
       <Tooltip content={"Invite Notebook"}>
@@ -116,13 +119,14 @@ const InviteNotebook = ({
         canOutsideClickClose
         canEscapeKeyClose
         autoFocus={false}
+        enforceFocus={false}
       >
         <div className={Classes.DIALOG_BODY}>
           <Label>
             Graph
             <InputGroup
-              value={instance}
-              onChange={(e) => setInstance(e.target.value)}
+              value={workspace}
+              onChange={(e) => setWorkspace(e.target.value)}
             />
           </Label>
         </div>
@@ -146,7 +150,7 @@ const InviteNotebook = ({
   );
 };
 
-const SharedPageStatus = ({ parentUid, sendToGraph }: Props) => {
+const SharedPageStatus = ({ parentUid }: Props) => {
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
   return (
@@ -160,7 +164,6 @@ const SharedPageStatus = ({ parentUid, sendToGraph }: Props) => {
       </Tooltip>
       <InviteNotebook
         parentUid={parentUid}
-        sendToGraph={sendToGraph}
         loading={loading}
         setLoading={setLoading}
       />
@@ -193,11 +196,18 @@ const SharedPageStatus = ({ parentUid, sendToGraph }: Props) => {
   );
 };
 
-export const render = ({
-  parent,
-  ...props
-}: { parent: HTMLElement } & Props) => {
-  renderWithUnmount(<SharedPageStatus {...props} />, parent);
+export const render = (props: Props) => {
+  Array.from(
+    document.querySelectorAll(`[data-roamjs-shared-${props.parentUid}="true"]`)
+  ).forEach((containerParent) => {
+    const parent = document.createElement("div");
+    const h = containerParent.querySelector("h1.rm-title-display");
+    containerParent.insertBefore(
+      parent,
+      h?.parentElement?.nextElementSibling || null
+    );
+    renderWithUnmount(<SharedPageStatus {...props} />, parent);
+  });
 };
 
 export default SharedPageStatus;

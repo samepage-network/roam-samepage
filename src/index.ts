@@ -1,9 +1,10 @@
 import runExtension from "roamjs-components/util/runExtension";
 import setupSamePageClient, {
+  sendToGraph,
   unloadSamePageClient,
 } from "./components/setupSamePageClient";
 import addStyle from "roamjs-components/dom/addStyle";
-import UsageChart from "./components/UsageChart";
+import { render as renderUsage } from "./components/UsageChart";
 import loadSendPageToGraph, {
   unload as unloadSendPageToGraph,
 } from "./messages/sendPageToGraph";
@@ -18,6 +19,10 @@ import loadSharePageWithGraph, {
 } from "./messages/sharePageWithGraph";
 import { render } from "./components/NotificationContainer";
 import migrateLegacySettings from "roamjs-components/util/migrateLegacySettings";
+import {
+  addGraphListener,
+  removeGraphListener,
+} from "./components/setupMessageHandlers";
 
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
 
@@ -40,43 +45,40 @@ export default runExtension({
           },
           description: "Automatically connect to the SamePage Network",
         },
-        {
-          id: "usage",
-          name: "Usage",
-          action: {
-            type: "reactComponent",
-            component: UsageChart,
-          },
-          description:
-            "Displays how much the user has used the SamePage network this month. Price is not actually charged, but to inform what might be used in the future.",
-        },
       ],
     });
     migrateLegacySettings({ extensionAPI, extensionId });
 
-    const api = setupSamePageClient(
-      extensionAPI.settings.get("auto-connect") as boolean
-    );
+    setupSamePageClient(extensionAPI.settings.get("auto-connect") as boolean);
+    render({});
+    loadCopyBlockToGraph();
+    loadCrossGraphBlockReference();
+    loadSendPageToGraph();
+    loadSharePageWithGraph();
 
-    render(api);
-    loadSendPageToGraph(api);
-    loadCopyBlockToGraph(api);
-    loadCrossGraphBlockReference(api);
-    loadSharePageWithGraph(api);
+    window.roamjs.extension[extensionId] = {
+      addGraphListener,
+      removeGraphListener,
+      sendToGraph,
+    };
 
-    window.roamjs.extension[extensionId] = api;
+    const USAGE_LABEL = "View SamePage Usage";
+    window.roamAlphaAPI.ui.commandPalette.addCommand({
+      label: USAGE_LABEL,
+      callback: () => {
+        renderUsage({});
+      },
+    });
     return {
       elements: [styleEl],
+      commands: [USAGE_LABEL],
     };
   },
   unload: () => {
-    const api = window.roamjs.extension[extensionId] as ReturnType<
-      typeof setupSamePageClient
-    >;
-    unloadSharePageWithGraph(api);
-    unloadSendPageToGraph(api);
-    unloadCopyBlockToGraph(api);
-    unloadCrossGraphBlockReference(api);
+    unloadSharePageWithGraph();
+    unloadSendPageToGraph();
+    unloadCopyBlockToGraph();
+    unloadCrossGraphBlockReference();
     unloadSamePageClient();
   },
 });

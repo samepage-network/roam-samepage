@@ -9,13 +9,12 @@ import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromT
 import { render as renderToast } from "roamjs-components/components/Toast";
 import { PullBlock } from "roamjs-components/types/native";
 import createPage from "roamjs-components/writes/createPage";
-import type { SamePageApi } from "roamjs-components/types/samepage";
 
 const NOTIFICATION_EVENT = "roamjs:samepage:notification";
 
 const ACTIONS: Record<
   string,
-  (args: Record<string, string>, api: SamePageApi) => Promise<void>
+  (args: Record<string, string>) => Promise<void>
 > = {
   "reject share page response": rejectSharePageResponse,
   "accept share page response": acceptSharePageResponse,
@@ -35,11 +34,9 @@ type Notification = {
 };
 
 const ActionButtons = ({
-  api,
   actions,
   onSuccess,
 }: {
-  api: SamePageApi;
   actions: NotificationAction[];
   onSuccess: () => void;
 }) => {
@@ -52,7 +49,7 @@ const ActionButtons = ({
             text={action.label}
             onClick={() => {
               setLoading(true);
-              ACTIONS[action.method]?.(action.args, api)
+              ACTIONS[action.method]?.(action.args)
                 .then(onSuccess)
                 .catch((e) => {
                   console.error("Failed to process notification:", e);
@@ -76,7 +73,7 @@ const ActionButtons = ({
   );
 };
 
-const NotificationContainer = (props: SamePageApi) => {
+const NotificationContainer = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, _setNotificatons] = useState<Notification[]>(() => {
     const pages = window.roamAlphaAPI.data.fast
@@ -203,7 +200,6 @@ const NotificationContainer = (props: SamePageApi) => {
                 <p>{not.description}</p>
                 <div style={{ gap: 8 }} className={"flex"}>
                   <ActionButtons
-                    api={props}
                     actions={not.actions}
                     onSuccess={() => removeNotificaton(not)}
                   />

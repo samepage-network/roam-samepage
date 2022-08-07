@@ -788,11 +788,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         .then((r) => ({
           statusCode: 200,
           body: JSON.stringify({
-            notebooks: r.Items.map((i) => ({ instance: i.graph?.S })),
+            notebooks: r.Items.map((i) => ({ workspace: i.graph?.S, app: 1 })),
           }),
           headers,
         }))
-        .catch(emailCatch("Failed to retrieve page instances"));
+        .catch(emailCatch("Failed to retrieve pages"));
     }
     case "disconnect-shared-page": {
       const { uid } = rest as {
@@ -872,7 +872,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           statusCode: 200,
           body: JSON.stringify({
             data: Data,
-            source: { instance: sourceGraph, app: 1 },
+            source: { workspace: sourceGraph, app: 1 },
           }),
           headers,
         }))
@@ -935,14 +935,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         target,
       } = rest as {
         response: { found: boolean; node: InputTextNode };
-        target: { instance: string };
+        target: { workspace: string };
       };
       if (found) {
         await s3
           .upload({
             Bucket: "roamjs-data",
             Body: JSON.stringify(node),
-            Key: `multiplayer/references/${target.instance}/${node.uid}.json`,
+            Key: `multiplayer/references/${target.workspace}/${node.uid}.json`,
             ContentType: "application/json",
           })
           .promise()
@@ -951,19 +951,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               .putItem({
                 TableName: "RoamJSMultiplayer",
                 Item: {
-                  id: { S: `${target.instance}:${node.uid}` },
+                  id: { S: `${target.workspace}:${node.uid}` },
                   entity: { S: toEntity(`$reference`) },
                   date: {
                     S: new Date().toJSON(),
                   },
-                  graph: { S: target.instance },
+                  graph: { S: target.workspace },
                 },
               })
               .promise()
           );
       }
       return messageGraph({
-        targetGraph: target.instance,
+        targetGraph: target.workspace,
         sourceGraph: graph,
         data: {
           method: `QUERY_RESPONSE`,

@@ -437,7 +437,7 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
 
 export const load = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Setup Direct SamePage Connection",
+    label: "Setup Direct Notebook Connection",
     callback: () => {
       createOverlayRender<Omit<AlertProps, "onClose">>(
         "samepage-p2p-setup",
@@ -446,7 +446,7 @@ export const load = () => {
     },
   });
   window.roamAlphaAPI.ui.commandPalette.addCommand({
-    label: "Connect To SamePage Instance",
+    label: "Connect Directly To Notebook",
     callback: () => {
       createOverlayRender<Omit<AlertProps, "onClose">>(
         "samepage-p2p-connect",
@@ -457,7 +457,7 @@ export const load = () => {
 };
 export const unload = () => {
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
-    label: "Connect To SamePage Instance",
+    label: "Connect Directly To Notebook",
   });
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
     label: "Setup Direct SamePage Connection",

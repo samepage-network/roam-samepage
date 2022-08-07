@@ -3,18 +3,16 @@ import { InputGroup, Label } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import GraphMessageAlert from "./GraphMessageAlert";
-import type { SamePageApi } from "roamjs-components/types/samepage";
+import { sendToGraph } from "./setupSamePageClient";
+import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
 
 type Props = {
   blockUid: string;
-} & SamePageApi;
+};
 
 const CopyBlockAlert = ({
   onClose,
   blockUid,
-  sendToGraph,
-  addGraphListener,
-  removeGraphListener,
 }: { onClose: () => void } & Props) => {
   const [page, setPage] = useState("");
   const block = useMemo(
@@ -61,6 +59,6 @@ const CopyBlockAlert = ({
   );
 };
 
-export const render = createOverlayRender("copy-block-alert", CopyBlockAlert);
+export const render = createOverlayRender<Props>("copy-block-alert", CopyBlockAlert);
 
 export default CopyBlockAlert;

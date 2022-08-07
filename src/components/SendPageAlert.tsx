@@ -5,18 +5,16 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import GraphMessageAlert from "./GraphMessageAlert";
-import type { SamePageApi } from "roamjs-components/types/samepage";
+import { sendToGraph } from "./setupSamePageClient";
+import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
 
 type Props = {
   pageUid: string;
-} & SamePageApi;
+};
 
 const SendPageAlert = ({
   onClose,
   pageUid,
-  sendToGraph,
-  addGraphListener,
-  removeGraphListener,
 }: { onClose: () => void } & Props) => {
   const [page, setPage] = useState(() => getPageTitleByPageUid(pageUid));
   const tree = useMemo(
@@ -66,6 +64,6 @@ const SendPageAlert = ({
   );
 };
 
-export const render = createOverlayRender("send-page-alert", SendPageAlert);
+export const render = createOverlayRender<Props>("send-page-alert", SendPageAlert);
 
 export default SendPageAlert;

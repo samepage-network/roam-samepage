@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Spinner } from "@blueprintjs/core";
 import apiClient from "../apiClient";
+import createOverlayRender, {
+  RoamOverlayProps,
+} from "roamjs-components/util/createOverlayRender";
+import { Classes, Dialog } from "@blueprintjs/core";
 
-const UsageChart = () => {
+const UsageChart = ({ onClose }: RoamOverlayProps<{}>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({
@@ -19,8 +23,14 @@ const UsageChart = () => {
       .finally(() => setLoading(false));
   }, [setStats, setLoading, setError]);
   return (
-    <div style={{ minWidth: 360 }}>
-      <div style={loading ? { opacity: 0.5 } : {}}>
+    <Dialog
+      onClose={onClose}
+      isOpen={true}
+      title={"Usage Chart"}
+      autoFocus={false}
+      enforceFocus={false}
+    >
+      <div style={loading ? { opacity: 0.5 } : {}} className={Classes.DIALOG_BODY}>
         <div className={"flex justify-between items-center"}>
           <b>Description</b>
           <span>
@@ -71,8 +81,13 @@ const UsageChart = () => {
         </div>
       </div>
       <div style={{ color: "darkred" }}>{error}</div>
-    </div>
+    </Dialog>
   );
 };
+
+export const render = createOverlayRender<{}>(
+  "samepage-usage-chart",
+  UsageChart
+);
 
 export default UsageChart;

@@ -6,21 +6,20 @@ import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { gatherActions } from "roamjs-components/writes/createBlock";
 import type { SharedPages } from "../types";
-import type { SamePageApi } from "roamjs-components/types/samepage";
 import { addSharedPage } from "../messages/sharePageWithGraph";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import apiClient from "../apiClient";
+import { sendToGraph } from "./setupSamePageClient";
 
 type Props = {
   pageUid: string;
   sharedPages: SharedPages;
-} & SamePageApi;
+};
 
 const SharePageAlert = ({
   onClose,
   pageUid,
   sharedPages,
-  sendToGraph,
 }: { onClose: () => void } & Props) => {
   const onSubmit = useCallback(
     (graph: string) => {
@@ -85,6 +84,6 @@ const SharePageAlert = ({
   );
 };
 
-export const render = createOverlayRender("share-page-alert", SharePageAlert);
+export const render = createOverlayRender<Props>("share-page-alert", SharePageAlert);
 
 export default SharePageAlert;

@@ -4,14 +4,13 @@ import {
   references,
   render as referenceRender,
 } from "../components/CrossGraphReference";
-import type { SamePageApi } from "roamjs-components/types/samepage";
 import apiClient from "../apiClient";
 import { InputTextNode } from "roamjs-components/types/native";
+import { addGraphListener, removeGraphListener } from "../components/setupMessageHandlers";
 
 let observer: MutationObserver;
 
-const load = (props: SamePageApi) => {
-  const { addGraphListener } = props;
+const load = () => {
   addGraphListener({
     operation: "QUERY",
     handler: (e, graph) => {
@@ -26,7 +25,7 @@ const load = (props: SamePageApi) => {
             node,
           },
           target: {
-            instance: graph,
+            workspace: graph,
             app: 1,
           },
         },
@@ -44,7 +43,7 @@ const load = (props: SamePageApi) => {
     },
   });
   observer = createHTMLObserver({
-    callback: (s) => referenceRender(s, props),
+    callback: (s) => referenceRender(s),
     tag: "SPAN",
     className: "rm-paren--closed",
   });
@@ -59,7 +58,7 @@ const load = (props: SamePageApi) => {
   });
 };
 
-export const unload = ({ removeGraphListener }: SamePageApi) => {
+export const unload = () => {
   removeGraphListener({ operation: "QUERY" });
   removeGraphListener({ operation: "QUERY_RESPONSE" });
   window.roamAlphaAPI.ui.commandPalette.removeCommand({
