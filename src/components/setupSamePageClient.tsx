@@ -172,8 +172,8 @@ const connectToBackend = () => {
       });
     };
 
-    roamJsBackend.channel.onclose = (...args) => {
-      console.warn("Same page network disconnected:", ...args);
+    roamJsBackend.channel.onclose = (args) => {
+      console.warn("Same page network disconnected:", args);
       disconnectFromBackend("Network Disconnected");
     };
     roamJsBackend.channel.onerror = (ev) => {
@@ -282,7 +282,7 @@ const setupSamePageClient = (isAutoConnect: boolean): void => {
                 message: `Loaded ${progress} of ${props.messages.length} remote messages...`,
                 timeout: 0,
               });
-              Promise.all(
+              return Promise.all(
                 props.messages.map((msg) =>
                   apiClient<{
                     data: string;
@@ -295,7 +295,7 @@ const setupSamePageClient = (isAutoConnect: boolean): void => {
                     handleMessage(r.data, r.source.workspace);
                   })
                 )
-              ).then(() => toaster.clear());
+              ).finally(() => toaster.clear());
             } else {
               return Promise.resolve();
             }

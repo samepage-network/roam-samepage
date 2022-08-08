@@ -24,5 +24,11 @@ jobs:
         run: npm install
       - name: build
         run: npx roamjs-scripts build
+      - name: build:depot
+        run: npx roamjs-scripts build --depot
+      - name: make download dir
+        run: mkdir build/download
+      - name: cp extension
+        run: cp extension.js build/download
       - name: publish
         run: npx roamjs-scripts publish
