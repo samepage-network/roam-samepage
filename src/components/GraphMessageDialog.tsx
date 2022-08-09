@@ -8,7 +8,7 @@ import {
   Label,
 } from "@blueprintjs/core";
 
-const GraphMessageAlert = ({
+const GraphMessageDialog = ({
   onClose,
   children,
   disabled = false,
@@ -104,4 +104,4 @@ const GraphMessageAlert = ({
   );
 };
 
-export default GraphMessageAlert;
+export default GraphMessageDialog;

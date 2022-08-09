@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import GraphMessageAlert from "./GraphMessageAlert";
+import GraphMessageAlert from "./GraphMessageDialog";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { gatherActions } from "roamjs-components/writes/createBlock";
@@ -16,7 +16,7 @@ type Props = {
   sharedPages: SharedPages;
 };
 
-const SharePageAlert = ({
+const SharePageDialog = ({
   onClose,
   pageUid,
   sharedPages,
@@ -84,6 +84,6 @@ const SharePageAlert = ({
   );
 };
 
-export const render = createOverlayRender<Props>("share-page-alert", SharePageAlert);
+export const render = createOverlayRender<Props>("share-page-alert", SharePageDialog);
 
-export default SharePageAlert;
+export default SharePageDialog;

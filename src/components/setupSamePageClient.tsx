@@ -2,7 +2,7 @@ import { Intent, Position, Toaster } from "@blueprintjs/core";
 import renderToast from "roamjs-components/components/Toast";
 import { v4 } from "uuid";
 import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
-import type { SamePageApi } from "roamjs-components/types/samepage";
+import { render as renderUsage } from "./UsageChart";
 import {
   connectedGraphs,
   getConnectCode,
@@ -12,13 +12,13 @@ import {
   // unload as unloadP2P,
 } from "./setupP2PFeatures";
 import apiClient, { isLegacy } from "../apiClient";
-import type { Status, json, MessageHandlers } from "../types";
+import type { Status, json } from "../types";
 import {
   addGraphListener,
   handleMessage,
   receiveChunkedMessage,
-  removeGraphListener,
 } from "./setupMessageHandlers";
+import { render as renderNotifications } from "./NotificationContainer";
 
 const authenticationHandlers: {
   handler: () => Promise<unknown>;
@@ -235,7 +235,12 @@ export const sendToGraph = ({
   }
 };
 
-const setupSamePageClient = (isAutoConnect: boolean): void => {
+const USAGE_LABEL = "View SamePage Usage";
+const setupSamePageClient = ({
+  isAutoConnect,
+}: {
+  isAutoConnect: boolean;
+}): void => {
   addConnectCommand();
   if (isAutoConnect) {
     connectToBackend();
@@ -361,9 +366,18 @@ const setupSamePageClient = (isAutoConnect: boolean): void => {
       receiveAnswer({ answer: props.answer });
     },
   });
+
+  window.roamAlphaAPI.ui.commandPalette.addCommand({
+    label: USAGE_LABEL,
+    callback: () => {
+      renderUsage({});
+    },
+  });
+  renderNotifications({});
 };
 
 export const unloadSamePageClient = () => {
+  window.roamAlphaAPI.ui.commandPalette.removeCommand({ label: USAGE_LABEL });
   roamJsBackend.channel.close(1000, "Disabled Client");
   disconnectFromBackend("Disabled Client");
   removeConnectCommand();

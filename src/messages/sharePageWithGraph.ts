@@ -10,7 +10,7 @@ import {
   removeAuthenticationHandler,
   sendToGraph,
 } from "../components/setupSamePageClient";
-import { render } from "../components/SharePageAlert";
+import { render } from "../components/SharePageDialog";
 import { render as renderStatus } from "../components/SharedPageStatus";
 import { render as renderView } from "../components/SharedPagesDashboard";
 import type { SharedPages } from "../types";

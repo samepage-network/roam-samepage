@@ -11,7 +11,7 @@
     "@types/aws-lambda": "^8.10.88",
     "@types/uuid": "^8.3.3",
     "globby": "^13.1.2",
-    "roamjs-scripts": "^0.21.7",
+    "roamjs-scripts": "^0.21.9",
     "ts-node": "^10.4.0"
   },
   "dependencies": {

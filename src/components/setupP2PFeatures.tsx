@@ -308,67 +308,74 @@ const SetupAlert = ({ onClose }: AlertProps) => {
     getSetupCode({ onClose }).then(setCode);
   }, [setLoading]);
   return (
-    <Alert
-      loading={!readyToRecieve || loading}
-      isOpen={true}
-      onConfirm={() => {
-        setLoading(true);
-        receiveAnswer({ answer });
-      }}
-      canOutsideClickCancel
-      confirmButtonText={"Connect"}
-      onCancel={() => {
-        onClose();
-      }}
-      style={isSafari ? { minWidth: 800 } : {}}
-      // @ts-ignore
-      title={"Setup Connection"}
-      isCloseButtonShown={false}
-    >
-      {!isSafari ? (
-        <>
-          <p>
-            Click the button below to copy the handshake code and send it to
-            your peer:
-          </p>
-          <p>
-            <Button
-              style={{ minWidth: 120 }}
-              disabled={!code || loading}
-              onClick={() => {
-                window.navigator.clipboard.writeText(code);
-                setCopied(true);
-                setTimeout(() => {
-                  setReadyToRecieve(true);
-                  setCopied(false);
-                }, 3000);
-              }}
-            >
-              {copied ? "Copied!" : "Copy"}
-            </Button>
-          </p>
-        </>
-      ) : (
-        <>
-          <p>Copy the handshake code and send it to your peer:</p>
-          <pre>{code}</pre>
-        </>
-      )}
-      <p>Then, enter the handshake code sent by your peer:</p>
-      <Label>
-        Peer's Handshake Code
-        <InputGroup
-          value={answer}
-          disabled={!readyToRecieve || loading}
-          onChange={(e) => {
-            setAnswer(e.target.value);
-            setLoading(!e.target.value);
-          }}
-          style={{ wordBreak: "keep-all" }}
-        />
-      </Label>
-      <p>Finally, click connect below:</p>
-    </Alert>
+    <>
+      <style>
+        {`.bp3-alert > .bp3-dialog-header {
+  margin: -20px -20px 20px;
+}`}
+      </style>
+      <Alert
+        loading={!readyToRecieve || loading}
+        isOpen={true}
+        onConfirm={() => {
+          setLoading(true);
+          receiveAnswer({ answer });
+        }}
+        canOutsideClickCancel
+        confirmButtonText={"Connect"}
+        onCancel={() => {
+          onClose();
+        }}
+        style={isSafari ? { minWidth: 800 } : {}}
+        // @ts-ignore
+        title={"Setup Connection"}
+        isCloseButtonShown={false}
+      >
+        {!isSafari ? (
+          <>
+            <p>
+              Click the button below to copy the handshake code and send it to
+              your peer:
+            </p>
+            <p>
+              <Button
+                style={{ minWidth: 120 }}
+                disabled={!code || loading}
+                onClick={() => {
+                  window.navigator.clipboard.writeText(code);
+                  setCopied(true);
+                  setTimeout(() => {
+                    setReadyToRecieve(true);
+                    setCopied(false);
+                  }, 3000);
+                }}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </Button>
+            </p>
+          </>
+        ) : (
+          <>
+            <p>Copy the handshake code and send it to your peer:</p>
+            <pre>{code}</pre>
+          </>
+        )}
+        <p>Then, enter the handshake code sent by your peer:</p>
+        <Label>
+          Peer's Handshake Code
+          <InputGroup
+            value={answer}
+            disabled={!readyToRecieve || loading}
+            onChange={(e) => {
+              setAnswer(e.target.value);
+              setLoading(!e.target.value);
+            }}
+            style={{ wordBreak: "keep-all" }}
+          />
+        </Label>
+        <p>Finally, click connect below:</p>
+      </Alert>
+    </>
   );
 };
 
@@ -389,49 +396,56 @@ const ConnectAlert = ({ onClose }: AlertProps) => {
     });
   }, [setLoading, offer, setCopied, setCode]);
   return (
-    <Alert
-      loading={loading}
-      isOpen={true}
-      onConfirm={onConfirm}
-      canOutsideClickCancel
-      confirmButtonText={"Connect"}
-      onCancel={() => {
-        onClose();
-      }}
-      style={isSafari ? { minWidth: 800 } : {}}
-      // @ts-ignore
-      title={"Connect to Host"}
-      isCloseButtonShown={false}
-    >
-      {copied ? (
-        !isSafari ? (
-          <p>A response handshake code was copied! Send it to your peer.</p>
+    <>
+      <style>
+        {`.bp3-alert > .bp3-dialog-header {
+  margin: -20px -20px 20px;
+}`}
+      </style>
+      <Alert
+        loading={loading}
+        isOpen={true}
+        onConfirm={onConfirm}
+        canOutsideClickCancel
+        confirmButtonText={"Connect"}
+        onCancel={() => {
+          onClose();
+        }}
+        style={isSafari ? { minWidth: 800 } : {}}
+        // @ts-ignore
+        title={"Connect to Host"}
+        isCloseButtonShown={false}
+      >
+        {copied ? (
+          !isSafari ? (
+            <p>A response handshake code was copied! Send it to your peer.</p>
+          ) : (
+            <>
+              <p>
+                Now copy the handshake code below and send it back to your peer.
+              </p>
+              <pre>{code}</pre>
+            </>
+          )
         ) : (
           <>
-            <p>
-              Now copy the handshake code below and send it back to your peer.
-            </p>
-            <pre>{code}</pre>
+            <p>Enter the handshake code sent by your peer:</p>
+            <Label>
+              Peer's Handshake Code
+              <InputGroup
+                value={offer}
+                onChange={(e) => {
+                  setOffer(e.target.value);
+                }}
+                disabled={loading}
+                style={{ wordBreak: "keep-all" }}
+              />
+            </Label>
+            <p>Then, click connect below:</p>
           </>
-        )
-      ) : (
-        <>
-          <p>Enter the handshake code sent by your peer:</p>
-          <Label>
-            Peer's Handshake Code
-            <InputGroup
-              value={offer}
-              onChange={(e) => {
-                setOffer(e.target.value);
-              }}
-              disabled={loading}
-              style={{ wordBreak: "keep-all" }}
-            />
-          </Label>
-          <p>Then, click connect below:</p>
-        </>
-      )}
-    </Alert>
+        )}
+      </Alert>
+    </>
   );
 };
 

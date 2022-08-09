@@ -4,7 +4,7 @@ import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import GraphMessageAlert from "./GraphMessageAlert";
+import GraphMessageAlert from "./GraphMessageDialog";
 import { sendToGraph } from "./setupSamePageClient";
 import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
 

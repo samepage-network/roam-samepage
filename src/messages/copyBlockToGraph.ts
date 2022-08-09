@@ -4,7 +4,7 @@ import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTit
 import type { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
-import { render as copyRender } from "../components/CopyBlockAlert";
+import { render as copyRender } from "../components/CopyBlockDialog";
 import { addGraphListener, removeGraphListener } from "../components/setupMessageHandlers";
 import { sendToGraph } from "../components/setupSamePageClient";
 
