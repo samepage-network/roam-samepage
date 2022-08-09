@@ -72,7 +72,7 @@ const sendChunkedMessage = ({
   }
 };
 
-export const sendToBackend = ({
+const sendToBackend = ({
   operation,
   data = {},
   unauthenticated = false,
@@ -378,7 +378,8 @@ const setupSamePageClient = ({
 
 export const unloadSamePageClient = () => {
   window.roamAlphaAPI.ui.commandPalette.removeCommand({ label: USAGE_LABEL });
-  roamJsBackend.channel.close(1000, "Disabled Client");
+  if (roamJsBackend.channel)
+    roamJsBackend.channel.close(1000, "Disabled Client");
   disconnectFromBackend("Disabled Client");
   removeConnectCommand();
   removeDisconnectCommand();

@@ -13,7 +13,7 @@ env:
   ROAMJS_EMAIL: support@roamjs.com
   ROAMJS_EXTENSION_ID: samepage
   ROAMJS_RELEASE_TOKEN: ${{ secrets.ROAMJS_RELEASE_TOKEN }}
-  WEB_SOCKET_URL: ws://ws.samepage.network
+  WEB_SOCKET_URL: wss://ws.samepage.network
 
 jobs:
   deploy:
