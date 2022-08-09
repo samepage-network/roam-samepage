@@ -1,5 +1,3 @@
-import type { SamePageApi } from "roamjs-components/types/samepage";
-
 export type json =
   | string
   | number

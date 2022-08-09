@@ -37,7 +37,7 @@ export const removeAuthenticationHandler = (label: string) =>
 
 const CONNECTED_EVENT = "roamjs:samepage:connected";
 
-export const roamJsBackend: {
+const roamJsBackend: {
   channel?: WebSocket;
   status: Status;
   networkedGraphs: Set<string>;
