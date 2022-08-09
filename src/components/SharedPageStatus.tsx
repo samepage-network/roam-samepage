@@ -154,7 +154,10 @@ const SharedPageStatus = ({ parentUid }: Props) => {
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
   return (
-    <span className="flex gap-4 items-center text-lg mb-8" ref={containerRef}>
+    <span
+      className="samepage-shared-page-status flex gap-4 items-center text-lg mb-8"
+      ref={containerRef}
+    >
       <i>Shared</i>
       <Tooltip content={"Notebooks Connected"}>
         <Popover
@@ -199,15 +202,20 @@ const SharedPageStatus = ({ parentUid }: Props) => {
 export const render = (props: Props) => {
   Array.from(
     document.querySelectorAll(`[data-roamjs-shared-${props.parentUid}="true"]`)
-  ).forEach((containerParent) => {
-    const parent = document.createElement("div");
-    const h = containerParent.querySelector("h1.rm-title-display");
-    containerParent.insertBefore(
-      parent,
-      h?.parentElement?.nextElementSibling || null
-    );
-    renderWithUnmount(<SharedPageStatus {...props} />, parent);
-  });
+  )
+    .filter(
+      (cp) =>
+        cp.getElementsByClassName("samepage-shared-page-status").length === 0
+    )
+    .forEach((containerParent) => {
+      const parent = document.createElement("div");
+      const h = containerParent.querySelector("h1.rm-title-display");
+      containerParent.insertBefore(
+        parent,
+        h?.parentElement?.nextElementSibling || null
+      );
+      renderWithUnmount(<SharedPageStatus {...props} />, parent);
+    });
 };
 
 export default SharedPageStatus;
