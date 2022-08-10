@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import GraphMessageAlert from "./GraphMessageDialog";
+import GraphMessageDialog from "./GraphMessageDialog";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import { gatherActions } from "roamjs-components/writes/createBlock";
@@ -70,7 +70,7 @@ const SharePageDialog = ({
   );
   return (
     <>
-      <GraphMessageAlert
+      <GraphMessageDialog
         title={`Share Page with Graph`}
         onClose={onClose}
         onSubmitToGraph={onSubmit}
@@ -79,11 +79,14 @@ const SharePageDialog = ({
           Sharing this page means that all graphs with access to it will be able
           to edit its child blocks.
         </p>
-      </GraphMessageAlert>
+      </GraphMessageDialog>
     </>
   );
 };
 
-export const render = createOverlayRender<Props>("share-page-alert", SharePageDialog);
+export const render = createOverlayRender<Props>(
+  "share-page-alert",
+  SharePageDialog
+);
 
 export default SharePageDialog;

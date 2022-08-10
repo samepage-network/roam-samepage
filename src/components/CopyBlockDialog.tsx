@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { InputGroup, Label } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
-import GraphMessageAlert from "./GraphMessageDialog";
+import GraphMessageDialog from "./GraphMessageDialog";
 import { sendToGraph } from "./setupSamePageClient";
 import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
 
@@ -45,7 +45,7 @@ const CopyBlockDialog = ({
     [page]
   );
   return (
-    <GraphMessageAlert
+    <GraphMessageDialog
       title={`Copy Block to Graph`}
       onClose={onClose}
       onSubmitToGraph={onSubmit}
@@ -55,10 +55,13 @@ const CopyBlockDialog = ({
         Page
         <InputGroup value={page} onChange={(e) => setPage(e.target.value)} />
       </Label>
-    </GraphMessageAlert>
+    </GraphMessageDialog>
   );
 };
 
-export const render = createOverlayRender<Props>("copy-block-alert", CopyBlockDialog);
+export const render = createOverlayRender<Props>(
+  "copy-block-alert",
+  CopyBlockDialog
+);
 
 export default CopyBlockDialog;

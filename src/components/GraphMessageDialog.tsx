@@ -95,7 +95,7 @@ const GraphMessageDialog = ({
               text={"Send"}
               intent={Intent.PRIMARY}
               onClick={onSubmit}
-              disabled={submitDisabled || loading}
+              disabled={submitDisabled || loading || !graphs.length}
             />
           </div>
         </div>

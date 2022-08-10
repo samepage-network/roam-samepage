@@ -305,7 +305,12 @@ const load = () => {
                   new Error(`There is no live shared page linked to uid ${uid}`)
                 )
               : r.log
-                  .map((a) => () => window.roamAlphaAPI[a.action](a.params))
+                  .map(
+                    (a) => () =>
+                      window.roamAlphaAPI[a.action](a.params).catch((e) =>
+                        Promise.reject(new Error(`Failed to apply update ${a.action} due to ${e}`))
+                      )
+                  )
                   .reduce((p, c) => p.then(c), Promise.resolve())
           )
           .then(() =>

@@ -4,7 +4,7 @@ import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import GraphMessageAlert from "./GraphMessageDialog";
+import GraphMessageDialog from "./GraphMessageDialog";
 import { sendToGraph } from "./setupSamePageClient";
 import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
 
@@ -49,7 +49,7 @@ const SendPageAlert = ({
   );
   return (
     <>
-      <GraphMessageAlert
+      <GraphMessageDialog
         title={`Send Page to Graph`}
         onClose={onClose}
         disabled={!page}
@@ -59,11 +59,14 @@ const SendPageAlert = ({
           Page
           <InputGroup value={page} onChange={(e) => setPage(e.target.value)} />
         </Label>
-      </GraphMessageAlert>
+      </GraphMessageDialog>
     </>
   );
 };
 
-export const render = createOverlayRender<Props>("send-page-alert", SendPageAlert);
+export const render = createOverlayRender<Props>(
+  "send-page-alert",
+  SendPageAlert
+);
 
 export default SendPageAlert;
