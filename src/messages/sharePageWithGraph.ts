@@ -8,7 +8,6 @@ import { notify } from "../components/NotificationContainer";
 import {
   addAuthenticationHandler,
   removeAuthenticationHandler,
-  sendToGraph,
 } from "../components/setupSamePageClient";
 import { render } from "../components/SharePageDialog";
 import { render as renderStatus } from "../components/SharedPageStatus";

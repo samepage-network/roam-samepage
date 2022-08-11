@@ -36,6 +36,7 @@ export const removeAuthenticationHandler = (label: string) =>
   );
 
 const CONNECTED_EVENT = "roamjs:samepage:connected";
+const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
 
 const roamJsBackend: {
   channel?: WebSocket;
@@ -118,7 +119,6 @@ const onError = (e: { error: Error } | Event) => {
   }
 };
 
-const MESSAGE_LIMIT = 15750; // 16KB minus 250b buffer for metadata
 const addConnectCommand = () => {
   removeDisconnectCommand();
   window.roamAlphaAPI.ui.commandPalette.addCommand({
