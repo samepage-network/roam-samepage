@@ -8,6 +8,7 @@ import { notify } from "../components/NotificationContainer";
 import {
   addAuthenticationHandler,
   removeAuthenticationHandler,
+  sendToGraph,
 } from "../components/setupSamePageClient";
 import { render } from "../components/SharePageDialog";
 import { render as renderStatus } from "../components/SharedPageStatus";
@@ -15,11 +16,16 @@ import { render as renderView } from "../components/SharedPagesDashboard";
 import type { SharedPages } from "../types";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
-import apiClient from "../apiClient";
+import apiClient, { isLegacy } from "../apiClient";
 import {
   addGraphListener,
   removeGraphListener,
 } from "../components/setupMessageHandlers";
+import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
+import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
+import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+import { gatherActions } from "roamjs-components/writes/createBlock";
+import apiGet from "roamjs-components/util/apiGet";
 
 export const sharedPages: SharedPages = {
   indices: {},
@@ -236,8 +242,63 @@ const load = () => {
   });
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: COMMAND_PALETTE_LABEL,
-    callback: () => {
-      render({ pageUid: getCurrentPageUid(), sharedPages });
+    callback: async () => {
+      const apps = isLegacy
+        ? [{ id: 1, name: "Roam" }]
+        : apiGet<{ apps: { id: number; name: string }[] }>("apps").then(
+            (r) => r.apps
+          );
+      render({
+        pageUid: getCurrentPageUid(),
+        onSubmit: (args) => {
+          return apiClient<{ id: string; created: boolean }>({
+            method: "init-shared-page",
+            data: {
+              uid: args.notebookPageId,
+            },
+          })
+            .then((r) => {
+              addSharedPage(args.notebookPageId);
+              const title = getPageTitleByPageUid(args.notebookPageId);
+              sendToGraph({
+                graph: args.workspace,
+                operation: "SHARE_PAGE",
+                data: {
+                  id: r.id,
+                  uid: args.notebookPageId,
+                  title: title || getTextByBlockUid(args.notebookPageId),
+                  isPage: !!title,
+                },
+              });
+              if (r.created) {
+                const tree = getFullTreeByParentUid(args.notebookPageId);
+                const log = tree.children
+                  .flatMap((node, order) =>
+                    gatherActions({
+                      node,
+                      order,
+                      parentUid: args.notebookPageId,
+                    })
+                  )
+                  .map((params) => ({ params, action: "createBlock" }));
+                sharedPages.indices[args.notebookPageId] = log.length;
+                return apiClient({
+                  method: "update-shared-page",
+                  data: {
+                    uid: args.notebookPageId,
+                    log,
+                  },
+                });
+              }
+            })
+            .then(() => {
+              renderToast({
+                id: "share-page-success",
+                content: `Successfully shared page with ${args.workspace}! We will now await for them to accept.`,
+              });
+            });
+        },
+      });
     },
   });
   addAuthenticationHandler({
@@ -307,7 +368,11 @@ const load = () => {
                   .map(
                     (a) => () =>
                       window.roamAlphaAPI[a.action](a.params).catch((e) =>
-                        Promise.reject(new Error(`Failed to apply update ${a.action} due to ${e}`))
+                        Promise.reject(
+                          new Error(
+                            `Failed to apply update ${a.action} due to ${e}`
+                          )
+                        )
                       )
                   )
                   .reduce((p, c) => p.then(c), Promise.resolve())

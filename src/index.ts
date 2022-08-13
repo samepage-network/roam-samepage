@@ -20,13 +20,6 @@ import {
   addGraphListener,
   removeGraphListener,
 } from "./components/setupMessageHandlers";
-// import {
-//   setupSamePageClient, // window.samepage api register.
-//   addGraphListener,
-//   removeGraphListener,
-//   sendToGraph,
-//   unloadSamePageClient,
-// } from "@samepage/client";
 
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
 

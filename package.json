@@ -15,6 +15,7 @@
     "ts-node": "^10.4.0"
   },
   "dependencies": {
+    "@samepage/client": "^0.2.4",
     "aws-sdk": "^2.1066.0",
     "dotenv": "^16.0.1",
     "roamjs-components": "^0.71.2"

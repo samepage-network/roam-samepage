@@ -14,12 +14,14 @@ const GraphMessageDialog = ({
   disabled = false,
   onSubmitToGraph,
   title,
+  apps = [{id: 1, name: "Roam"}],
 }: {
   onClose: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
   onSubmitToGraph: (graph: string) => Promise<void>;
   title: string;
+  apps?: {id: number, name: string}[]
 }) => {
   const [graphs, setGraphs] = useState<string[]>([]);
   const [currentGraph, setCurrentGraph] = useState("");

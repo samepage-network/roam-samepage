@@ -32,6 +32,6 @@ jobs:
       - name: build:depot
         run: npx roamjs-scripts build --depot
       - name: package
-        run: zip -jq roam.zip README.md extension.js
+        run: zip -q roam.zip README.md extension.js
       - name: Deploy to SamePage
         run: aws s3 cp roam.zip s3://samepage.network/extensions/roam.zip
