@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
-import rejectSharePageResponse from "../actions/rejectSharePageResponse";
-import acceptSharePageResponse from "../actions/acceptSharePageResponse";
 import getSubTree from "roamjs-components/util/getSubTree";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
@@ -12,35 +10,29 @@ import createPage from "roamjs-components/writes/createPage";
 
 const NOTIFICATION_EVENT = "roamjs:samepage:notification";
 
-const ACTIONS: Record<
-  string,
-  (args: Record<string, string>) => Promise<void>
-> = {
-  "reject share page response": rejectSharePageResponse,
-  "accept share page response": acceptSharePageResponse,
-} as const;
-
-type NotificationAction = {
-  label: string;
-  method: string;
-  args: Record<string, string>;
-};
-
 type Notification = {
   uid: string;
   title: string;
   description: string;
-  actions: NotificationAction[];
+  actions: {
+    label: string;
+    method: string;
+    args: Record<string, string>;
+  }[];
 };
 
 const ActionButtons = ({
   actions,
   onSuccess,
 }: {
-  actions: NotificationAction[];
+  actions: {
+    label: string;
+    callback: () => Promise<void>;
+  }[];
   onSuccess: () => void;
 }) => {
   const [loading, setLoading] = useState(false);
+
   return (
     <>
       <div className={"flex gap-8"}>
@@ -49,7 +41,8 @@ const ActionButtons = ({
             text={action.label}
             onClick={() => {
               setLoading(true);
-              ACTIONS[action.method]?.(action.args)
+              action
+                .callback()
                 .then(onSuccess)
                 .catch((e) => {
                   console.error("Failed to process notification:", e);
@@ -73,7 +66,11 @@ const ActionButtons = ({
   );
 };
 
-const NotificationContainer = () => {
+type Props = {
+  actions: Record<string, (args: Record<string, string>) => Promise<void>>;
+};
+
+const NotificationContainer = ({ actions }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, _setNotificatons] = useState<Notification[]>(() => {
     const pages = window.roamAlphaAPI.data.fast
@@ -84,7 +81,10 @@ const NotificationContainer = () => {
     return pages.map((block) => {
       const tree = getBasicTreeByParentUid(block[":block/uid"]);
       return {
-        title: block[":node/title"],
+        title: getSettingValueFromTree({
+          tree,
+          key: "Title",
+        }),
         uid: block[":block/uid"],
         description: getSettingValueFromTree({
           tree,
@@ -98,7 +98,7 @@ const NotificationContainer = () => {
           method: getSettingValueFromTree({
             tree: act.children,
             key: "Method",
-          }) as keyof typeof ACTIONS,
+          }),
           args: Object.fromEntries(
             getSubTree({ key: "Args", tree: act.children }).children.map(
               (arg) => [arg.text, arg.children[0]?.text]
@@ -108,7 +108,7 @@ const NotificationContainer = () => {
       };
     });
   });
-  const notificationsRef = useRef<Notification[]>([]);
+  const notificationsRef = useRef<Notification[]>(notifications);
   const addNotificaton = useCallback(
     (not: Notification) => {
       createPage({
@@ -136,7 +136,7 @@ const NotificationContainer = () => {
         ],
       }).then(() => {
         notificationsRef.current.push(not);
-        _setNotificatons(notificationsRef.current);
+        _setNotificatons([...notificationsRef.current]);
       });
     },
     [_setNotificatons, notificationsRef]
@@ -200,7 +200,14 @@ const NotificationContainer = () => {
                 <p>{not.description}</p>
                 <div style={{ gap: 8 }} className={"flex"}>
                   <ActionButtons
-                    actions={not.actions}
+                    actions={not.actions.map((a) => ({
+                      label: a.label,
+                      callback: () => {
+                        const action = actions[a.method];
+                        if (action) return action(a.args);
+                        return Promise.resolve();
+                      },
+                    }))}
                     onSuccess={() => removeNotificaton(not)}
                   />
                 </div>
@@ -233,7 +240,7 @@ export const notify = (detail: Omit<Notification, "uid">) =>
     })
   );
 
-export const render = createOverlayRender(
+export const render = createOverlayRender<Props>(
   "samepage-notifications",
   NotificationContainer
 );

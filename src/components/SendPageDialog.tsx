@@ -5,16 +5,19 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import GraphMessageDialog from "./GraphMessageDialog";
-import { sendToGraph } from "./setupSamePageClient";
-import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
+import type { SamePageApi } from "../types";
+import type { Notebook } from "@samepage/shared";
 
 type Props = {
   pageUid: string;
-};
+} & SamePageApi;
 
 const SendPageAlert = ({
   onClose,
   pageUid,
+  sendToNotebook,
+  addNotebookListener,
+  removeNotebookListener,
 }: { onClose: () => void } & Props) => {
   const [page, setPage] = useState(() => getPageTitleByPageUid(pageUid));
   const tree = useMemo(
@@ -22,27 +25,29 @@ const SendPageAlert = ({
     [pageUid]
   );
   const onSubmit = useCallback(
-    async (graph: string) => {
-      sendToGraph({
-        graph,
-        operation: "SEND_PAGE",
-        data: {
-          uid: pageUid,
-          title: page,
-          tree,
-        },
-      });
-      addGraphListener({
-        operation: `SEND_PAGE_RESPONSE/${graph}/${pageUid}`,
-        handler: (_, graph) => {
-          removeGraphListener({
-            operation: `SEND_PAGE_RESPONSE/${graph}/${pageUid}`,
-          });
-          renderToast({
-            id: "send-page-success",
-            content: `Successfully sent page ${page} to ${graph}!`,
-          });
-        },
+    async (targets: Notebook[]) => {
+      targets.map((target) => {
+        sendToNotebook({
+          target,
+          operation: "SEND_PAGE",
+          data: {
+            uid: pageUid,
+            title: page,
+            tree,
+          },
+        });
+        addNotebookListener({
+          operation: `SEND_PAGE_RESPONSE/${target.workspace}/${pageUid}`,
+          handler: (_, graph) => {
+            removeNotebookListener({
+              operation: `SEND_PAGE_RESPONSE/${graph}/${pageUid}`,
+            });
+            renderToast({
+              id: "send-page-success",
+              content: `Successfully sent page ${page} to ${graph}!`,
+            });
+          },
+        });
       });
     },
     [page]
@@ -53,7 +58,7 @@ const SendPageAlert = ({
         title={`Send Page to Graph`}
         onClose={onClose}
         disabled={!page}
-        onSubmitToGraph={onSubmit}
+        onSubmit={onSubmit}
       >
         <Label>
           Page

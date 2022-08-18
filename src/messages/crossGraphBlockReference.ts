@@ -6,14 +6,16 @@ import {
 } from "../components/CrossGraphReference";
 import apiClient from "../apiClient";
 import { InputTextNode } from "roamjs-components/types/native";
-import { addGraphListener, removeGraphListener } from "../components/setupMessageHandlers";
+import type { SamePageApi } from "../types";
 
-let observer: MutationObserver;
-
-const load = () => {
-  addGraphListener({
+const load = ({
+  addNotebookListener,
+  removeNotebookListener,
+  sendToNotebook,
+}: SamePageApi) => {
+  addNotebookListener({
     operation: "QUERY",
-    handler: (e, graph) => {
+    handler: (e, source) => {
       const { request } = e as { request: string };
       const [, uid] = request.split(":");
       const node = getFullTreeByParentUid(uid);
@@ -24,25 +26,22 @@ const load = () => {
             found: !!node.uid,
             node,
           },
-          target: {
-            workspace: graph,
-            app: 1,
-          },
+          target: source,
         },
       });
     },
   });
-  addGraphListener({
+  addNotebookListener({
     operation: "QUERY_RESPONSE",
-    handler: (e, graph) => {
+    handler: (e, source) => {
       const { found, node } = e as { found: boolean; node: InputTextNode };
       const newText = found ? node.text : `Reference not found`;
-      if (!references[graph]) references[graph] = {};
-      references[graph][node.uid] = newText;
+      if (!references[source.workspace]) references[source.workspace] = {};
+      references[source.workspace][node.uid] = newText;
       // setText(newText); dispatch event to ongoing refs
     },
   });
-  observer = createHTMLObserver({
+  const observer = createHTMLObserver({
     callback: (s) => referenceRender(s),
     tag: "SPAN",
     className: "rm-paren--closed",
@@ -56,15 +55,14 @@ const load = () => {
       );
     },
   });
-};
-
-export const unload = () => {
-  removeGraphListener({ operation: "QUERY" });
-  removeGraphListener({ operation: "QUERY_RESPONSE" });
-  window.roamAlphaAPI.ui.commandPalette.removeCommand({
-    label: "Copy Cross Graph Block Reference",
-  });
-  observer?.disconnect();
+  return () => {
+    removeNotebookListener({ operation: "QUERY" });
+    removeNotebookListener({ operation: "QUERY_RESPONSE" });
+    window.roamAlphaAPI.ui.commandPalette.removeCommand({
+      label: "Copy Cross Graph Block Reference",
+    });
+    observer?.disconnect();
+  };
 };
 
 export default load;

@@ -7,47 +7,37 @@ import {
   Intent,
   Label,
 } from "@blueprintjs/core";
+import MenuItemSelect from "roamjs-components/components/MenuItemSelect";
+import type { Notebook, Apps, AppId } from "@samepage/shared";
 
 const GraphMessageDialog = ({
   onClose,
   children,
   disabled = false,
-  onSubmitToGraph,
+  onSubmit,
   title,
-  apps = [{id: 1, name: "Roam"}],
+  apps = { 1: { name: "Roam" } },
 }: {
   onClose: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
-  onSubmitToGraph: (graph: string) => Promise<void>;
+  onSubmit: (notebooks: Notebook[]) => Promise<void>;
   title: string;
-  apps?: {id: number, name: string}[]
+  apps?: Apps;
 }) => {
-  const [graphs, setGraphs] = useState<string[]>([]);
-  const [currentGraph, setCurrentGraph] = useState("");
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [currentApp, setCurrentApp] = useState(Object.keys(apps)[0]);
+  const [currentworkspace, setCurrentWorkspace] = useState("");
   const [loading, setLoading] = useState(false);
-  const onSubmit = useCallback(() => {
+  const onClick = useCallback(() => {
     setLoading(true);
-    Promise.all(Array.from(graphs).map(onSubmitToGraph))
+    onSubmit(notebooks)
       .then(onClose)
       .catch(() => setLoading(false));
-  }, [onSubmitToGraph, onClose, graphs]);
-  const submitDisabled = useMemo(() => disabled || !graphs, [disabled, graphs]);
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (
-        e.key === "Enter" &&
-        !e.shiftKey &&
-        !e.altKey &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !submitDisabled
-      ) {
-        onSubmit();
-      }
-      e.stopPropagation();
-    },
-    [onSubmit, submitDisabled]
+  }, [onSubmit, onClose, notebooks]);
+  const submitDisabled = useMemo(
+    () => disabled || !notebooks.length,
+    [disabled, notebooks]
   );
   return (
     <>
@@ -60,35 +50,57 @@ const GraphMessageDialog = ({
         isCloseButtonShown={false}
         autoFocus={false}
       >
-        <div className={Classes.DIALOG_BODY} onKeyDown={onKeyDown}>
+        <div className={Classes.DIALOG_BODY}>
           {children}
-          {graphs.map((g, i) => (
-            <div className="flex gap-4 items-center">
-              <span className={"flex-grow"}>{g}</span>
+          {notebooks.map((g, i) => (
+            <div
+              className="flex gap-4 items-center mb-1"
+              key={`${g.app}/${g.workspace}`}
+            >
+              <span className={"flex-grow"}>
+                {apps[g.app].name}/{g.workspace}
+              </span>
               <Button
                 minimal
                 icon={"trash"}
-                onClick={() => setGraphs(graphs.filter((_, j) => j !== i))}
+                onClick={() =>
+                  setNotebooks(notebooks.filter((_, j) => j !== i))
+                }
               />
             </div>
           ))}
-          <Label>
-            Graph
-            <InputGroup
-              rightElement={
-                <Button
-                  minimal
-                  icon={"plus"}
-                  onClick={() => {
-                    setGraphs([...graphs, currentGraph]);
-                    setCurrentGraph("");
-                  }}
-                />
-              }
-              value={currentGraph}
-              onChange={e => setCurrentGraph(e.target.value)}
+          <div className="flex gap-4 items-center">
+            <Label style={{ maxWidth: "120px", width: "100%" }}>
+              App
+              <MenuItemSelect
+                items={Object.keys(apps)}
+                activeItem={currentApp}
+                onItemSelect={(a) => setCurrentApp(a)}
+                transformItem={(a) => apps[Number(a)].name}
+              />
+            </Label>
+            <Label>
+              Workspace
+              <InputGroup
+                value={currentworkspace}
+                onChange={(e) => setCurrentWorkspace(e.target.value)}
+              />
+            </Label>
+            <Button
+              minimal
+              icon={"plus"}
+              onClick={() => {
+                setNotebooks([
+                  ...notebooks,
+                  {
+                    app: Number(currentApp) as AppId,
+                    workspace: currentworkspace,
+                  },
+                ]);
+                setCurrentWorkspace("");
+              }}
             />
-          </Label>
+          </div>
         </div>
         <div className={Classes.DIALOG_FOOTER}>
           <div className={Classes.DIALOG_FOOTER_ACTIONS}>
@@ -96,8 +108,8 @@ const GraphMessageDialog = ({
             <Button
               text={"Send"}
               intent={Intent.PRIMARY}
-              onClick={onSubmit}
-              disabled={submitDisabled || loading || !graphs.length}
+              onClick={onClick}
+              disabled={submitDisabled || loading || !notebooks.length}
             />
           </div>
         </div>

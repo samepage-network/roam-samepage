@@ -5,20 +5,24 @@ import type { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
 import { render as copyRender } from "../components/CopyBlockDialog";
-import { addGraphListener, removeGraphListener } from "../components/setupMessageHandlers";
-import { sendToGraph } from "../components/setupSamePageClient";
+import type { SamePageApi } from "../types";
 
-const load = () => {
+const load = (api: SamePageApi) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Copy Block to Graph",
     callback: () => {
       const blockUid = window.roamAlphaAPI.ui.getFocusedBlock()["block-uid"];
-      copyRender({ blockUid });
+      copyRender({ blockUid, ...api });
     },
   });
-  addGraphListener({
+  const {
+    addNotebookListener,
+    removeNotebookListener,
+    sendToNotebook,
+  } = api;
+  addNotebookListener({
     operation: "COPY_BLOCK",
-    handler: (e, graph) => {
+    handler: (e, source) => {
       const { block, page, blockUid } = e as {
         block: InputTextNode;
         page: string;
@@ -37,10 +41,10 @@ const load = () => {
         .then(() => {
           renderToast({
             id: "copy-block-success",
-            content: `Pasted new block in page ${page} from ${graph}!`,
+            content: `Pasted new block in page ${page} from ${source.workspace}!`,
           });
-          sendToGraph({
-            graph,
+          sendToNotebook({
+            target: source,
             operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
             data: {
               ephemeral: true,
@@ -49,15 +53,14 @@ const load = () => {
         });
     },
   });
-};
-
-export const unload = () => {
-  window.roamAlphaAPI.ui.commandPalette.removeCommand({
-    label: "Copy Block to Graph",
-  });
-  removeGraphListener({
-    operation: "COPY_BLOCK",
-  });
+  return () => {
+    window.roamAlphaAPI.ui.commandPalette.removeCommand({
+      label: "Copy Block to Graph",
+    });
+    removeNotebookListener({
+      operation: "COPY_BLOCK",
+    });
+  };
 };
 
 export default load;

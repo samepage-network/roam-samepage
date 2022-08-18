@@ -3,43 +3,52 @@ import { InputGroup, Label } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import GraphMessageDialog from "./GraphMessageDialog";
-import { sendToGraph } from "./setupSamePageClient";
-import { addGraphListener, removeGraphListener } from "./setupMessageHandlers";
+import type { SamePageApi } from "../types";
+import type { Notebook } from "@samepage/shared";
+import { PullBlock } from "roamjs-components/types/native";
 
 type Props = {
   blockUid: string;
-};
+} & SamePageApi;
 
 const CopyBlockDialog = ({
   onClose,
   blockUid,
+  sendToNotebook,
+  addNotebookListener,
+  removeNotebookListener,
 }: { onClose: () => void } & Props) => {
   const [page, setPage] = useState("");
-  const block = useMemo(
-    () =>
-      window.roamAlphaAPI.q(
-        `[:find (pull ?b [[:block/string :as "text"] :block/heading [:block/text-align :as "textAlign"]]) :where [?b :block/uid "${blockUid}"]]`
-      )[0][0],
-    [blockUid]
-  );
+  const block = useMemo(() => {
+    const block = window.roamAlphaAPI.data.fast.q(
+      `[:find (pull ?b [:block/string :block/heading :block/text-align]) :where [?b :block/uid "${blockUid}"]]`
+    )[0][0] as PullBlock;
+    return {
+      text: block[":block/string"] || "",
+      heading: block[":block/heading"] || 0,
+      textAlign: block[":block/text-align"] || "left",
+    };
+  }, [blockUid]);
   const onSubmit = useCallback(
-    async (graph: string) => {
-      sendToGraph({
-        graph,
-        operation: "COPY_BLOCK",
-        data: { block, page, blockUid },
-      });
-      addGraphListener({
-        operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
-        handler: (_, graph) => {
-          removeGraphListener({
-            operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
-          });
-          renderToast({
-            id: "copy-block-success",
-            content: `Successfully sent block ${blockUid} to ${graph}!`,
-          });
-        },
+    async (targets: Notebook[]) => {
+      targets.map((target) => {
+        sendToNotebook({
+          target,
+          operation: "COPY_BLOCK",
+          data: { block, page, blockUid },
+        });
+        addNotebookListener({
+          operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
+          handler: (_, graph) => {
+            removeNotebookListener({
+              operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
+            });
+            renderToast({
+              id: "copy-block-success",
+              content: `Successfully sent block ${blockUid} to ${graph}!`,
+            });
+          },
+        });
       });
     },
     [page]
@@ -48,7 +57,7 @@ const CopyBlockDialog = ({
     <GraphMessageDialog
       title={`Copy Block to Graph`}
       onClose={onClose}
-      onSubmitToGraph={onSubmit}
+      onSubmit={onSubmit}
       disabled={!page}
     >
       <Label>

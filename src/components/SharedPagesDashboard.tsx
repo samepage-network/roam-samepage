@@ -1,20 +1,16 @@
-import { sharedPages } from "../messages/sharePageWithGraph";
-import { useMemo } from "react";
 import PageLink from "roamjs-components/components/PageLink";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { Classes, Dialog } from "@blueprintjs/core";
 
-const SharedPagesDashboard = ({ onClose }: { onClose: () => void }) => {
-  const pages = useMemo(
-    () =>
-      Array.from(sharedPages.ids).map((id) => ({
-        title: window.roamAlphaAPI.data.pull("[:node/title]", id)[
-          ":node/title"
-        ],
-        uid: sharedPages.idToUid[id],
-      })),
-    []
-  );
+type Props = { notebookPageIds: string[] };
+
+const SharedPagesDashboard = ({
+  onClose,
+  notebookPageIds,
+}: {
+  onClose: () => void;
+  notebookPageIds: string[];
+}) => {
   return (
     <Dialog
       onClose={onClose}
@@ -24,11 +20,11 @@ const SharedPagesDashboard = ({ onClose }: { onClose: () => void }) => {
       enforceFocus={false}
     >
       <div className={Classes.DIALOG_BODY}>
-        {pages.length ? (
+        {notebookPageIds.length ? (
           <ul>
-            {pages.map(({ uid, title }) => (
+            {notebookPageIds.map((uid) => (
               <li key={uid}>
-                <PageLink uid={uid}>{title}</PageLink>
+                <PageLink uid={uid} />
               </li>
             ))}
           </ul>
@@ -40,7 +36,7 @@ const SharedPagesDashboard = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-export const render = createOverlayRender<{}>(
+export const render = createOverlayRender<Props>(
   "shared-pages-dashboard",
   SharedPagesDashboard
 );

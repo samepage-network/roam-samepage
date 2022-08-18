@@ -11,44 +11,82 @@ import {
 } from "@blueprintjs/core";
 import { useState, useRef, useEffect, useCallback } from "react";
 import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
-import { removeSharedPage } from "../messages/sharePageWithGraph";
-import { render as renderToast } from "roamjs-components/components/Toast";
-import apiClient from "../apiClient";
-import type { SamePageApi } from "roamjs-components/types/samepage";
-import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
-import { sendToGraph } from "./setupSamePageClient";
+import type { loadSharePageWithNotebook } from "@samepage/client";
+import type { Apps, Notebook, AppId } from "@samepage/shared";
+import MenuItemSelect from "roamjs-components/components/MenuItemSelect";
 
-type Notebook = {
-  workspace: string;
-  app: number;
-};
+type SharePageReturn = ReturnType<typeof loadSharePageWithNotebook>;
 
 type Props = {
   parentUid: string;
-};
+  apps: Apps;
+} & Pick<
+  SharePageReturn,
+  "disconnectPage" | "sharePage" | "forcePushPage" | "listConnectedNotebooks"
+>;
 
-const ConnectedNotebooks = ({ uid }: { uid: string }) => {
+const formatVersion = (s: number) =>
+  s ? new Date(s * 1000).toLocaleString() : "unknown";
+
+const ConnectedNotebooks = ({
+  uid,
+  listConnectedNotebooks,
+}: {
+  uid: string;
+  listConnectedNotebooks: Props["listConnectedNotebooks"];
+}) => {
   const [loading, setLoading] = useState(true);
-  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [notebooks, setNotebooks] = useState<
+    Awaited<ReturnType<Props["listConnectedNotebooks"]>>["notebooks"]
+  >([]);
+  const [networks, setNetworks] = useState<
+    Awaited<ReturnType<Props["listConnectedNotebooks"]>>["networks"]
+  >([]);
   useEffect(() => {
-    apiClient<{ notebooks: Notebook[] }>({
-      method: "list-page-notebooks",
-      data: { uid },
-    })
-      .then((r) => setNotebooks(r.notebooks))
+    listConnectedNotebooks(uid)
+      .then((r) => {
+        setNotebooks(r.notebooks);
+        setNetworks(r.networks);
+      })
       .finally(() => setLoading(false));
   }, [setLoading]);
   return (
-    <div className="flex p-4 rounded-md">
+    <div className="flex p-4 rounded-md flex-col">
       {loading ? (
         <Spinner />
       ) : (
-        <ul>
-          {notebooks.map((c) => (
-            <li key={`${c.app}-${c.workspace}`}>{c.workspace}</li>
-          ))}
-        </ul>
+        <>
+          <h3>Notebooks:</h3>
+          <ul>
+            {notebooks.map((c) => (
+              <li key={`${c.app}-${c.workspace}`}>
+                <div className="flex items-center justify-between">
+                  <span>
+                    {c.app}/{c.workspace}
+                  </span>
+                  <span className="opacity-75 text-gray-600 text-sm">
+                    {formatVersion(c.version)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <h3>Networks:</h3>
+          <ul>
+            {networks.map((c) => (
+              <li key={`${c.app}-${c.workspace}`}>
+                <div className="flex items-center justify-between">
+                  <span>
+                    {c.app}/{c.workspace}
+                  </span>
+                  <span className="opacity-75 text-gray-600 text-sm">
+                    {formatVersion(c.version)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
@@ -58,10 +96,14 @@ const InviteNotebook = ({
   parentUid,
   loading,
   setLoading,
+  sharePage,
+  apps = {},
 }: {
   loading: boolean;
   parentUid: string;
   setLoading: (f: boolean) => void;
+  sharePage: SharePageReturn["sharePage"];
+  apps?: Record<string, { name: string }>;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [innerLoading, setInnerLoading] = useState(false);
@@ -69,36 +111,15 @@ const InviteNotebook = ({
     setIsOpen(false);
     setLoading(false);
   }, [setIsOpen, setLoading]);
-  const [workspace, setWorkspace] = useState("");
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [currentApp, setCurrentApp] = useState(Object.keys(apps)[0]);
+  const [currentworkspace, setCurrentWorkspace] = useState("");
   const onSubmit = useCallback(() => {
     setInnerLoading(true);
-    return apiClient<{ id: string; created: boolean }>({
-      // TODO replace with just a get for the id
-      method: "init-shared-page",
-      data: {
-        uid: parentUid,
-      },
-    })
-      .then((r) => {
-        const title = getPageTitleByPageUid(parentUid);
-        sendToGraph({
-          graph: workspace,
-          operation: "SHARE_PAGE",
-          data: {
-            id: r.id,
-            uid: parentUid,
-            title: title || getTextByBlockUid(parentUid),
-            isPage: !!title,
-          },
-        });
-        renderToast({
-          id: "share-page-success",
-          content: `Successfully shared page with ${workspace}! We will now await for them to accept.`,
-        });
-        closeDialog();
-      })
+    sharePage({ notebookPageId: parentUid, notebooks })
+      .then(closeDialog)
       .finally(() => setInnerLoading(false));
-  }, [parentUid, workspace, closeDialog, setInnerLoading]);
+  }, [parentUid, currentworkspace, closeDialog, setInnerLoading]);
   return (
     <>
       <Tooltip content={"Invite Notebook"}>
@@ -122,13 +143,55 @@ const InviteNotebook = ({
         enforceFocus={false}
       >
         <div className={Classes.DIALOG_BODY}>
-          <Label>
-            Graph
-            <InputGroup
-              value={workspace}
-              onChange={(e) => setWorkspace(e.target.value)}
+          {notebooks.map((g, i) => (
+            <div
+              className="flex gap-4 items-center"
+              key={`${g.app}/${g.workspace}`}
+            >
+              <span className={"flex-grow"}>
+                {apps[g.app].name} / {g.workspace}
+              </span>
+              <Button
+                minimal
+                icon={"trash"}
+                onClick={() =>
+                  setNotebooks(notebooks.filter((_, j) => j !== i))
+                }
+              />
+            </div>
+          ))}
+          <div className="flex gap-4 items-center">
+            <Label style={{ maxWidth: "120px", width: "100%" }}>
+              App
+              <MenuItemSelect
+                items={Object.keys(apps)}
+                activeItem={currentApp}
+                onItemSelect={(a) => setCurrentApp(a)}
+                transformItem={(a) => apps[Number(a)].name}
+              />
+            </Label>
+            <Label>
+              Workspace
+              <InputGroup
+                value={currentworkspace}
+                onChange={(e) => setCurrentWorkspace(e.target.value)}
+              />
+            </Label>
+            <Button
+              minimal
+              icon={"plus"}
+              onClick={() => {
+                setNotebooks([
+                  ...notebooks,
+                  {
+                    app: Number(currentApp) as AppId,
+                    workspace: currentworkspace,
+                  },
+                ]);
+                setCurrentWorkspace("");
+              }}
             />
-          </Label>
+          </div>
         </div>
         <div className={Classes.DIALOG_FOOTER}>
           <div className={Classes.DIALOG_FOOTER_ACTIONS}>
@@ -141,7 +204,7 @@ const InviteNotebook = ({
               text={"Send"}
               intent={Intent.PRIMARY}
               onClick={onSubmit}
-              disabled={innerLoading}
+              disabled={innerLoading || !notebooks.length}
             />
           </div>
         </div>
@@ -150,7 +213,14 @@ const InviteNotebook = ({
   );
 };
 
-const SharedPageStatus = ({ parentUid }: Props) => {
+const SharedPageStatus = ({
+  parentUid,
+  sharePage,
+  disconnectPage,
+  forcePushPage,
+  listConnectedNotebooks,
+  apps,
+}: Props) => {
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
   return (
@@ -161,7 +231,12 @@ const SharedPageStatus = ({ parentUid }: Props) => {
       <i>Shared</i>
       <Tooltip content={"Notebooks Connected"}>
         <Popover
-          content={<ConnectedNotebooks uid={parentUid} />}
+          content={
+            <ConnectedNotebooks
+              uid={parentUid}
+              listConnectedNotebooks={listConnectedNotebooks}
+            />
+          }
           target={<Button icon={"info-sign"} minimal disabled={loading} />}
         />
       </Tooltip>
@@ -169,6 +244,8 @@ const SharedPageStatus = ({ parentUid }: Props) => {
         parentUid={parentUid}
         loading={loading}
         setLoading={setLoading}
+        sharePage={sharePage}
+        apps={apps}
       />
       <Tooltip content={"Disconnect Shared Page"}>
         <Button
@@ -177,21 +254,18 @@ const SharedPageStatus = ({ parentUid }: Props) => {
           minimal
           onClick={() => {
             setLoading(true);
-            apiClient<{ id: string; created: boolean }>({
-              method: "disconnect-shared-page",
-              data: { uid: parentUid },
-            })
-              .then(() => {
-                removeSharedPage(parentUid);
-                containerRef.current.parentElement.remove();
-              })
-              .catch(() =>
-                renderToast({
-                  content: `Successfully disconnected ${parentUid} from being shared.`,
-                  id: "disconnect-shared-page",
-                })
-              )
-              .finally(() => setLoading(false));
+            disconnectPage(parentUid).finally(() => setLoading(false));
+          }}
+        />
+      </Tooltip>
+      <Tooltip content={"Force Push Local Copy"}>
+        <Button
+          disabled={loading}
+          icon={"warning-sign"}
+          minimal
+          onClick={() => {
+            setLoading(true);
+            forcePushPage(parentUid).finally(() => setLoading(false));
           }}
         />
       </Tooltip>
@@ -199,23 +273,11 @@ const SharedPageStatus = ({ parentUid }: Props) => {
   );
 };
 
-export const render = (props: Props) => {
-  Array.from(
-    document.querySelectorAll(`[data-roamjs-shared-${props.parentUid}="true"]`)
-  )
-    .filter(
-      (cp) =>
-        cp.getElementsByClassName("samepage-shared-page-status").length === 0
-    )
-    .forEach((containerParent) => {
-      const parent = document.createElement("div");
-      const h = containerParent.querySelector("h1.rm-title-display");
-      containerParent.insertBefore(
-        parent,
-        h?.parentElement?.nextElementSibling || null
-      );
-      renderWithUnmount(<SharedPageStatus {...props} />, parent);
-    });
+export const render = ({
+  parent,
+  ...props
+}: Props & { parent: HTMLElement }) => {
+  renderWithUnmount(<SharedPageStatus {...props} />, parent);
 };
 
 export default SharedPageStatus;

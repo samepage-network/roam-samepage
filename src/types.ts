@@ -1,3 +1,5 @@
+import { setupSamePageClient } from "@samepage/client";
+
 export type json =
   | string
   | number
@@ -21,3 +23,8 @@ export type SharedPages = {
 export type NotificationHandler = (
   args: Record<string, string>
 ) => Promise<void>;
+
+export type SamePageApi = Pick<
+  Awaited<ReturnType<typeof setupSamePageClient>>,
+  "addNotebookListener" | "removeNotebookListener" | "sendToNotebook"
+>;

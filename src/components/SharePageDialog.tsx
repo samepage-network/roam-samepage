@@ -1,21 +1,18 @@
 import React from "react";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import GraphMessageDialog from "./GraphMessageDialog";
+import type { Notebook, Apps } from "@samepage/shared";
 
 type Props = {
-  pageUid: string;
-  apps?: { id: number; name: string }[];
-  onSubmit: (args: {
-    app: number;
-    workspace: string;
-    notebookPageId: string;
-  }) => void;
+  notebookPageId: string;
+  apps?: Apps;
+  onSubmit: (args: { notebooks: Notebook[]; notebookPageId: string }) => void;
 };
 
 const SharePageDialog = ({
   onClose,
-  pageUid,
-  apps = [],
+  notebookPageId,
+  apps,
   onSubmit,
 }: { onClose: () => void } & Props) => {
   return (
@@ -23,10 +20,8 @@ const SharePageDialog = ({
       <GraphMessageDialog
         title={`Share Page with Graph`}
         onClose={onClose}
-        onSubmitToGraph={(graph) =>
-          Promise.resolve(
-            onSubmit({ app: 1, workspace: graph, notebookPageId: pageUid })
-          )
+        onSubmit={(notebooks) =>
+          Promise.resolve(onSubmit({ notebooks, notebookPageId }))
         }
         apps={apps}
       >
