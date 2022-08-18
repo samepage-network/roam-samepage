@@ -71,6 +71,11 @@ export default runExtension({
           );
         } else if (evt.type === "share-page") {
           const app = appArray.find((a) => a.id === evt.source.app)?.name;
+          const args = {
+            workspace: evt.source.workspace,
+            app: `${evt.source.app}`,
+            pageUuid: evt.pageUuid,
+          };
           notify({
             title: "Share Page",
             description: `Notebook ${app}/${evt.source.workspace} is attempting to share page ${evt.notebookPageId}. Would you like to accept?`,
@@ -78,21 +83,12 @@ export default runExtension({
               {
                 label: "accept",
                 method: "accept",
-                args: {
-                  notebookPageId: evt.notebookPageId,
-                  workspace: evt.source.workspace,
-                  app: `${evt.source.app}`,
-                  pageUuid: evt.pageUuid,
-                },
+                args,
               },
               {
                 label: "reject",
                 method: "reject",
-                args: {
-                  workspace: evt.source.workspace,
-                  app: `${evt.source.app}`,
-                  pageUuid: evt.pageUuid,
-                },
+                args,
               },
             ],
           });
@@ -107,10 +103,7 @@ export default runExtension({
     const apps = Object.fromEntries(
       appArray.map(({ id, ...app }) => [id, app])
     );
-    const unloadSharePageWithNotebook = setupSharePageWithNotebook(
-      extensionAPI,
-      apps
-    );
+    const unloadSharePageWithNotebook = setupSharePageWithNotebook(apps);
 
     const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
     const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);

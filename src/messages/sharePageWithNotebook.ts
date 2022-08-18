@@ -20,24 +20,47 @@ import type { Apps, Schema, AppId } from "@samepage/shared";
 import { render as renderInitPage } from "../components/SharePageDialog";
 import { render as renderViewPages } from "../components/SharedPagesDashboard";
 import getUids from "roamjs-components/dom/getUids";
-import { openDB } from "idb";
+import { openDB, IDBPDatabase } from "idb";
 import createPage from "roamjs-components/writes/createPage";
-import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
+import { v4 } from "uuid";
 
-// uuids are 128 bits
-// roam uids are 54 bits
-// roam date uids are 60 bits
-const roamUidToUuid = () => {};
-const roamUuidToUid = () => {};
+const roamToSamepage = (s: string) =>
+  openIdb()
+    .then((db) => db.get("roam-to-samepage", s))
+    .then((v) => v as string);
+const samepageToRoam = (s: string) =>
+  openIdb()
+    .then((db) => db.get("samepage-to-roam", s))
+    .then((v) => v as string);
+const saveUid = (roam: string, samepage: string) =>
+  openIdb().then((db) =>
+    Promise.all([
+      db.put("roam-to-samepage", samepage, roam),
+      db.put("samepage-to-roam", roam, samepage),
+    ])
+  );
+const removeUid = (roam: string, samepage: string) =>
+  openIdb().then((db) =>
+    Promise.all([
+      db.delete("roam-to-samepage", roam),
+      db.delete("samepage-to-roam", samepage),
+    ])
+  );
+const removeRoamUid = (roam: string) =>
+  roamToSamepage(roam).then((samepage) => removeUid(roam, samepage));
 
-const openIdb = () =>
-  openDB("samepage", 1, {
+let db: IDBPDatabase;
+const openIdb = async () =>
+  db ||
+  (db = await openDB("samepage", 2, {
     upgrade(db) {
       db.createObjectStore("pages");
+      db.createObjectStore("roam-to-samepage");
+      db.createObjectStore("samepage-to-roam");
     },
-  });
+  }));
 
-const toAtJson = ({
+const toAtJson = async ({
   nodes,
   level = 0,
   startIndex = 0,
@@ -50,32 +73,42 @@ const toAtJson = ({
 }) => {
   const annotations: Schema["annotations"] = [];
   let index = startIndex;
-  const content: string = nodes
-    .map((n) => {
-      const end = n.text.length + index;
-      annotations.push({
-        start: index,
-        end,
-        attributes: {
-          identifier: n.uid,
-          level: level,
-          viewType: viewType,
-        },
-        type: "block",
-      });
-      const { content: childrenContent, annotations: childrenAnnotations } =
-        toAtJson({
-          nodes: n.children,
-          level: level + 1,
-          viewType: n.viewType || viewType,
-          startIndex: end,
-        });
-      const nodeContent = `${n.text}${childrenContent}`;
-      annotations.push(...childrenAnnotations);
-      index += nodeContent.length;
-      return nodeContent;
-    })
-    .join("");
+  const content: string = await Promise.all(
+    nodes.map((n) =>
+      roamToSamepage(n.uid)
+        .then(
+          (identifier) =>
+            identifier ||
+            Promise.resolve(v4()).then((samepageUuid) =>
+              saveUid(n.uid, samepageUuid).then(() => samepageUuid)
+            )
+        )
+        .then(async (identifier) => {
+          const end = n.text.length + index;
+          annotations.push({
+            start: index,
+            end,
+            attributes: {
+              identifier,
+              level: level,
+              viewType: viewType,
+            },
+            type: "block",
+          });
+          const { content: childrenContent, annotations: childrenAnnotations } =
+            await toAtJson({
+              nodes: n.children,
+              level: level + 1,
+              viewType: n.viewType || viewType,
+              startIndex: end,
+            });
+          const nodeContent = `${n.text}${childrenContent}`;
+          annotations.push(...childrenAnnotations);
+          index += nodeContent.length;
+          return nodeContent;
+        })
+    )
+  ).then((nodes) => nodes.join(""));
   return {
     content,
     annotations,
@@ -85,16 +118,16 @@ const toAtJson = ({
 const flattenTree = <T extends { children?: T[]; uid?: string }>(
   tree: T[],
   parentUid: string
-): (T & { order: number; parentUid: string })[] =>
-  tree.flatMap((t, order) => [
+): (Omit<T, "children"> & { order: number; parentUid: string })[] =>
+  tree.flatMap(({ children = [], ...t }, order) => [
     { ...t, order, parentUid },
-    ...flattenTree(t.children || [], t.uid || ""),
+    ...flattenTree(children, t.uid || ""),
   ]);
 
 const calculateState = async (notebookPageId: string) => {
   const node = getFullTreeByParentUid(notebookPageId);
   const parentUid = getParentUidByBlockUid(notebookPageId);
-  const doc = toAtJson({
+  const doc = await toAtJson({
     nodes: node.children,
     viewType: node.viewType || "bullet",
     startIndex: node.text.length,
@@ -122,10 +155,7 @@ export const notebookDbIds = new Set<number>();
 const getIdByBlockUid = (uid: string) =>
   window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid])?.[":db/id"];
 
-const setupSharePageWithNotebook = (
-  extensionAPI: OnloadArgs["extensionAPI"],
-  apps: Apps
-) => {
+const setupSharePageWithNotebook = (apps: Apps) => {
   const {
     unload,
     updatePage,
@@ -203,30 +233,7 @@ const setupSharePageWithNotebook = (
               initialPromise = Promise.resolve("");
             }
           } else {
-            if (parentUid) {
-              const exists = !!window.roamAlphaAPI.pull("[:db/id]", [
-                ":block/uid",
-                parentUid,
-              ]);
-              if (exists) {
-                initialPromise = createBlock({
-                  parentUid,
-                  order: getChildrenLengthByParentUid(parentUid),
-                  node: { text: title, uid: notebookPageId },
-                });
-              } else {
-                const dnpParentUid = window.roamAlphaAPI.util.dateToPageUid(
-                  new Date()
-                );
-                initialPromise = createBlock({
-                  parentUid: dnpParentUid,
-                  order: getChildrenLengthByParentUid(dnpParentUid),
-                  node: { text: title, uid: notebookPageId },
-                });
-              }
-            } else {
-              initialPromise = createPage({ title, uid: notebookPageId });
-            }
+            throw new Error(`Missing page with uid: ${notebookPageId}`);
           }
         }
       });
@@ -238,13 +245,12 @@ const setupSharePageWithNotebook = (
       ).slice(1);
       const viewTypePromise =
         expectedPageViewType !== actualPageViewType
-          ? () =>
-              window.roamAlphaAPI.updateBlock({
-                block: {
-                  uid: notebookPageId,
-                  "children-view-type": expectedPageViewType,
-                },
-              })
+          ? window.roamAlphaAPI.updateBlock({
+              block: {
+                uid: notebookPageId,
+                "children-view-type": expectedPageViewType,
+              },
+            })
           : Promise.resolve("");
       const expectedTreeMapping = Object.fromEntries(
         flattenTree(expectedTree, notebookPageId).map(({ uid, ...n }) => [
@@ -258,38 +264,58 @@ const setupSharePageWithNotebook = (
           notebookPageId
         ).map(({ uid, ...n }) => [uid, n])
       );
-      const uidsToCreate = Object.keys(expectedTreeMapping).filter(
-        (k) => !actualTreeMapping[k]
+      const expectedSamepageToRoam = await Promise.all(
+        Object.keys(expectedTreeMapping).map((k) =>
+          samepageToRoam(k).then((r) => [k, r] as const)
+        )
+      ).then((keys) => Object.fromEntries(keys));
+      const uidsToCreate = Object.entries(expectedSamepageToRoam).filter(
+        ([, k]) => !k || !actualTreeMapping[k]
       );
-      const uidsToDelete = Object.keys(actualTreeMapping).filter(
-        (k) => !expectedTreeMapping[k]
+      const expectedUids = new Set(
+        Object.values(expectedSamepageToRoam).filter((r) => !r)
       );
-      const uidsToUpdate = Object.keys(expectedTreeMapping).filter(
-        (k) => !!actualTreeMapping[k]
+      const uidsToDelete = Object.keys(actualTreeMapping).filter((k) =>
+        expectedUids.has(k)
+      );
+      const uidsToUpdate = Object.entries(expectedSamepageToRoam).filter(
+        ([, k]) => !!actualTreeMapping[k]
       );
       return Promise.all(
-        [initialPromise, viewTypePromise]
-          .concat(uidsToDelete.map((uid) => deleteBlock(uid)))
+        ([initialPromise, viewTypePromise] as Promise<unknown>[])
           .concat(
-            uidsToCreate.map((uid) => {
-              const { parentUid, order, ...node } = expectedTreeMapping[uid];
-              return createBlock({ parentUid, order, node });
+            uidsToDelete.map((uid) =>
+              deleteBlock(uid).then(() => removeRoamUid(uid))
+            )
+          )
+          .concat(
+            uidsToCreate.map(([samepageUuid, roamUid]) => {
+              const { parentUid, order, ...node } =
+                expectedTreeMapping[samepageUuid];
+              return createBlock({
+                parentUid: expectedSamepageToRoam[parentUid],
+                order,
+                node: { ...node, uid: roamUid },
+              }).then(
+                (newRoamUid) => !roamUid && saveUid(newRoamUid, samepageUuid)
+              );
             })
           )
           .concat(
-            uidsToUpdate.map((uid) => {
-              const { parentUid, order, ...node } = expectedTreeMapping[uid];
-              const actual = actualTreeMapping[uid];
+            uidsToUpdate.map(([samepageUuid, roamUid]) => {
+              const { parentUid, order, ...node } =
+                expectedTreeMapping[samepageUuid];
+              const actual = actualTreeMapping[roamUid];
               // it's possible we may need to await from above and repull
               if (actual.parentUid !== parentUid || actual.order !== order) {
                 return window.roamAlphaAPI
                   .moveBlock({
-                    block: { uid },
+                    block: { uid: roamUid },
                     location: { "parent-uid": parentUid, order },
                   })
                   .then(() => "");
               } else if (actual.text !== node.text) {
-                return updateBlock({ text: node.text, uid });
+                return updateBlock({ text: node.text, uid: roamUid });
               } else {
                 return Promise.resolve("");
               }
@@ -307,18 +333,21 @@ const setupSharePageWithNotebook = (
         db.put(
           "pages",
           state,
-          `${window.roamAlphaAPI.graph.name}/${notebookPageId}`,
+          `${window.roamAlphaAPI.graph.name}/${notebookPageId}`
         )
       ),
   });
   renderNotifications({
     actions: {
-      accept: ({ app, workspace, notebookPageId, pageUuid }) =>
-        joinPage({
-          pageUuid,
-          notebookPageId,
-          source: { app: Number(app) as AppId, workspace },
-        }),
+      accept: ({ app, workspace, pageUuid }) =>
+        // TODO support block or page tree as a user action
+        createPage({ title: pageUuid }).then((notebookPageId) =>
+          joinPage({
+            pageUuid,
+            notebookPageId,
+            source: { app: Number(app) as AppId, workspace },
+          })
+        ),
       reject: async ({ workspace, app }) =>
         rejectPage({ source: { app: Number(app) as AppId, workspace } }),
     },
