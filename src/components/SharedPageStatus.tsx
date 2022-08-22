@@ -11,11 +11,11 @@ import {
 } from "@blueprintjs/core";
 import { useState, useRef, useEffect, useCallback } from "react";
 import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
-import type { loadSharePageWithNotebook } from "@samepage/client";
+import type { setupSharePageWithNotebook } from "@samepage/client";
 import type { Apps, Notebook, AppId } from "@samepage/shared";
 import MenuItemSelect from "roamjs-components/components/MenuItemSelect";
 
-type SharePageReturn = ReturnType<typeof loadSharePageWithNotebook>;
+type SharePageReturn = ReturnType<typeof setupSharePageWithNotebook>;
 
 type Props = {
   parentUid: string;
