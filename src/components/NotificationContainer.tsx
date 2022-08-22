@@ -38,7 +38,9 @@ const ActionButtons = ({
       <div className={"flex gap-8"}>
         {actions.map((action) => (
           <Button
+            key={action.label}
             text={action.label}
+            className={"capitalize"}
             onClick={() => {
               setLoading(true);
               action
@@ -218,7 +220,7 @@ const NotificationContainer = ({ actions }: Props) => {
       ) : (
         <img
           onClick={() => setIsOpen(true)}
-          src={"https://roamjs.com/images/logo-low-res.png"}
+          src={"https://samepage.network/images/logo.png"}
           style={{
             borderRadius: "50%",
             height: 24,

@@ -54,9 +54,10 @@ const openIdb = async () =>
   db ||
   (db = await openDB("samepage", 2, {
     upgrade(db) {
-      db.createObjectStore("pages");
-      db.createObjectStore("roam-to-samepage");
-      db.createObjectStore("samepage-to-roam");
+      const names = new Set(db.objectStoreNames);
+      ["pages", "roam-to-samepage", "samepage-to-roam"]
+        .filter((s) => !names.has(s))
+        .forEach((s) => db.createObjectStore(s));
     },
   }));
 
@@ -346,6 +347,9 @@ const setupSharePageWithNotebook = (apps: Apps) => {
             pageUuid,
             notebookPageId,
             source: { app: Number(app) as AppId, workspace },
+          }).catch((e) => {
+            window.roamAlphaAPI.deletePage({ page: { uid: notebookPageId } });
+            return Promise.reject(e);
           })
         ),
       reject: async ({ workspace, app }) =>
