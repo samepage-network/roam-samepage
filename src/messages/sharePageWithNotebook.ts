@@ -15,7 +15,7 @@ import { render as renderNotifications } from "../components/NotificationContain
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getParentUidByBlockUid from "roamjs-components/queries/getParentUidByBlockUid";
 import Automerge from "automerge";
-import { loadSharePageWithNotebook } from "@samepage/client";
+import { setupSharePageWithNotebook as loadSharePageWithNotebook } from "@samepage/client";
 import type { Apps, Schema, AppId } from "@samepage/shared";
 import { render as renderInitPage } from "../components/SharePageDialog";
 import { render as renderViewPages } from "../components/SharedPagesDashboard";
