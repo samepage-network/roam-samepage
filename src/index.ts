@@ -2,12 +2,12 @@ import runExtension from "roamjs-components/util/runExtension";
 import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
-import { setupSamePageClient } from "@samepage/client";
+import setupSamePageClient from "@samepage/client/protocols/setupSamePageClient";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import UsageChart from "./components/UsageChart";
 import { notify } from "./components/NotificationContainer";
 import setupSharePageWithNotebook, {
-  notebookDbIds,
+  notebookPageIds,
   STATUS_EVENT_NAME,
 } from "./messages/sharePageWithNotebook";
 import { renderLoading } from "roamjs-components/components/Loading";
@@ -64,7 +64,7 @@ export default runExtension({
             evt.notebookPageId,
           ])?.[":db/id"];
           if (id) {
-            notebookDbIds.add(id);
+            notebookPageIds.add(id);
           }
           document.body.dispatchEvent(
             new CustomEvent(STATUS_EVENT_NAME, { detail: evt.notebookPageId })

@@ -5,7 +5,6 @@ import type {
   TreeNode,
   OnloadArgs,
 } from "roamjs-components/types";
-import { render as renderStatus } from "../components/SharedPageStatus";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 import updateBlock from "roamjs-components/writes/updateBlock";
@@ -15,14 +14,18 @@ import { render as renderNotifications } from "../components/NotificationContain
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getParentUidByBlockUid from "roamjs-components/queries/getParentUidByBlockUid";
 import Automerge from "automerge";
-import { setupSharePageWithNotebook as loadSharePageWithNotebook } from "@samepage/client";
+import loadSharePageWithNotebook from "@samepage/client/protocols/sharePageWithNotebook";
+import SharePageDialog from "@samepage/client/components/SharePageDialog";
+import SharedPageStatus from "@samepage/client/components/SharedPageStatus";
 import type { Apps, Schema, AppId } from "@samepage/shared";
-import { render as renderInitPage } from "../components/SharePageDialog";
 import { render as renderViewPages } from "../components/SharedPagesDashboard";
 import getUids from "roamjs-components/dom/getUids";
 import { openDB, IDBPDatabase } from "idb";
 import createPage from "roamjs-components/writes/createPage";
 import { v4 } from "uuid";
+import renderOverlay from "roamjs-components/util/renderOverlay";
+import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
+import React from "react";
 
 const roamToSamepage = (s: string) =>
   openIdb()
@@ -152,7 +155,7 @@ const calculateState = async (notebookPageId: string) => {
 };
 
 export const STATUS_EVENT_NAME = "roamjs:samepage:status";
-export const notebookDbIds = new Set<number>();
+export const notebookPageIds = new Set<number>();
 const getIdByBlockUid = (uid: string) =>
   window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid])?.[":db/id"];
 
@@ -170,7 +173,13 @@ const setupSharePageWithNotebook = (apps: Apps) => {
     renderInitPage: async (args) => {
       const notebookPageId =
         await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
-      renderInitPage({ notebookPageId, ...args });
+      renderOverlay({
+        Overlay: SharePageDialog,
+        props: {
+          notebookPageId,
+          onSubmit: args.onSubmit,
+        },
+      });
     },
     renderViewPages,
 
@@ -337,6 +346,13 @@ const setupSharePageWithNotebook = (apps: Apps) => {
           `${window.roamAlphaAPI.graph.name}/${notebookPageId}`
         )
       ),
+    removeState: async (notebookPageId) =>
+      openIdb().then((db) =>
+        db.delete(
+          "pages",
+          `${window.roamAlphaAPI.graph.name}/${notebookPageId}`
+        )
+      ),
   });
   renderNotifications({
     actions: {
@@ -368,7 +384,7 @@ const setupSharePageWithNotebook = (apps: Apps) => {
     const containerParent = h.parentElement?.parentElement;
     if (containerParent && !containerParent.hasAttribute(attribute)) {
       const dbId = getIdByBlockUid(uid);
-      if (notebookDbIds.has(dbId)) {
+      if (notebookPageIds.has(dbId)) {
         containerParent.setAttribute(attribute, "true");
         const parent = document.createElement("div");
         const h = containerParent.querySelector("h1.rm-title-display");
@@ -376,15 +392,16 @@ const setupSharePageWithNotebook = (apps: Apps) => {
           parent,
           h?.parentElement?.nextElementSibling || null
         );
-        renderStatus({
-          parentUid: uid,
-          parent,
-          sharePage,
-          disconnectPage,
-          forcePushPage,
-          listConnectedNotebooks,
-          apps,
-        });
+        renderWithUnmount(
+          React.createElement(SharedPageStatus, {
+            notebookPageId: uid,
+            sharePage,
+            disconnectPage,
+            forcePushPage,
+            listConnectedNotebooks,
+          }),
+          parent
+        );
       }
     }
   };
@@ -415,7 +432,7 @@ const setupSharePageWithNotebook = (apps: Apps) => {
           blockUid,
         ])?.[":block/parents"] || [];
       const notebookPage = parents.find((p) =>
-        notebookDbIds.has(p[":db/id"])
+        notebookPageIds.has(p[":db/id"])
       )?.[":db/id"];
       if (notebookPage) {
         window.clearTimeout(updateTimeout);
