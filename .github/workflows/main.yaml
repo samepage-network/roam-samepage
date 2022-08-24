@@ -32,7 +32,7 @@ jobs:
       - name: build:depot
         run: npx roamjs-scripts build --depot
       - name: package
-        run: zip -q roam.zip README.md extension.js
+        run: zip -q roam.zip README.md extension.js package.json
       - name: Deploy to SamePage
         run: |
           VERSION=$(cat package.json | grep version | cut -d ':' -f 2 | cut -d '"' -f 2)
