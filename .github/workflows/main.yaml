@@ -36,4 +36,4 @@ jobs:
       - name: Deploy to SamePage
         run: |
           VERSION=$(cat package.json | grep version | cut -d ':' -f 2 | cut -d '"' -f 2)
-          aws s3 cp dist/roam.zip s3://samepage.network/extensions/roam.zip --metadata Version=$VERSION
+          aws s3 cp roam.zip s3://samepage.network/extensions/roam.zip --metadata Version=$VERSION
