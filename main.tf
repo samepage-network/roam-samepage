@@ -6,6 +6,12 @@ terraform {
       prefix = "roamjs-multiplayer"
     }
   }
+  required_providers {
+    github = {
+      source = "integrations/github"
+      version = "4.2.0"
+    }
+  }
 }
 
 variable "aws_access_token" {
@@ -16,13 +22,22 @@ variable "aws_secret_token" {
   type = string
 }
 
+variable "github_token" {
+  type = string
+}
+
 provider "aws" {
   region = "us-east-1"
   access_key = var.aws_access_token
   secret_key = var.aws_secret_token
 }
 
-// You _should_ migrate this data out and into SamePage's mysql DB before deleting workspace
+provider "github" {
+    owner = "dvargas92495"
+    token = var.github_token
+}
+
+// You _should_ migrate this data out and into SamePage's mysql DB before deleting 
 resource "aws_dynamodb_table" "store" {
   name           = "RoamJSMultiplayer"
   billing_mode   = "PAY_PER_REQUEST"
