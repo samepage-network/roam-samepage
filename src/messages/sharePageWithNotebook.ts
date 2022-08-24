@@ -3,7 +3,6 @@ import type {
   ViewType,
   InputTextNode,
   TreeNode,
-  OnloadArgs,
 } from "roamjs-components/types";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
@@ -17,7 +16,7 @@ import Automerge from "automerge";
 import loadSharePageWithNotebook from "@samepage/client/protocols/sharePageWithNotebook";
 import SharePageDialog from "@samepage/client/components/SharePageDialog";
 import SharedPageStatus from "@samepage/client/components/SharedPageStatus";
-import type { Apps, Schema, AppId } from "@samepage/shared";
+import type { Schema, AppId } from "@samepage/shared";
 import { render as renderViewPages } from "../components/SharedPagesDashboard";
 import getUids from "roamjs-components/dom/getUids";
 import { openDB, IDBPDatabase } from "idb";
@@ -159,7 +158,7 @@ export const notebookPageIds = new Set<number>();
 const getIdByBlockUid = (uid: string) =>
   window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid])?.[":db/id"];
 
-const setupSharePageWithNotebook = (apps: Apps) => {
+const setupSharePageWithNotebook = () => {
   const {
     unload,
     updatePage,
@@ -169,6 +168,7 @@ const setupSharePageWithNotebook = (apps: Apps) => {
     rejectPage,
     forcePushPage,
     listConnectedNotebooks,
+    getLocalHistory,
   } = loadSharePageWithNotebook({
     renderInitPage: async (args) => {
       const notebookPageId =
@@ -399,6 +399,7 @@ const setupSharePageWithNotebook = (apps: Apps) => {
             disconnectPage,
             forcePushPage,
             listConnectedNotebooks,
+            getLocalHistory,
           }),
           parent
         );

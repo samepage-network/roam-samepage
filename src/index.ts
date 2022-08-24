@@ -38,7 +38,7 @@ export default runExtension({
     let removeLoadingCallback: () => void;
     const {
       unload: unloadSamePageClient,
-      apps: appArray,
+      apps,
       ...api
     } = await setupSamePageClient({
       isAutoConnect: extensionAPI.settings.get("auto-connect") as boolean,
@@ -70,7 +70,7 @@ export default runExtension({
             new CustomEvent(STATUS_EVENT_NAME, { detail: evt.notebookPageId })
           );
         } else if (evt.type === "share-page") {
-          const app = appArray.find((a) => a.id === evt.source.app)?.name;
+          const app = apps.find((a) => a.id === evt.source.app)?.name;
           const args = {
             workspace: evt.source.workspace,
             app: `${evt.source.app}`,
@@ -100,10 +100,7 @@ export default runExtension({
         }
       },
     });
-    const apps = Object.fromEntries(
-      appArray.map(({ id, ...app }) => [id, app])
-    );
-    const unloadSharePageWithNotebook = setupSharePageWithNotebook(apps);
+    const unloadSharePageWithNotebook = setupSharePageWithNotebook();
 
     const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
     const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);

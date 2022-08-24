@@ -34,4 +34,6 @@ jobs:
       - name: package
         run: zip -q roam.zip README.md extension.js
       - name: Deploy to SamePage
-        run: aws s3 cp roam.zip s3://samepage.network/extensions/roam.zip
+        run: |
+          VERSION=$(cat package.json | grep version | cut -d ':' -f 2 | cut -d '"' -f 2)
+          aws s3 cp dist/roam.zip s3://samepage.network/extensions/roam.zip --metadata Version=$VERSION
