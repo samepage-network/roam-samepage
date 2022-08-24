@@ -8,15 +8,11 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.88",
-    "globby": "^13.1.2",
     "roamjs-scripts": "^0.21.9",
     "ts-node": "^10.4.0"
   },
   "dependencies": {
     "@samepage/client": "^0.5.0",
-    "aws-sdk": "^2.1066.0",
-    "dotenv": "^16.0.1",
     "roamjs-components": "^0.72.6"
   }
 }
