@@ -25,6 +25,8 @@ import { v4 } from "uuid";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
 import React from "react";
+import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
+import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 
 const roamToSamepage = (s: string) =>
   openIdb()
@@ -173,11 +175,10 @@ const setupSharePageWithNotebook = () => {
     renderInitPage: async (args) => {
       const notebookPageId =
         await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
-      renderOverlay({
+      renderOverlay<Omit<Parameters<typeof SharePageDialog>[0], "onClose">>({
         Overlay: SharePageDialog,
         props: {
-          notebookPageId,
-          onSubmit: args.onSubmit,
+          onSubmit: (props) => args.onSubmit({ ...props, notebookPageId }),
         },
       });
     },
@@ -302,11 +303,19 @@ const setupSharePageWithNotebook = () => {
             uidsToCreate.map(([samepageUuid, roamUid]) => {
               const { parentUid, order, ...node } =
                 expectedTreeMapping[samepageUuid];
-              return createBlock({
-                parentUid: expectedSamepageToRoam[parentUid],
-                order,
-                node: { ...node, uid: roamUid },
-              }).then(
+              return (
+                parentUid === notebookPageId
+                  ? createBlock({
+                      parentUid,
+                      order,
+                      node: { ...node, uid: roamUid },
+                    })
+                  : createBlock({
+                      parentUid: expectedSamepageToRoam[parentUid],
+                      order,
+                      node: { ...node, uid: roamUid },
+                    })
+              ).then(
                 (newRoamUid) => !roamUid && saveUid(newRoamUid, samepageUuid)
               );
             })
@@ -363,10 +372,26 @@ const setupSharePageWithNotebook = () => {
             pageUuid,
             notebookPageId,
             source: { app: Number(app) as AppId, workspace },
-          }).catch((e) => {
-            window.roamAlphaAPI.deletePage({ page: { uid: notebookPageId } });
-            return Promise.reject(e);
           })
+            .then(() => {
+              const todayUid = window.roamAlphaAPI.util.dateToPageUid(
+                new Date()
+              );
+              const order = getChildrenLengthByParentUid(todayUid);
+              return createBlock({
+                node: {
+                  text: `Accepted page [[${getPageTitleByPageUid(
+                    notebookPageId
+                  )}]] from ${app} / ${workspace}`,
+                },
+                parentUid: todayUid,
+                order,
+              });
+            })
+            .catch((e) => {
+              window.roamAlphaAPI.deletePage({ page: { uid: notebookPageId } });
+              return Promise.reject(e);
+            })
         ),
       reject: async ({ workspace, app }) =>
         rejectPage({ source: { app: Number(app) as AppId, workspace } }),

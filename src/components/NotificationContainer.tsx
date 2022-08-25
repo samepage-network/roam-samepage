@@ -27,7 +27,7 @@ const ActionButtons = ({
 }: {
   actions: {
     label: string;
-    callback: () => Promise<void>;
+    callback: () => Promise<unknown>;
   }[];
   onSuccess: () => void;
 }) => {
@@ -69,7 +69,7 @@ const ActionButtons = ({
 };
 
 type Props = {
-  actions: Record<string, (args: Record<string, string>) => Promise<void>>;
+  actions: Record<string, (args: Record<string, string>) => Promise<unknown>>;
 };
 
 const NotificationContainer = ({ actions }: Props) => {
