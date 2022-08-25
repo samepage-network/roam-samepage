@@ -3,13 +3,14 @@ import type {
   ViewType,
   InputTextNode,
   TreeNode,
-} from "roamjs-components/types";
+  PullBlock,
+} from "roamjs-components/types/native";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 import updateBlock from "roamjs-components/writes/updateBlock";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
-import { render as renderNotifications } from "../components/NotificationContainer";
+import NotificationContainer from "@samepage/client/components/NotificationContainer";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getParentUidByBlockUid from "roamjs-components/queries/getParentUidByBlockUid";
 import Automerge from "automerge";
@@ -27,6 +28,9 @@ import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
 import React from "react";
 import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
+import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
+import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
+import getSubTree from "roamjs-components/util/getSubTree";
 
 const roamToSamepage = (s: string) =>
   openIdb()
@@ -363,38 +367,110 @@ const setupSharePageWithNotebook = () => {
         )
       ),
   });
-  renderNotifications({
-    actions: {
-      accept: ({ app, workspace, pageUuid }) =>
-        // TODO support block or page tree as a user action
-        createPage({ title: pageUuid }).then((notebookPageId) =>
-          joinPage({
-            pageUuid,
-            notebookPageId,
-            source: { app: Number(app) as AppId, workspace },
-          })
-            .then(() => {
-              const todayUid = window.roamAlphaAPI.util.dateToPageUid(
-                new Date()
-              );
-              const order = getChildrenLengthByParentUid(todayUid);
-              return createBlock({
-                node: {
-                  text: `Accepted page [[${getPageTitleByPageUid(
-                    notebookPageId
-                  )}]] from ${app} / ${workspace}`,
-                },
-                parentUid: todayUid,
-                order,
-              });
+  renderOverlay({
+    Overlay: NotificationContainer,
+    props: {
+      actions: {
+        accept: ({ app, workspace, pageUuid }) =>
+          // TODO support block or page tree as a user action
+          createPage({ title: pageUuid }).then((notebookPageId) =>
+            joinPage({
+              pageUuid,
+              notebookPageId,
+              source: { app: Number(app) as AppId, workspace },
             })
-            .catch((e) => {
-              window.roamAlphaAPI.deletePage({ page: { uid: notebookPageId } });
-              return Promise.reject(e);
-            })
-        ),
-      reject: async ({ workspace, app }) =>
-        rejectPage({ source: { app: Number(app) as AppId, workspace } }),
+              .then(() => {
+                const todayUid = window.roamAlphaAPI.util.dateToPageUid(
+                  new Date()
+                );
+                const order = getChildrenLengthByParentUid(todayUid);
+                return createBlock({
+                  node: {
+                    text: `Accepted page [[${getPageTitleByPageUid(
+                      notebookPageId
+                    )}]] from ${app} / ${workspace}`,
+                  },
+                  parentUid: todayUid,
+                  order,
+                }).then(() => Promise.resolve());
+              })
+              .catch((e) => {
+                window.roamAlphaAPI.deletePage({
+                  page: { uid: notebookPageId },
+                });
+                return Promise.reject(e);
+              })
+          ),
+        reject: async ({ workspace, app }) =>
+          rejectPage({ source: { app: Number(app) as AppId, workspace } }),
+      },
+      api: {
+        addNotification: (not) =>
+          createPage({
+            title: `samepage/notifications/${not.uuid}`,
+            tree: [
+              { text: "Title", children: [{ text: not.title }] },
+              { text: "Description", children: [{ text: not.description }] },
+              {
+                text: "Actions",
+                children: not.actions.map((a) => ({
+                  text: a.label,
+                  children: [
+                    { text: "Method", children: [{ text: a.method }] },
+                    {
+                      text: "Args",
+                      children: Object.entries(a.args).map((arg) => ({
+                        text: arg[0],
+                        children: [{ text: arg[1] }],
+                      })),
+                    },
+                  ],
+                })),
+              },
+            ],
+          }),
+        deleteNotification: (uuid) =>
+          window.roamAlphaAPI.deletePage({ page: { uid: uuid } }),
+        getNotifications: async () => {
+          const pages = window.roamAlphaAPI.data.fast
+            .q(
+              `[:find (pull ?b [:block/uid :node/title]) :where [?b :node/title ?title] [(clojure.string/starts-with? ?title  "samepage/notifications/")]]`
+            )
+            .map((r) => r[0] as PullBlock);
+          return pages.map((block) => {
+            const tree = getBasicTreeByParentUid(block[":block/uid"]);
+            return {
+              title: getSettingValueFromTree({
+                tree,
+                key: "Title",
+              }),
+              uuid: block[":node/title"].replace(
+                /^samepage\/notifications\//,
+                ""
+              ),
+              description: getSettingValueFromTree({
+                tree,
+                key: "Description",
+              }),
+              actions: getSubTree({
+                tree,
+                key: "Actions",
+              }).children.map((act) => ({
+                label: act.text,
+                method: getSettingValueFromTree({
+                  tree: act.children,
+                  key: "Method",
+                }),
+                args: Object.fromEntries(
+                  getSubTree({ key: "Args", tree: act.children }).children.map(
+                    (arg) => [arg.text, arg.children[0]?.text]
+                  )
+                ),
+              })),
+            };
+          });
+        },
+      },
     },
   });
 
@@ -417,11 +493,19 @@ const setupSharePageWithNotebook = () => {
           parent,
           h?.parentElement?.nextElementSibling || null
         );
-        renderWithUnmount(
+        const unmount = renderWithUnmount(
           React.createElement(SharedPageStatus, {
             notebookPageId: uid,
             sharePage,
-            disconnectPage,
+            disconnectPage: (id) =>
+              disconnectPage(id).then(() => {
+                notebookPageIds.delete(
+                  window.roamAlphaAPI.pull("[:db/id]", [":block/uid", id])?.[
+                    ":db/id"
+                  ]
+                );
+                unmount();
+              }),
             forcePushPage,
             listConnectedNotebooks,
             getLocalHistory,

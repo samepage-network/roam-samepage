@@ -5,7 +5,7 @@ import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
 import setupSamePageClient from "@samepage/client/protocols/setupSamePageClient";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import UsageChart from "./components/UsageChart";
-import { notify } from "./components/NotificationContainer";
+import { notify } from "@samepage/client/components/NotificationContainer";
 import setupSharePageWithNotebook, {
   notebookPageIds,
   STATUS_EVENT_NAME,
