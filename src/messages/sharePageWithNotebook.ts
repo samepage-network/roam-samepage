@@ -326,22 +326,27 @@ const setupSharePageWithNotebook = () => {
           )
           .concat(
             uidsToUpdate.map(([samepageUuid, roamUid]) => {
-              const { parentUid, order, ...node } =
-                expectedTreeMapping[samepageUuid];
+              const {
+                parentUid: samepageParentUuid,
+                order,
+                ...node
+              } = expectedTreeMapping[samepageUuid];
+              const parentUid =
+                samepageParentUuid === notebookPageId
+                  ? samepageParentUuid
+                  : expectedSamepageToRoam[samepageParentUuid];
               const actual = actualTreeMapping[roamUid];
-              // it's possible we may need to await from above and repull
-              if (actual.parentUid !== parentUid || actual.order !== order) {
-                return window.roamAlphaAPI
-                  .moveBlock({
-                    block: { uid: roamUid },
-                    location: { "parent-uid": parentUid, order },
-                  })
-                  .then(() => "");
-              } else if (actual.text !== node.text) {
-                return updateBlock({ text: node.text, uid: roamUid });
-              } else {
-                return Promise.resolve("");
-              }
+              return Promise.all([
+                actual.parentUid !== parentUid || actual.order !== order
+                  ? window.roamAlphaAPI.moveBlock({
+                      block: { uid: roamUid },
+                      location: { "parent-uid": parentUid, order },
+                    })
+                  : Promise.resolve(),
+                actual.text !== node.text
+                  ? updateBlock({ text: node.text, uid: roamUid })
+                  : Promise.resolve(),
+              ]);
             })
           )
       );
