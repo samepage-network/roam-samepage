@@ -70,7 +70,7 @@ export default runExtension({
             new CustomEvent(STATUS_EVENT_NAME, { detail: evt.notebookPageId })
           );
         } else if (evt.type === "share-page") {
-          const app = apps.find((a) => a.id === evt.source.app)?.name;
+          const app = apps[evt.source.app]?.name;
           const args = {
             workspace: evt.source.workspace,
             app: `${evt.source.app}`,
@@ -100,7 +100,7 @@ export default runExtension({
         }
       },
     });
-    const unloadSharePageWithNotebook = setupSharePageWithNotebook();
+    const unloadSharePageWithNotebook = setupSharePageWithNotebook(apps);
 
     const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
     const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);

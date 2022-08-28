@@ -17,7 +17,7 @@ import Automerge from "automerge";
 import loadSharePageWithNotebook from "@samepage/client/protocols/sharePageWithNotebook";
 import SharePageDialog from "@samepage/client/components/SharePageDialog";
 import SharedPageStatus from "@samepage/client/components/SharedPageStatus";
-import type { Schema, AppId } from "@samepage/shared";
+import type { Schema, AppId, Apps } from "@samepage/shared";
 import { render as renderViewPages } from "../components/SharedPagesDashboard";
 import getUids from "roamjs-components/dom/getUids";
 import { openDB, IDBPDatabase } from "idb";
@@ -35,11 +35,11 @@ import getSubTree from "roamjs-components/util/getSubTree";
 const roamToSamepage = (s: string) =>
   openIdb()
     .then((db) => db.get("roam-to-samepage", s))
-    .then((v) => v as string);
+    .then((v) => (v as string) || "");
 const samepageToRoam = (s: string) =>
   openIdb()
     .then((db) => db.get("samepage-to-roam", s))
-    .then((v) => v as string);
+    .then((v) => (v as string) || "");
 const saveUid = (roam: string, samepage: string) =>
   openIdb().then((db) =>
     Promise.all([
@@ -79,49 +79,62 @@ const toAtJson = async ({
   level?: number;
   startIndex?: number;
   viewType?: ViewType;
-}) => {
-  const annotations: Schema["annotations"] = [];
-  let index = startIndex;
-  const content: string = await Promise.all(
-    nodes.map((n) =>
-      roamToSamepage(n.uid)
-        .then(
-          (identifier) =>
-            identifier ||
-            Promise.resolve(v4()).then((samepageUuid) =>
-              saveUid(n.uid, samepageUuid).then(() => samepageUuid)
-            )
-        )
-        .then(async (identifier) => {
-          const end = n.text.length + index;
-          annotations.push({
-            start: index,
-            end,
-            attributes: {
-              identifier,
-              level: level,
-              viewType: viewType,
-            },
-            type: "block",
-          });
-          const { content: childrenContent, annotations: childrenAnnotations } =
-            await toAtJson({
+}): Promise<Omit<Schema, "contentType">> => {
+  return nodes
+    .map(
+      (n) => (index: number) =>
+        roamToSamepage(n.uid)
+          .then(
+            (identifier) =>
+              identifier ||
+              Promise.resolve(v4()).then((samepageUuid) =>
+                saveUid(n.uid, samepageUuid).then(() => samepageUuid)
+              )
+          )
+          .then(async (identifier) => {
+            const end = n.text.length + index;
+            const annotations: Schema["annotations"] = [
+              {
+                start: index,
+                end,
+                attributes: {
+                  identifier,
+                  level: level,
+                  viewType: viewType,
+                },
+                type: "block",
+              },
+            ];
+            const {
+              content: childrenContent,
+              annotations: childrenAnnotations,
+            } = await toAtJson({
               nodes: n.children,
               level: level + 1,
               viewType: n.viewType || viewType,
               startIndex: end,
             });
-          const nodeContent = `${n.text}${childrenContent}`;
-          annotations.push(...childrenAnnotations);
-          index += nodeContent.length;
-          return nodeContent;
-        })
+            return {
+              content: new Automerge.Text(`${n.text}${childrenContent}`),
+              annotations: annotations.concat(childrenAnnotations),
+            };
+          })
     )
-  ).then((nodes) => nodes.join(""));
-  return {
-    content,
-    annotations,
-  };
+    .reduce(
+      (p, c) =>
+        p.then(({ content: pc, annotations: pa }) =>
+          c(startIndex + pc.length).then(
+            ({ content: cc, annotations: ca }) => ({
+              content: new Automerge.Text(`${pc}${cc}`),
+              annotations: pa.concat(ca),
+            })
+          )
+        ),
+      Promise.resolve({
+        content: new Automerge.Text(""),
+        annotations: [] as Schema["annotations"],
+      })
+    );
 };
 
 const flattenTree = <T extends { children?: T[]; uid?: string }>(
@@ -164,7 +177,7 @@ export const notebookPageIds = new Set<number>();
 const getIdByBlockUid = (uid: string) =>
   window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid])?.[":db/id"];
 
-const setupSharePageWithNotebook = () => {
+const setupSharePageWithNotebook = (apps: Apps) => {
   const {
     unload,
     updatePage,
@@ -320,7 +333,11 @@ const setupSharePageWithNotebook = () => {
                       node: { ...node, uid: roamUid },
                     })
               ).then(
-                (newRoamUid) => !roamUid && saveUid(newRoamUid, samepageUuid)
+                (newRoamUid) =>
+                  !roamUid &&
+                  saveUid(newRoamUid, samepageUuid).then(
+                    () => (expectedSamepageToRoam[samepageUuid] = newRoamUid)
+                  )
               );
             })
           )
@@ -393,7 +410,7 @@ const setupSharePageWithNotebook = () => {
                   node: {
                     text: `Accepted page [[${getPageTitleByPageUid(
                       notebookPageId
-                    )}]] from ${app} / ${workspace}`,
+                    )}]] from ${apps[Number(app)].name} / ${workspace}`,
                   },
                   parentUid: todayUid,
                   order,
