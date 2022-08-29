@@ -12,6 +12,7 @@ import setupSharePageWithNotebook, {
 } from "./messages/sharePageWithNotebook";
 import { renderLoading } from "roamjs-components/components/Loading";
 import renderOverlay from "roamjs-components/util/renderOverlay";
+import addStyle from "roamjs-components/dom/addStyle";
 
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
 
@@ -34,6 +35,7 @@ export default runExtension({
         },
       ],
     });
+    addStyle(`div.samepage-notification-container { top: 40px; bottom: unset; }`);
 
     let removeLoadingCallback: () => void;
     const {
