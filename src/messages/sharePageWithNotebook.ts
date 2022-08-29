@@ -189,7 +189,8 @@ const setupSharePageWithNotebook = (apps: Apps) => {
   } = loadSharePageWithNotebook({
     renderViewPages,
 
-    getCurrentNotebookPageId: window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid,
+    getCurrentNotebookPageId:
+      window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid,
     applyState: async (notebookPageId, state) => {
       const expectedTree: InputTextNode[] = [];
       const mapping: Record<string, InputTextNode> = {};
@@ -235,16 +236,18 @@ const setupSharePageWithNotebook = (apps: Apps) => {
             const existingTitle = node[":node/title"] || node[":block/string"];
             if (existingTitle !== title) {
               if (parentUid) {
-                initialPromise = () => updateBlock({
-                  text: title,
-                  uid: notebookPageId,
-                });
+                initialPromise = () =>
+                  updateBlock({
+                    text: title,
+                    uid: notebookPageId,
+                  });
               } else {
-                initialPromise = () => window.roamAlphaAPI
-                  .updatePage({
-                    page: { title, uid: notebookPageId },
-                  })
-                  .then(() => "");
+                initialPromise = () =>
+                  window.roamAlphaAPI
+                    .updatePage({
+                      page: { title, uid: notebookPageId },
+                    })
+                    .then(() => "");
               }
             } else {
               initialPromise = () => Promise.resolve("");
@@ -262,12 +265,13 @@ const setupSharePageWithNotebook = (apps: Apps) => {
       ).slice(1);
       const viewTypePromise =
         expectedPageViewType !== actualPageViewType
-          ? () => window.roamAlphaAPI.updateBlock({
-              block: {
-                uid: notebookPageId,
-                "children-view-type": expectedPageViewType,
-              },
-            })
+          ? () =>
+              window.roamAlphaAPI.updateBlock({
+                block: {
+                  uid: notebookPageId,
+                  "children-view-type": expectedPageViewType,
+                },
+              })
           : () => Promise.resolve("");
       const expectedTreeMapping = Object.fromEntries(
         flattenTree(expectedTree, notebookPageId).map(({ uid, ...n }) => [
@@ -300,64 +304,64 @@ const setupSharePageWithNotebook = (apps: Apps) => {
       );
       // REDUCE
       const promises = (
-        ([initialPromise, viewTypePromise] as (() => Promise<unknown>)[])
-          .concat(
-            uidsToDelete.map((uid) => () =>
-              deleteBlock(uid).then(() => removeRoamUid(uid))
-            )
+        [initialPromise, viewTypePromise] as (() => Promise<unknown>)[]
+      )
+        .concat(
+          uidsToDelete.map(
+            (uid) => () => deleteBlock(uid).then(() => removeRoamUid(uid))
           )
-          .concat(
-            uidsToCreate.map(([samepageUuid, roamUid]) => () => {
-              const { parentUid, order, ...input } =
-                expectedTreeMapping[samepageUuid];
-              const node = roamUid ? { ...input, uid: roamUid } : input;
-              return (
-                parentUid === notebookPageId
-                  ? createBlock({
-                      parentUid,
-                      order,
-                      node,
-                    })
-                  : createBlock({
-                      parentUid: expectedSamepageToRoam[parentUid],
-                      order,
-                      node,
-                    })
-              ).then(
-                (newRoamUid) =>
-                  !roamUid &&
-                  saveUid(newRoamUid, samepageUuid).then(
-                    () => (expectedSamepageToRoam[samepageUuid] = newRoamUid)
-                  )
-              );
-            })
-          )
-          .concat(
-            uidsToUpdate.map(([samepageUuid, roamUid]) => () => {
-              const {
-                parentUid: samepageParentUuid,
-                order,
-                ...node
-              } = expectedTreeMapping[samepageUuid];
-              const parentUid =
-                samepageParentUuid === notebookPageId
-                  ? samepageParentUuid
-                  : expectedSamepageToRoam[samepageParentUuid];
-              const actual = actualTreeMapping[roamUid];
-              return Promise.all([
-                actual.parentUid !== parentUid || actual.order !== order
-                  ? window.roamAlphaAPI.moveBlock({
-                      block: { uid: roamUid },
-                      location: { "parent-uid": parentUid, order },
-                    })
-                  : Promise.resolve(),
-                actual.text !== node.text
-                  ? updateBlock({ text: node.text, uid: roamUid })
-                  : Promise.resolve(),
-              ]);
-            })
-          )
-      );
+        )
+        .concat(
+          uidsToCreate.map(([samepageUuid, roamUid]) => () => {
+            const { parentUid, order, ...input } =
+              expectedTreeMapping[samepageUuid];
+            const node = roamUid ? { ...input, uid: roamUid } : input;
+            return (
+              parentUid === notebookPageId
+                ? createBlock({
+                    parentUid,
+                    order,
+                    node,
+                  })
+                : createBlock({
+                    parentUid: expectedSamepageToRoam[parentUid],
+                    order,
+                    node,
+                  })
+            ).then(
+              (newRoamUid) =>
+                !roamUid &&
+                saveUid(newRoamUid, samepageUuid).then(
+                  () => (expectedSamepageToRoam[samepageUuid] = newRoamUid)
+                )
+            );
+          })
+        )
+        .concat(
+          uidsToUpdate.map(([samepageUuid, roamUid]) => () => {
+            const {
+              parentUid: samepageParentUuid,
+              order,
+              ...node
+            } = expectedTreeMapping[samepageUuid];
+            const parentUid =
+              samepageParentUuid === notebookPageId
+                ? samepageParentUuid
+                : expectedSamepageToRoam[samepageParentUuid];
+            const actual = actualTreeMapping[roamUid];
+            return Promise.all([
+              actual.parentUid !== parentUid || actual.order !== order
+                ? window.roamAlphaAPI.moveBlock({
+                    block: { uid: roamUid },
+                    location: { "parent-uid": parentUid, order },
+                  })
+                : Promise.resolve(),
+              actual.text !== node.text
+                ? updateBlock({ text: node.text, uid: roamUid })
+                : Promise.resolve(),
+            ]);
+          })
+        );
       return promises.reduce((p, c) => p.then(c), Promise.resolve<unknown>(""));
     },
     calculateState,
@@ -415,8 +419,11 @@ const setupSharePageWithNotebook = (apps: Apps) => {
                 return Promise.reject(e);
               })
           ),
-        reject: async ({ workspace, app }) =>
-          rejectPage({ source: { app: Number(app) as AppId, workspace } }),
+        reject: async ({ workspace, app, pageUuid }) =>
+          rejectPage({
+            source: { app: Number(app) as AppId, workspace },
+            pageUuid,
+          }),
       },
       api: {
         addNotification: (not) =>
@@ -426,25 +433,26 @@ const setupSharePageWithNotebook = (apps: Apps) => {
               { text: "Title", children: [{ text: not.title }] },
               { text: "Description", children: [{ text: not.description }] },
               {
-                text: "Actions",
-                children: not.actions.map((a) => ({
-                  text: a.label,
-                  children: [
-                    { text: "Method", children: [{ text: a.method }] },
-                    {
-                      text: "Args",
-                      children: Object.entries(a.args).map((arg) => ({
-                        text: arg[0],
-                        children: [{ text: arg[1] }],
-                      })),
-                    },
-                  ],
+                text: "Buttons",
+                children: not.buttons.map((a) => ({
+                  text: a,
+                })),
+              },
+              {
+                text: "Data",
+                children: Object.entries(not.data).map((arg) => ({
+                  text: arg[0],
+                  children: [{ text: arg[1] }],
                 })),
               },
             ],
           }),
         deleteNotification: (uuid) =>
-          window.roamAlphaAPI.deletePage({ page: { uid: uuid } }),
+          window.roamAlphaAPI.deletePage({
+            page: {
+              uid: getPageUidByPageTitle(`samepage/notifications/${uuid}`),
+            },
+          }),
         getNotifications: async () => {
           const pages = window.roamAlphaAPI.data.fast
             .q(
@@ -466,21 +474,16 @@ const setupSharePageWithNotebook = (apps: Apps) => {
                 tree,
                 key: "Description",
               }),
-              actions: getSubTree({
+              buttons: getSubTree({
                 tree,
-                key: "Actions",
-              }).children.map((act) => ({
-                label: act.text,
-                method: getSettingValueFromTree({
-                  tree: act.children,
-                  key: "Method",
-                }),
-                args: Object.fromEntries(
-                  getSubTree({ key: "Args", tree: act.children }).children.map(
-                    (arg) => [arg.text, arg.children[0]?.text]
-                  )
-                ),
-              })),
+                key: "Buttons",
+              }).children.map((act) => act.text),
+              data: Object.fromEntries(
+                getSubTree({ key: "Data", tree }).children.map((arg) => [
+                  arg.text,
+                  arg.children[0]?.text,
+                ])
+              ),
             };
           });
         },

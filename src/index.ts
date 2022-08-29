@@ -35,7 +35,9 @@ export default runExtension({
         },
       ],
     });
-    addStyle(`div.samepage-notification-container { top: 40px; bottom: unset; }`);
+    addStyle(
+      `div.samepage-notification-container { top: 40px; bottom: unset; }`
+    );
 
     let removeLoadingCallback: () => void;
     const {
@@ -81,18 +83,8 @@ export default runExtension({
           notify({
             title: "Share Page",
             description: `Notebook ${app}/${evt.source.workspace} is attempting to share page ${evt.notebookPageId}. Would you like to accept?`,
-            actions: [
-              {
-                label: "accept",
-                method: "accept",
-                args,
-              },
-              {
-                label: "reject",
-                method: "reject",
-                args,
-              },
-            ],
+            buttons: ["accept", "reject"],
+            data: args,
           });
         } else if (evt.type === "usage") {
           renderOverlay({ Overlay: UsageChart, props: evt });
