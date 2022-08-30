@@ -294,7 +294,7 @@ const setupSharePageWithNotebook = (apps: Apps) => {
         ([, k]) => !k || !actualTreeMapping[k]
       );
       const expectedUids = new Set(
-        Object.values(expectedSamepageToRoam).filter((r) => !r)
+        Object.values(expectedSamepageToRoam).filter((r) => !!r)
       );
       const uidsToDelete = Object.keys(actualTreeMapping).filter((k) =>
         expectedUids.has(k)
