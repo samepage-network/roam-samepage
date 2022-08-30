@@ -1,3 +1,11 @@
+import type { Schema, AppId } from "@samepage/shared";
+import NotificationContainer, {
+  notify,
+} from "@samepage/client/components/NotificationContainer";
+import SharedPageStatus from "@samepage/client/components/SharedPageStatus";
+import loadSharePageWithNotebook from "@samepage/client/protocols/sharePageWithNotebook";
+import { onAppEvent } from "@samepage/client/internal/registerAppEventListener";
+import { apps } from "@samepage/client/internal/registry";
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import type {
   ViewType,
@@ -10,26 +18,23 @@ import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleVa
 import updateBlock from "roamjs-components/writes/updateBlock";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
-import NotificationContainer from "@samepage/client/components/NotificationContainer";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getParentUidByBlockUid from "roamjs-components/queries/getParentUidByBlockUid";
-import Automerge from "automerge";
-import loadSharePageWithNotebook from "@samepage/client/protocols/sharePageWithNotebook";
-import SharedPageStatus from "@samepage/client/components/SharedPageStatus";
-import type { Schema, AppId, Apps } from "@samepage/shared";
-import { render as renderViewPages } from "../components/SharedPagesDashboard";
 import getUids from "roamjs-components/dom/getUids";
-import { openDB, IDBPDatabase } from "idb";
 import createPage from "roamjs-components/writes/createPage";
-import { v4 } from "uuid";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import renderWithUnmount from "roamjs-components/util/renderWithUnmount";
-import React from "react";
 import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
 import getSubTree from "roamjs-components/util/getSubTree";
+import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBlockUid";
+import React from "react";
+import Automerge from "automerge";
+import { openDB, IDBPDatabase } from "idb";
+import { v4 } from "uuid";
+import { render as renderViewPages } from "../components/SharedPagesDashboard";
 
 const roamToSamepage = (s: string) =>
   openIdb()
@@ -171,12 +176,10 @@ const calculateState = async (notebookPageId: string) => {
   };
 };
 
-export const STATUS_EVENT_NAME = "roamjs:samepage:status";
-export const notebookPageIds = new Set<number>();
 const getIdByBlockUid = (uid: string) =>
   window.roamAlphaAPI.pull("[:db/id]", [":block/uid", uid])?.[":db/id"];
 
-const setupSharePageWithNotebook = (apps: Apps) => {
+const setupSharePageWithNotebook = () => {
   const {
     unload,
     updatePage,
@@ -186,8 +189,16 @@ const setupSharePageWithNotebook = (apps: Apps) => {
     forcePushPage,
     listConnectedNotebooks,
     getLocalHistory,
+    isShared,
   } = loadSharePageWithNotebook({
     renderViewPages,
+    renderSharedPageStatus: ({ notebookPageId, created }) => {
+      Array.from(
+        document.querySelectorAll<HTMLHeadingElement>("h1.rm-title-display")
+      ).forEach((header) => {
+        renderStatusUnderHeading((u) => u === notebookPageId, header, created);
+      });
+    },
 
     getCurrentNotebookPageId:
       window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid,
@@ -297,7 +308,7 @@ const setupSharePageWithNotebook = (apps: Apps) => {
         Object.values(expectedSamepageToRoam).filter((r) => !!r)
       );
       const uidsToDelete = Object.keys(actualTreeMapping).filter((k) =>
-        expectedUids.has(k)
+        !expectedUids.has(k)
       );
       const uidsToUpdate = Object.entries(expectedSamepageToRoam).filter(
         ([, k]) => !!actualTreeMapping[k]
@@ -490,45 +501,54 @@ const setupSharePageWithNotebook = (apps: Apps) => {
       },
     },
   });
+  onAppEvent("share-page", (evt) => {
+    const app = apps[evt.source.app]?.name;
+    const args = {
+      workspace: evt.source.workspace,
+      app: `${evt.source.app}`,
+      pageUuid: evt.pageUuid,
+    };
+    notify({
+      title: "Share Page",
+      description: `Notebook ${app}/${evt.source.workspace} is attempting to share page ${evt.notebookPageId}. Would you like to accept?`,
+      buttons: ["accept", "reject"],
+      data: args,
+    });
+  });
 
   const renderStatusUnderHeading = (
     isTargeted: (uid: string) => boolean,
-    h: HTMLHeadingElement
+    h: HTMLHeadingElement,
+    created?: boolean
   ) => {
     const title = getPageTitleValueByHtmlElement(h);
     const uid = getPageUidByPageTitle(title);
     if (!isTargeted(uid)) return;
     const attribute = `data-roamjs-shared-${uid}`;
     const containerParent = h.parentElement?.parentElement;
-    if (containerParent && !containerParent.hasAttribute(attribute)) {
-      const dbId = getIdByBlockUid(uid);
-      if (notebookPageIds.has(dbId)) {
-        containerParent.setAttribute(attribute, "true");
-        const parent = document.createElement("div");
-        const h = containerParent.querySelector("h1.rm-title-display");
-        containerParent.insertBefore(
-          parent,
-          h?.parentElement?.nextElementSibling || null
-        );
-        const unmount = renderWithUnmount(
-          React.createElement(SharedPageStatus, {
-            notebookPageId: uid,
-            disconnectPage: (id) =>
-              disconnectPage(id).then(() => {
-                notebookPageIds.delete(
-                  window.roamAlphaAPI.pull("[:db/id]", [":block/uid", id])?.[
-                    ":db/id"
-                  ]
-                );
-                unmount();
-              }),
-            forcePushPage,
-            listConnectedNotebooks,
-            getLocalHistory,
-          }),
-          parent
-        );
-      }
+    if (
+      containerParent &&
+      !containerParent.hasAttribute(attribute) &&
+      isShared(uid)
+    ) {
+      containerParent.setAttribute(attribute, "true");
+      const parent = document.createElement("div");
+      const h = containerParent.querySelector("h1.rm-title-display");
+      containerParent.insertBefore(
+        parent,
+        h?.parentElement?.nextElementSibling || null
+      );
+      const unmount = renderWithUnmount(
+        React.createElement(SharedPageStatus, {
+          notebookPageId: uid,
+          disconnectPage: (id) => disconnectPage(id).then(unmount),
+          forcePushPage,
+          listConnectedNotebooks,
+          getLocalHistory,
+          defaultOpenInviteDialog: created,
+        }),
+        parent
+      );
     }
   };
   const titleObserver = createHTMLObserver({
@@ -538,35 +558,16 @@ const setupSharePageWithNotebook = (apps: Apps) => {
       renderStatusUnderHeading(() => true, h);
     },
   });
-  const statusListener = (e: CustomEvent) => {
-    const uid = e.detail as string;
-    Array.from(
-      document.querySelectorAll<HTMLHeadingElement>("h1.rm-title-display")
-    ).forEach((header) => {
-      renderStatusUnderHeading((u) => u === uid, header);
-    });
-  };
-  document.body.addEventListener(STATUS_EVENT_NAME, statusListener);
   let updateTimeout = 0;
   const bodyListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
-      const parents =
-        window.roamAlphaAPI.pull("[:block/parents]", [
-          ":block/uid",
-          blockUid,
-        ])?.[":block/parents"] || [];
-      const notebookPage = parents.find((p) =>
-        notebookPageIds.has(p[":db/id"])
-      )?.[":db/id"];
-      if (notebookPage) {
+      const parents = getParentUidsOfBlockUid(blockUid);
+      const notebookPageId = parents.find(isShared);
+      if (notebookPageId) {
         window.clearTimeout(updateTimeout);
         updateTimeout = window.setTimeout(async () => {
-          const notebookPageId = window.roamAlphaAPI.pull(
-            "[:block/uid]",
-            notebookPage
-          )?.[":block/uid"];
           const doc = await calculateState(notebookPageId);
           updatePage({
             notebookPageId,
@@ -596,7 +597,6 @@ const setupSharePageWithNotebook = (apps: Apps) => {
   return () => {
     window.clearTimeout(updateTimeout);
     document.body.removeEventListener("keydown", bodyListener);
-    document.body.removeEventListener(STATUS_EVENT_NAME, statusListener);
     titleObserver.disconnect();
     unload();
   };

@@ -1,18 +1,15 @@
-import runExtension from "roamjs-components/util/runExtension";
-import loadSendPageToGraph from "./messages/sendPageToGraph";
-import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
-import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
 import setupSamePageClient from "@samepage/client/protocols/setupSamePageClient";
+import { onAppEvent } from "@samepage/client/internal/registerAppEventListener";
+import runExtension from "roamjs-components/util/runExtension";
 import { render as renderToast } from "roamjs-components/components/Toast";
-import UsageChart from "./components/UsageChart";
-import { notify } from "@samepage/client/components/NotificationContainer";
-import setupSharePageWithNotebook, {
-  notebookPageIds,
-  STATUS_EVENT_NAME,
-} from "./messages/sharePageWithNotebook";
 import { renderLoading } from "roamjs-components/components/Loading";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import addStyle from "roamjs-components/dom/addStyle";
+import setupSharePageWithNotebook from "./messages/sharePageWithNotebook";
+import loadSendPageToGraph from "./messages/sendPageToGraph";
+import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
+import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
+import UsageChart from "./components/UsageChart";
 
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
 
@@ -42,7 +39,6 @@ export default runExtension({
     let removeLoadingCallback: () => void;
     const {
       unload: unloadSamePageClient,
-      apps,
       ...api
     } = await setupSamePageClient({
       isAutoConnect: extensionAPI.settings.get("auto-connect") as boolean,
@@ -50,51 +46,27 @@ export default runExtension({
       removeCommand: window.roamAlphaAPI.ui.commandPalette.removeCommand,
       app: 1,
       workspace: window.roamAlphaAPI.graph.name,
-      onAppEventHandler: (evt) => {
-        if (evt.type === "log") {
-          renderToast({
-            id: evt.id,
-            content: evt.content,
-            intent:
-              evt.intent === "error"
-                ? "danger"
-                : evt.intent === "info"
-                ? "primary"
-                : evt.intent,
-          });
-        } else if (evt.type === "init-page") {
-          const id = window.roamAlphaAPI.pull("[:db/id]", [
-            ":block/uid",
-            evt.notebookPageId,
-          ])?.[":db/id"];
-          if (id) {
-            notebookPageIds.add(id);
-          }
-          document.body.dispatchEvent(
-            new CustomEvent(STATUS_EVENT_NAME, { detail: evt.notebookPageId })
-          );
-        } else if (evt.type === "share-page") {
-          const app = apps[evt.source.app]?.name;
-          const args = {
-            workspace: evt.source.workspace,
-            app: `${evt.source.app}`,
-            pageUuid: evt.pageUuid,
-          };
-          notify({
-            title: "Share Page",
-            description: `Notebook ${app}/${evt.source.workspace} is attempting to share page ${evt.notebookPageId}. Would you like to accept?`,
-            buttons: ["accept", "reject"],
-            data: args,
-          });
-        } else if (evt.type === "usage") {
-          renderOverlay({ Overlay: UsageChart, props: evt });
-        } else if (evt.type === "connection") {
-          if (evt.status === "PENDING") removeLoadingCallback = renderLoading();
-          else removeLoadingCallback?.();
-        }
-      },
     });
-    const unloadSharePageWithNotebook = setupSharePageWithNotebook(apps);
+    onAppEvent("log", (evt) =>
+      renderToast({
+        id: evt.id,
+        content: evt.content,
+        intent:
+          evt.intent === "error"
+            ? "danger"
+            : evt.intent === "info"
+            ? "primary"
+            : evt.intent,
+      })
+    );
+    onAppEvent("usage", (evt) =>
+      renderOverlay({ Overlay: UsageChart, props: evt })
+    );
+    onAppEvent("connection", (evt) => {
+      if (evt.status === "PENDING") removeLoadingCallback = renderLoading();
+      else removeLoadingCallback?.();
+    });
+    const unloadSharePageWithNotebook = setupSharePageWithNotebook();
 
     const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
     const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);
