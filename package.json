@@ -12,7 +12,7 @@
     "ts-node": "^10.4.0"
   },
   "dependencies": {
-    "@samepage/client": "^0.7.0",
+    "@samepage/client": "^0.8.1",
     "roamjs-components": "^0.72.10"
   }
 }

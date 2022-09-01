@@ -13,7 +13,7 @@ import UsageChart from "./components/UsageChart";
 
 const extensionId = process.env.ROAMJS_EXTENSION_ID;
 
-let unload;
+let unload: () => void;
 
 export default runExtension({
   // migratedTo: "SamePage", // query github
@@ -37,10 +37,7 @@ export default runExtension({
     );
 
     let removeLoadingCallback: () => void;
-    const {
-      unload: unloadSamePageClient,
-      ...api
-    } = await setupSamePageClient({
+    const { unload: unloadSamePageClient, ...api } = await setupSamePageClient({
       isAutoConnect: extensionAPI.settings.get("auto-connect") as boolean,
       addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
       removeCommand: window.roamAlphaAPI.ui.commandPalette.removeCommand,
@@ -82,5 +79,7 @@ export default runExtension({
       unloadSamePageClient();
     };
   },
-  unload,
+  unload: () => {
+    unload?.();
+  },
 });
