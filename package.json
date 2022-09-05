@@ -4,15 +4,15 @@
   "description": "Official Roam client into the inter-TFT-protocol",
   "main": "./build/main.js",
   "scripts": {
+    "postinstall": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
     "start": "roamjs-scripts dev --depot"
   },
   "license": "MIT",
   "devDependencies": {
-    "roamjs-scripts": "^0.21.11",
-    "ts-node": "^10.4.0"
+    "roamjs-scripts": "^0.21.11"
   },
   "dependencies": {
-    "@samepage/client": "^0.8.1",
+    "@samepage/client": "^0.9.1",
     "roamjs-components": "^0.72.10"
   }
 }

@@ -4,14 +4,10 @@
     "src",
     "lambdas",
     "scripts",
-    "tests"
+    "tests",
+    "src/index.d.ts"
   ],
   "exclude": [
     "node_modules"
-  ],
-  "ts-node": {
-    "compilerOptions": {
-      "module": "commonjs"
-    }
-  }
+  ]
 }

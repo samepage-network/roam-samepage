@@ -1,7 +1,8 @@
-import type { Schema, AppId } from "@samepage/client/types";
+import type { Schema, AppId, InitialSchema } from "@samepage/client/types";
 import NotificationContainer from "@samepage/client/components/NotificationContainer";
 import SharedPageStatus from "@samepage/client/components/SharedPageStatus";
 import loadSharePageWithNotebook from "@samepage/client/protocols/sharePageWithNotebook";
+import atJsonParser from "@samepage/client/utils/atJsonParser";
 import { apps } from "@samepage/client/internal/registry";
 import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
 import type {
@@ -33,6 +34,7 @@ import React from "react";
 import Automerge from "automerge";
 import { openDB, IDBPDatabase } from "idb";
 import { v4 } from "uuid";
+import blockGrammar from "../utils/blockGrammar";
 import { render as renderViewPages } from "../components/SharedPagesDashboard";
 
 const roamToSamepage = (s: string) =>
@@ -72,133 +74,17 @@ const openIdb = async () =>
     },
   }));
 
-type InputSchema = {
-  content: string;
-  annotations: Schema["annotations"];
-};
-
-type RoamLexer = Awaited<ReturnType<typeof getInlineLexer>>;
-
-const reduceTokens = (tokens: ReturnType<RoamLexer>): InputSchema =>
-  tokens
-    .map((token) => {
-      switch (token.type) {
-        case "del": {
-          const innerState = reduceTokens(token.tokens);
-          return {
-            content: innerState.content,
-            annotations: (
-              [
-                {
-                  type: "strikethrough",
-                  start: 0,
-                  end: innerState.content.length,
-                },
-              ] as Schema["annotations"]
-            ).concat(innerState.annotations),
-          };
-        }
-        case "em": {
-          const innerState = reduceTokens(token.tokens);
-          return {
-            content: innerState.content,
-            annotations: (
-              [
-                {
-                  type: "italics",
-                  start: 0,
-                  end: innerState.content.length,
-                },
-              ] as Schema["annotations"]
-            ).concat(innerState.annotations),
-          };
-        }
-        case "link": {
-          const innerState = reduceTokens(token.tokens);
-          if (token.title === "highlight") {
-            return {
-              content: innerState.content,
-              annotations: (
-                [
-                  {
-                    type: "highlighting",
-                    start: 0,
-                    end: innerState.content.length,
-                  },
-                ] as Schema["annotations"]
-              ).concat(innerState.annotations),
-            };
-          } else {
-            return {
-              content: innerState.content,
-              annotations: (
-                [
-                  {
-                    type: "link",
-                    start: 0,
-                    end: innerState.content.length,
-                    attributes: {
-                      href: token.href,
-                    },
-                  },
-                ] as Schema["annotations"]
-              ).concat(innerState.annotations),
-            };
-          }
-        }
-        case "strong": {
-          const innerState = reduceTokens(token.tokens);
-          return {
-            content: innerState.content,
-            annotations: (
-              [
-                {
-                  type: "bold",
-                  start: 0,
-                  end: innerState.content.length,
-                },
-              ] as Schema["annotations"]
-            ).concat(innerState.annotations),
-          };
-        }
-        case "text": {
-          return { content: token.text, annotations: [] };
-        }
-        default: {
-          return { content: token.raw, annotations: [] };
-        }
-      }
-    })
-    .reduce(
-      (total, current) => ({
-        content: `${total.content}${current.content}`,
-        annotations: total.annotations.concat(
-          current.annotations.map((a) => ({
-            ...a,
-            start: a.start + total.content.length,
-            end: a.end + total.content.length,
-          }))
-        ),
-      }),
-      {
-        content: "",
-        annotations: [],
-      } as InputSchema
-    );
-
 const toAtJson = async ({
   nodes,
   level = 0,
   startIndex = 0,
   viewType,
-  lexer,
 }: {
   nodes: TreeNode[];
   level?: number;
   startIndex?: number;
   viewType?: ViewType;
-  lexer: RoamLexer;
-}): Promise<InputSchema> => {
+}): Promise<InitialSchema> => {
   return nodes
     .map(
       (n) => (index: number) =>
@@ -211,7 +97,7 @@ const toAtJson = async ({
               )
           )
           .then(async (identifier) => {
-            const { content, annotations } = reduceTokens(lexer(n.text));
+            const { content, annotations } = atJsonParser(blockGrammar, n.text);
             const end = content.length + index;
             const blockAnnotation: Schema["annotations"] = [
               {
@@ -233,7 +119,6 @@ const toAtJson = async ({
               level: level + 1,
               viewType: n.viewType || viewType,
               startIndex: end,
-              lexer,
             });
             return {
               content: `${content}${childrenContent}`,
@@ -283,7 +168,6 @@ const calculateState = async (notebookPageId: string) => {
     nodes: node.children,
     viewType: node.viewType || "bullet",
     startIndex: node.text.length,
-    lexer,
   });
   return {
     content: new Automerge.Text(`${node.text}${doc.content}`),
