@@ -1,4 +1,4 @@
-// Generated automatically by nearley, version 2.20.1
+// Generated automatically by nearley, version unknown
 // http://github.com/Hardmath123/nearley
 // Bypasses TS6133. Allow declared but unused functions.
 // @ts-ignore
@@ -27,7 +27,7 @@ import {
    createStrikethroughToken,
    createTextToken,
    disambiguateTokens,
-} from "@samepage/client/utils/atJsonTokens";
+} from "samepage/utils/atJsonTokens";
 
 const lexer = compileLexer({});
 

@@ -6,7 +6,7 @@ import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageU
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import GraphMessageDialog from "./GraphMessageDialog";
 import type { SamePageApi } from "../types";
-import type { Notebook } from "@samepage/client/types";
+import type { Notebook } from "samepage/types";
 
 type Props = {
   pageUid: string;

@@ -8,7 +8,7 @@ import {
   Label,
 } from "@blueprintjs/core";
 import MenuItemSelect from "roamjs-components/components/MenuItemSelect";
-import type { Notebook, Apps, AppId } from "@samepage/client/types";
+import type { Notebook, Apps, AppId } from "samepage/types";
 
 const GraphMessageDialog = ({
   onClose,

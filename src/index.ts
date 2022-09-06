@@ -1,5 +1,6 @@
-import setupSamePageClient from "@samepage/client/protocols/setupSamePageClient";
-import { onAppEvent } from "@samepage/client/internal/registerAppEventListener";
+import setupSamePageClient from "samepage/protocols/setupSamePageClient";
+import defaultSettings from "samepage/utils/defaultSettings";
+import { onAppEvent } from "samepage/internal/registerAppEventListener";
 import runExtension from "roamjs-components/util/runExtension";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import { renderLoading } from "roamjs-components/components/Loading";
@@ -9,39 +10,37 @@ import setupSharePageWithNotebook from "./messages/sharePageWithNotebook";
 import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
-import UsageChart from "./components/UsageChart";
-
-const extensionId = process.env.ROAMJS_EXTENSION_ID;
-
-let unload: () => void;
 
 export default runExtension({
   // migratedTo: "SamePage", // query github
-  extensionId,
   run: async ({ extensionAPI }) => {
     extensionAPI.settings.panel.create({
       tabTitle: "SamePage",
-      settings: [
-        {
-          id: "auto-connect",
-          name: "Auto Connect",
-          action: {
-            type: "switch",
-          },
-          description: "Automatically connect to the SamePage Network",
-        },
-      ],
+      settings: defaultSettings
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          action:
+            s.type === "boolean"
+              ? {
+                  type: "switch" as const,
+                }
+              : undefined,
+        }))
+        .filter((s) => !!s.action),
     });
     addStyle(
       `div.samepage-notification-container { top: 40px; bottom: unset; }`
     );
 
     let removeLoadingCallback: () => void;
-    const { unload: unloadSamePageClient, ...api } = await setupSamePageClient({
+    const { unload: unloadSamePageClient, ...api } = setupSamePageClient({
       isAutoConnect: extensionAPI.settings.get("auto-connect") as boolean,
       addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
       removeCommand: window.roamAlphaAPI.ui.commandPalette.removeCommand,
-      app: 1,
+      renderOverlay,
+      app: "Roam",
       workspace: window.roamAlphaAPI.graph.name,
     });
     onAppEvent("log", (evt) =>
@@ -56,9 +55,6 @@ export default runExtension({
             : evt.intent,
       })
     );
-    onAppEvent("usage", (evt) =>
-      renderOverlay({ Overlay: UsageChart, props: evt })
-    );
     onAppEvent("connection", (evt) => {
       if (evt.status === "PENDING") removeLoadingCallback = renderLoading();
       else removeLoadingCallback?.();
@@ -70,7 +66,7 @@ export default runExtension({
     const unloadSendPageToGraph = loadSendPageToGraph(api);
 
     window.roamjs.extension[process.env.ROAMJS_EXTENSION_ID] = window.samepage;
-    unload = () => {
+    return () => {
       unloadSendPageToGraph();
       unloadCopyBlockToGraph();
       unloadCrossGraphBlockReference();
@@ -78,8 +74,5 @@ export default runExtension({
       unloadSharePageWithNotebook();
       unloadSamePageClient();
     };
-  },
-  unload: () => {
-    unload?.();
   },
 });

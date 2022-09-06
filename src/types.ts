@@ -1,4 +1,4 @@
-import type setupSamePageClient from "@samepage/client/protocols/setupSamePageClient";
+import type setupSamePageClient from "samepage/protocols/setupSamePageClient";
 
 export type json =
   | string
