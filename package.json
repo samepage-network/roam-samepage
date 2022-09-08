@@ -1,6 +1,6 @@
 {
   "name": "samepage",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Official Roam client into the inter-TFT-protocol",
   "main": "./build/main.js",
   "scripts": {
