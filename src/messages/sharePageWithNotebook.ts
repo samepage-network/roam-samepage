@@ -14,7 +14,7 @@ import updateBlock from "roamjs-components/writes/updateBlock";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
-import getParentUidByBlockUid from "roamjs-components/queries/getParentUidByBlockUid";
+import elToTitle from "roamjs-components/dom/elToTitle";
 import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
 import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
@@ -68,7 +68,7 @@ const openIdb = async () =>
 
 const toAtJson = async ({
   nodes,
-  level = 0,
+  level = 1,
   startIndex = 0,
   viewType,
 }: {
@@ -158,7 +158,6 @@ const calculateState = async (notebookPageId: string) => {
   return toAtJson({
     nodes: node.children,
     viewType: node.viewType || "bullet",
-    startIndex: node.text.length,
   });
 };
 
@@ -170,7 +169,6 @@ const applyState = async (notebookPageId: string, state: Schema) => {
     string,
     { start: number; end: number; annotations: Schema["annotations"] }
   > = {};
-  const parents: Record<string, string> = {};
   let expectedPageViewType: ViewType = "bullet";
   let currentBlock: InputTextNode;
   let initialPromise = () => Promise.resolve("");
@@ -178,13 +176,13 @@ const applyState = async (notebookPageId: string, state: Schema) => {
     nodes: InputTextNode[],
     level: number,
     parentUid: string
-  ) => {
-    if (level === 0 || nodes.length === 0) {
+  ): string => {
+    if (level === 1 || nodes.length === 0) {
       nodes.push(currentBlock);
-      parents[currentBlock.uid] = parentUid;
+      return parentUid;
     } else {
       const parentNode = nodes[nodes.length - 1];
-      insertAtLevel(parentNode.children, level - 1, parentNode.uid);
+      return insertAtLevel(parentNode.children, level - 1, parentNode.uid);
     }
   };
   state.annotations.forEach((anno) => {
@@ -200,8 +198,11 @@ const applyState = async (notebookPageId: string, state: Schema) => {
         end: anno.end,
         annotations: [],
       };
-      insertAtLevel(expectedTree, anno.attributes["level"], notebookPageId);
-      const parentUid = parents[currentBlock.uid];
+      const parentUid = insertAtLevel(
+        expectedTree,
+        anno.attributes["level"],
+        notebookPageId
+      );
       const viewType = anno.attributes["viewType"];
       if (parentUid === notebookPageId) {
         expectedPageViewType = viewType;
@@ -289,8 +290,8 @@ const applyState = async (notebookPageId: string, state: Schema) => {
   );
   const actualTreeMapping = Object.fromEntries(
     flattenTree(
-      getFullTreeByParentUid(notebookPageId).children,
-      notebookPageId
+      getFullTreeByParentUid(rootPageUid).children,
+      rootPageUid
     ).map(({ uid, ...n }) => [uid, n])
   );
   const expectedSamepageToRoam = await Promise.all(
@@ -354,20 +355,19 @@ const applyState = async (notebookPageId: string, state: Schema) => {
         } = expectedTreeMapping[samepageUuid];
         const parentUid =
           samepageParentUuid === notebookPageId
-            ? samepageParentUuid
+            ? getPageUidByPageTitle(notebookPageId)
             : expectedSamepageToRoam[samepageParentUuid];
         const actual = actualTreeMapping[roamUid];
+        if (actual.parentUid !== parentUid || actual.order !== order)
+          window.roamAlphaAPI.moveBlock({
+            block: { uid: roamUid },
+            location: { "parent-uid": parentUid, order },
+          });
         return Promise.all([
-          actual.parentUid !== parentUid || actual.order !== order
-            ? window.roamAlphaAPI.moveBlock({
-                block: { uid: roamUid },
-                location: { "parent-uid": parentUid, order },
-              })
-            : Promise.resolve(),
           actual.text !== node.text
             ? updateBlock({ text: node.text, uid: roamUid })
             : Promise.resolve(),
-        ]);
+        ]).then(() => Promise.resolve());
       })
     );
   return promises.reduce((p, c) => p.then(c), Promise.resolve<unknown>(""));
@@ -429,7 +429,9 @@ const setupSharePageWithNotebook = () => {
                     const order = getChildrenLengthByParentUid(todayUid);
                     return createBlock({
                       node: {
-                        text: `Accepted page [[${title}]] from ${apps[Number(app)].name} / ${workspace}`,
+                        text: `Accepted page [[${title}]] from ${
+                          apps[Number(app)].name
+                        } / ${workspace}`,
                       },
                       parentUid: todayUid,
                       order,
@@ -516,19 +518,15 @@ const setupSharePageWithNotebook = () => {
           },
         },
         sharedPageStatusProps: {
-          getHtmlElement: async (uid) => {
-            const title = getPageTitleByPageUid(uid);
+          getHtmlElement: async (notebookPageId) => {
             return Array.from(
               document.querySelectorAll<HTMLHeadingElement>(
                 "h1.rm-title-display"
               )
-            ).find((h) => getPageTitleValueByHtmlElement(h) === title);
+            ).find((h) => getPageTitleValueByHtmlElement(h) === notebookPageId);
           },
           selector: "h1.rm-title-display",
-          getNotebookPageId: async (el) =>
-            getPageUidByPageTitle(
-              getPageTitleValueByHtmlElement(el as Element)
-            ),
+          getNotebookPageId: async (el) => elToTitle(el as Element),
           getPath: (heading) => heading?.parentElement?.parentElement,
         },
       },
@@ -536,6 +534,8 @@ const setupSharePageWithNotebook = () => {
   let updateTimeout = 0;
   const bodyListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
+    if (e.metaKey) return;
+    if (/^Arrow/.test(e.key)) return;
     if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
       const notebookPageId = getPageTitleByBlockUid(blockUid);

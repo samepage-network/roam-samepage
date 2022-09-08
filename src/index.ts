@@ -39,7 +39,12 @@ export default runExtension({
       isAutoConnect: extensionAPI.settings.get("auto-connect") as boolean,
       addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
       removeCommand: window.roamAlphaAPI.ui.commandPalette.removeCommand,
-      renderOverlay,
+      renderOverlay: (args) => {
+        if (args.id && args.id.startsWith("samepage-shared")) {
+          return renderOverlay({ ...args, before: 1 });
+        }
+        return renderOverlay(args);
+      },
       app: "Roam",
       workspace: window.roamAlphaAPI.graph.name,
     });
