@@ -29,44 +29,19 @@ import { openDB, IDBPDatabase } from "idb";
 import { v4 } from "uuid";
 import blockGrammar from "../utils/blockGrammar";
 
-const roamToSamepage = (s: string) =>
-  openIdb()
-    .then((db) => db.get("roam-to-samepage", s))
-    .then((v) => (v as string) || "");
-const samepageToRoam = (s: string) =>
-  openIdb()
-    .then((db) => db.get("samepage-to-roam", s))
-    .then((v) => (v as string) || "");
-const saveUid = (roam: string, samepage: string) =>
-  openIdb().then((db) =>
-    Promise.all([
-      db.put("roam-to-samepage", samepage, roam),
-      db.put("samepage-to-roam", roam, samepage),
-    ])
-  );
-const removeUid = (roam: string, samepage: string) =>
-  openIdb().then((db) =>
-    Promise.all([
-      db.delete("roam-to-samepage", roam),
-      db.delete("samepage-to-roam", samepage),
-    ])
-  );
-const removeRoamUid = (roam: string) =>
-  roamToSamepage(roam).then((samepage) => removeUid(roam, samepage));
-
 let db: IDBPDatabase;
 const openIdb = async () =>
   db ||
-  (db = await openDB("samepage", 2, {
+  (db = await openDB("samepage", 3, {
     upgrade(db) {
       const names = new Set(db.objectStoreNames);
-      ["pages", "roam-to-samepage", "samepage-to-roam"]
+      ["pages"]
         .filter((s) => !names.has(s))
         .forEach((s) => db.createObjectStore(s));
     },
   }));
 
-const toAtJson = async ({
+const toAtJson = ({
   nodes,
   level = 1,
   startIndex = 0,
@@ -76,80 +51,64 @@ const toAtJson = async ({
   level?: number;
   startIndex?: number;
   viewType?: ViewType;
-}): Promise<InitialSchema> => {
+}): InitialSchema => {
   return nodes
-    .map(
-      (n) => (index: number) =>
-        roamToSamepage(n.uid)
-          .then(
-            (identifier) =>
-              identifier ||
-              Promise.resolve(v4()).then((samepageUuid) =>
-                saveUid(n.uid, samepageUuid).then(() => samepageUuid)
-              )
+    .map((n) => (index: number) => {
+      const { content, annotations } = atJsonParser(blockGrammar, n.text);
+      const end = content.length + index;
+      const blockAnnotation: Schema["annotations"] = [
+        {
+          start: index,
+          end,
+          attributes: {
+            level: level,
+            viewType: viewType,
+          },
+          type: "block",
+        },
+      ];
+      const { content: childrenContent, annotations: childrenAnnotations } =
+        toAtJson({
+          nodes: n.children,
+          level: level + 1,
+          viewType: n.viewType || viewType,
+          startIndex: end,
+        });
+      return {
+        content: `${content}${childrenContent}`,
+        annotations: blockAnnotation
+          .concat(
+            annotations.map((a) => ({
+              ...a,
+              start: a.start + index,
+              end: a.end + index,
+            }))
           )
-          .then(async (identifier) => {
-            const { content, annotations } = atJsonParser(blockGrammar, n.text);
-            const end = content.length + index;
-            const blockAnnotation: Schema["annotations"] = [
-              {
-                start: index,
-                end,
-                attributes: {
-                  identifier,
-                  level: level,
-                  viewType: viewType,
-                },
-                type: "block",
-              },
-            ];
-            const {
-              content: childrenContent,
-              annotations: childrenAnnotations,
-            } = await toAtJson({
-              nodes: n.children,
-              level: level + 1,
-              viewType: n.viewType || viewType,
-              startIndex: end,
-            });
-            return {
-              content: `${content}${childrenContent}`,
-              annotations: blockAnnotation
-                .concat(
-                  annotations.map((a) => ({
-                    ...a,
-                    start: a.start + index,
-                    end: a.end + index,
-                  }))
-                )
-                .concat(childrenAnnotations),
-            };
-          })
-    )
+          .concat(childrenAnnotations),
+      };
+    })
     .reduce(
-      (p, c) =>
-        p.then(({ content: pc, annotations: pa }) =>
-          c(startIndex + pc.length).then(
-            ({ content: cc, annotations: ca }) => ({
-              content: `${pc}${cc}`,
-              annotations: pa.concat(ca),
-            })
-          )
-        ),
-      Promise.resolve({
+      ({ content: pc, annotations: pa }, c) => {
+        const { content: cc, annotations: ca } = c(startIndex + pc.length);
+        return {
+          content: `${pc}${cc}`,
+          annotations: pa.concat(ca),
+        };
+      },
+      {
         content: "",
         annotations: [] as Schema["annotations"],
-      })
+      }
     );
 };
 
-const flattenTree = <T extends { children?: T[]; uid?: string }>(
+const flattenTree = <T extends { children?: T[] }>(
   tree: T[],
-  parentUid: string
-): (Omit<T, "children"> & { order: number; parentUid: string })[] =>
-  tree.flatMap(({ children = [], ...t }, order) => [
-    { ...t, order, parentUid },
-    ...flattenTree(children, t.uid || ""),
+  level: number
+): (Omit<T, "children"> & { level: number })[] =>
+  tree.flatMap(({ children = [], ...t }) => [
+    { ...t, level },
+    ...flattenTree(children, level + 1),
   ]);
 
 const calculateState = async (notebookPageId: string) => {
@@ -161,223 +120,173 @@ const calculateState = async (notebookPageId: string) => {
   });
 };
 
+type SamepageNode = {
+  text: string;
+  level: number;
+  annotation: {
+    start: number;
+    end: number;
+    annotations: Schema["annotations"];
+  };
+};
+
 const applyState = async (notebookPageId: string, state: Schema) => {
   const rootPageUid = getPageUidByPageTitle(notebookPageId);
-  const expectedTree: InputTextNode[] = [];
-  const mapping: Record<string, InputTextNode> = {};
-  const contentAnnotations: Record<
-    string,
-    { start: number; end: number; annotations: Schema["annotations"] }
-  > = {};
-  let expectedPageViewType: ViewType = "bullet";
-  let currentBlock: InputTextNode;
-  let initialPromise = () => Promise.resolve("");
-  const insertAtLevel = (
-    nodes: InputTextNode[],
-    level: number,
-    parentUid: string
-  ): string => {
-    if (level === 1 || nodes.length === 0) {
-      nodes.push(currentBlock);
-      return parentUid;
-    } else {
-      const parentNode = nodes[nodes.length - 1];
-      return insertAtLevel(parentNode.children, level - 1, parentNode.uid);
-    }
-  };
+  const expectedTree: SamepageNode[] = [];
   state.annotations.forEach((anno) => {
     if (anno.type === "block") {
-      currentBlock = {
+      const currentBlock: SamepageNode = {
         text: state.content.slice(anno.start, anno.end).join(""),
-        children: [],
-        uid: anno.attributes["identifier"],
+        level: anno.attributes.level,
+        annotation: {
+          start: anno.start,
+          end: anno.end,
+          annotations: [],
+        },
       };
-      mapping[currentBlock.uid] = currentBlock;
-      contentAnnotations[currentBlock.uid] = {
-        start: anno.start,
-        end: anno.end,
-        annotations: [],
-      };
-      const parentUid = insertAtLevel(
-        expectedTree,
-        anno.attributes["level"],
-        notebookPageId
-      );
-      const viewType = anno.attributes["viewType"];
-      if (parentUid === notebookPageId) {
-        expectedPageViewType = viewType;
-      } else mapping[parentUid].viewType = viewType;
+      expectedTree.push(currentBlock);
     } else {
-      const contentAnnotation = Object.values(contentAnnotations).find(
-        (ca) => ca.start <= anno.start && anno.end <= ca.end
+      const block = expectedTree.find(
+        (ca) =>
+          ca.annotation.start <= anno.start && anno.end <= ca.annotation.end
       );
-      if (contentAnnotation) {
-        contentAnnotation.annotations.push(anno);
+      if (block) {
+        block.annotation.annotations.push(anno);
       }
     }
   });
-  Object.entries(contentAnnotations).forEach(
-    ([blockUid, contentAnnotation]) => {
-      const block = mapping[blockUid];
-      const offset = contentAnnotation.start;
-      const normalizedAnnotations = contentAnnotation.annotations.map((a) => ({
-        ...a,
-        start: a.start - offset,
-        end: a.end - offset,
-      }));
-      const annotatedText = normalizedAnnotations.reduce((p, c, index, all) => {
-        const appliedAnnotation =
-          c.type === "bold"
-            ? {
-                prefix: "**",
-                suffix: `**`,
-              }
-            : c.type === "highlighting"
-            ? {
-                prefix: "^^",
-                suffix: `^^`,
-              }
-            : c.type === "italics"
-            ? {
-                prefix: "__",
-                suffix: `__`,
-              }
-            : c.type === "strikethrough"
-            ? {
-                prefix: "~~",
-                suffix: `~~`,
-              }
-            : c.type === "link"
-            ? {
-                prefix: "[",
-                suffix: `](${c.attributes.href})`,
-              }
-            : { prefix: "", suffix: "" };
-        all.slice(index + 1).forEach((a) => {
-          a.start +=
-            (a.start >= c.start ? appliedAnnotation.prefix.length : 0) +
-            (a.start >= c.end ? appliedAnnotation.suffix.length : 0);
-          a.end +=
-            (a.end >= c.start ? appliedAnnotation.prefix.length : 0) +
-            (a.end > c.end ? appliedAnnotation.suffix.length : 0);
-        });
-        return `${p.slice(0, c.start)}${appliedAnnotation.prefix}${p.slice(
-          c.start,
-          c.end
-        )}${appliedAnnotation.suffix}${p.slice(c.end)}`;
-      }, block.text);
-      block.text = annotatedText;
-    }
+  expectedTree.forEach((block) => {
+    const offset = block.annotation.start;
+    const normalizedAnnotations = block.annotation.annotations.map((a) => ({
+      ...a,
+      start: a.start - offset,
+      end: a.end - offset,
+    }));
+    const annotatedText = normalizedAnnotations.reduce((p, c, index, all) => {
+      const appliedAnnotation =
+        c.type === "bold"
+          ? {
+              prefix: "**",
+              suffix: `**`,
+            }
+          : c.type === "highlighting"
+          ? {
+              prefix: "^^",
+              suffix: `^^`,
+            }
+          : c.type === "italics"
+          ? {
+              prefix: "__",
+              suffix: `__`,
+            }
+          : c.type === "strikethrough"
+          ? {
+              prefix: "~~",
+              suffix: `~~`,
+            }
+          : c.type === "link"
+          ? {
+              prefix: "[",
+              suffix: `](${c.attributes.href})`,
+            }
+          : { prefix: "", suffix: "" };
+      all.slice(index + 1).forEach((a) => {
+        a.start +=
+          (a.start >= c.start ? appliedAnnotation.prefix.length : 0) +
+          (a.start >= c.end ? appliedAnnotation.suffix.length : 0);
+        a.end +=
+          (a.end >= c.start ? appliedAnnotation.prefix.length : 0) +
+          (a.end > c.end ? appliedAnnotation.suffix.length : 0);
+      });
+      return `${p.slice(0, c.start)}${appliedAnnotation.prefix}${p.slice(
+        c.start,
+        c.end
+      )}${appliedAnnotation.suffix}${p.slice(c.end)}`;
+    }, block.text);
+    block.text = annotatedText;
+  });
+  const actualTree = flattenTree(
+    getFullTreeByParentUid(rootPageUid).children,
+    1
   );
-  const actualPageViewType = (
-    window.roamAlphaAPI.pull("[:children/view-type]", [
-      ":node/title",
-      notebookPageId,
-    ])?.[":children/view-type"] || ":bullet"
-  ).slice(1);
-  const viewTypePromise =
-    expectedPageViewType !== actualPageViewType
-      ? () =>
-          window.roamAlphaAPI.updateBlock({
-            block: {
-              uid: rootPageUid,
-              "children-view-type": expectedPageViewType,
-            },
-          })
-      : () => Promise.resolve("");
-  const expectedTreeMapping = Object.fromEntries(
-    flattenTree(expectedTree, notebookPageId).map(({ uid, ...n }) => [uid, n])
-  );
-  const actualTreeMapping = Object.fromEntries(
-    flattenTree(
-      getFullTreeByParentUid(rootPageUid).children,
-      rootPageUid
-    ).map(({ uid, ...n }) => [uid, n])
-  );
-  const expectedSamepageToRoam = await Promise.all(
-    Object.keys(expectedTreeMapping).map((k) =>
-      samepageToRoam(k).then((r) => [k, r] as const)
-    )
-  ).then((keys) => Object.fromEntries(keys));
-  const uidsToCreate = Object.entries(expectedSamepageToRoam).filter(
-    ([, k]) => !k || !actualTreeMapping[k]
-  );
-  const expectedUids = new Set(
-    Object.values(expectedSamepageToRoam).filter((r) => !!r)
-  );
-  const uidsToDelete = Object.keys(actualTreeMapping).filter(
-    (k) => !expectedUids.has(k)
-  );
-  const uidsToUpdate = Object.entries(expectedSamepageToRoam).filter(
-    ([, k]) => !!actualTreeMapping[k]
-  );
-  // REDUCE
-  const promises = (
-    [initialPromise, viewTypePromise] as (() => Promise<unknown>)[]
-  )
-    .concat(
-      uidsToDelete.map(
-        (uid) => () => deleteBlock(uid).then(() => removeRoamUid(uid))
-      )
-    )
-    .concat(
-      uidsToCreate.map(([samepageUuid, roamUid]) => () => {
-        const { parentUid, order, ...input } =
-          expectedTreeMapping[samepageUuid];
-        const node = roamUid ? { ...input, uid: roamUid } : input;
-        return (
-          parentUid === notebookPageId
-            ? createBlock({
-                parentUid: rootPageUid,
-                order,
-                node,
-              })
-            : createBlock({
-                parentUid: expectedSamepageToRoam[parentUid],
-                order,
-                node,
-              })
-        ).then(
-          (newRoamUid) =>
-            !roamUid &&
-            saveUid(newRoamUid, samepageUuid).then(
-              () => (expectedSamepageToRoam[samepageUuid] = newRoamUid)
-            )
-        );
-      })
-    )
-    .concat(
-      uidsToUpdate.map(([samepageUuid, roamUid]) => () => {
-        const {
-          parentUid: samepageParentUuid,
+  const promises = expectedTree
+    .map((expectedNode, index) => () => {
+      const getLocation = () => {
+        const parentIndex =
+          expectedNode.level === 1
+            ? -1
+            : actualTree
+                .slice(0, index)
+                .reverse()
+                .findIndex((node) => node.level < expectedNode.level);
+        const order = expectedTree
+          .slice(Math.max(0, parentIndex), index)
+          .filter((e) => e.level === expectedNode.level).length;
+        return {
           order,
-          ...node
-        } = expectedTreeMapping[samepageUuid];
-        const parentUid =
-          samepageParentUuid === notebookPageId
-            ? getPageUidByPageTitle(notebookPageId)
-            : expectedSamepageToRoam[samepageParentUuid];
-        const actual = actualTreeMapping[roamUid];
-        if (actual.parentUid !== parentUid || actual.order !== order)
-          window.roamAlphaAPI.moveBlock({
-            block: { uid: roamUid },
-            location: { "parent-uid": parentUid, order },
+          parentUid:
+            parentIndex < 0 ? rootPageUid : actualTree[parentIndex]?.uid || "",
+        };
+      };
+      if (actualTree.length > index) {
+        const actualNode = actualTree[index];
+        const blockUid = actualNode.uid;
+        return updateBlock({ uid: blockUid, text: expectedNode.text })
+          .catch((e) => Promise.reject(`Failed to update block: ${e.message}`))
+          .then(() => {
+            if ((actualNode.level || 0) !== expectedNode.level) {
+              const { parentUid, order } = getLocation();
+              if (parentUid) {
+                return window.roamAlphaAPI
+                  .moveBlock({
+                    location: { "parent-uid": parentUid, order },
+                    block: { uid: actualNode.uid },
+                  })
+                  .then(() => Promise.resolve())
+                  .catch((e) =>
+                    Promise.reject(`Failed to move block: ${e.message}`)
+                  );
+              }
+            }
+            return Promise.resolve();
           });
-        return Promise.all([
-          actual.text !== node.text
-            ? updateBlock({ text: node.text, uid: roamUid })
-            : Promise.resolve(),
-        ]).then(() => Promise.resolve());
-      })
+      } else {
+        const { parentUid, order } = getLocation();
+
+        return createBlock({
+          parentUid,
+          order,
+          node: { text: expectedNode.text },
+        })
+          .then(() => Promise.resolve())
+          .catch((e) => Promise.reject(`Failed to append block: ${e.message}`));
+      }
+    })
+    .concat(
+      actualTree.slice(expectedTree.length).map(
+        (a) => () =>
+          deleteBlock(a.uid)
+            .then(() => Promise.resolve())
+            .catch((e) =>
+              Promise.reject(`Failed to remove block: ${e.message}`)
+            )
+      )
     );
+
   return promises.reduce((p, c) => p.then(c), Promise.resolve<unknown>(""));
 };
 
 const setupSharePageWithNotebook = () => {
   const { unload, updatePage, joinPage, rejectPage, isShared } =
     loadSharePageWithNotebook({
-      getCurrentNotebookPageId:
-        window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid,
+      getCurrentNotebookPageId: () =>
+        window.roamAlphaAPI.ui.mainWindow
+          .getOpenPageOrBlockUid()
+          .then((uid) =>
+            uid
+              ? getPageTitleByPageUid(uid)
+              : window.roamAlphaAPI.util.dateToPageTitle(new Date())
+          ),
       applyState,
       calculateState,
       loadState: async (notebookPageId) =>
@@ -401,12 +310,13 @@ const setupSharePageWithNotebook = () => {
         ),
       overlayProps: {
         viewSharedPageProps: {
-          getLocalPageTitle: async (uid) => getPageTitleByPageUid(uid),
-          onLinkClick: (uid, e) => {
+          onLinkClick: (notebookPageId, e) => {
             if (e.shiftKey) {
-              openBlockInSidebar(uid);
+              openBlockInSidebar(getPageUidByPageTitle(notebookPageId));
             } else {
-              window.roamAlphaAPI.ui.mainWindow.openPage({ page: { uid } });
+              window.roamAlphaAPI.ui.mainWindow.openPage({
+                page: { title: notebookPageId },
+              });
             }
           },
           linkClassName: "rm-page-ref",
@@ -531,7 +441,15 @@ const setupSharePageWithNotebook = () => {
         },
       },
     });
-  let updateTimeout = 0;
+  let refreshRef:
+    | Parameters<typeof window.roamAlphaAPI.data.addPullWatch>
+    | undefined;
+  const clearRefreshRef = () => {
+    if (refreshRef) {
+      window.roamAlphaAPI.data.removePullWatch(...refreshRef);
+      refreshRef = undefined;
+    }
+  };
   const bodyListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (e.metaKey) return;
@@ -540,28 +458,36 @@ const setupSharePageWithNotebook = () => {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
       const notebookPageId = getPageTitleByBlockUid(blockUid);
       if (isShared(notebookPageId)) {
-        window.clearTimeout(updateTimeout);
-        updateTimeout = window.setTimeout(async () => {
-          const doc = await calculateState(notebookPageId);
-          updatePage({
-            notebookPageId,
-            label: `keydown-${e.key}`,
-            callback: (oldDoc) => {
-              oldDoc.content.deleteAt?.(0, oldDoc.content.length);
-              oldDoc.content.insertAt?.(0, ...new Automerge.Text(doc.content));
-              if (!oldDoc.annotations) oldDoc.annotations = [];
-              oldDoc.annotations.splice(0, oldDoc.annotations.length);
-              doc.annotations.forEach((a) => oldDoc.annotations.push(a));
-            },
-          });
-        }, 1000);
+        refreshRef = [
+          "[:db/id]",
+          `[:block/uid "${blockUid}"]`,
+          async () => {
+            clearRefreshRef();
+            const doc = await calculateState(notebookPageId);
+            updatePage({
+              notebookPageId,
+              label: `Refresh`,
+              callback: (oldDoc) => {
+                oldDoc.content.deleteAt?.(0, oldDoc.content.length);
+                oldDoc.content.insertAt?.(
+                  0,
+                  ...new Automerge.Text(doc.content)
+                );
+                if (!oldDoc.annotations) oldDoc.annotations = [];
+                oldDoc.annotations.splice(0, oldDoc.annotations.length);
+                doc.annotations.forEach((a) => oldDoc.annotations.push(a));
+              },
+            });
+          },
+        ];
+        window.roamAlphaAPI.data.addPullWatch(...refreshRef);
       }
     }
   };
   document.body.addEventListener("keydown", bodyListener);
 
   return () => {
-    window.clearTimeout(updateTimeout);
+    clearRefreshRef();
     document.body.removeEventListener("keydown", bodyListener);
     unload();
   };
