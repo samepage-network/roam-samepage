@@ -458,6 +458,7 @@ const setupSharePageWithNotebook = () => {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
       const notebookPageId = getPageTitleByBlockUid(blockUid);
       if (isShared(notebookPageId)) {
+        clearRefreshRef();
         refreshRef = [
           "[:db/id]",
           `[:block/uid "${blockUid}"]`,
