@@ -460,7 +460,7 @@ const setupSharePageWithNotebook = () => {
       if (isShared(notebookPageId)) {
         clearRefreshRef();
         refreshRef = [
-          "[:db/id]",
+          "[:block/string]",
           `[:block/uid "${blockUid}"]`,
           async () => {
             clearRefreshRef();
