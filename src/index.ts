@@ -11,6 +11,12 @@ import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
 
+const IGNORED_LOGS = new Set([
+  "list-pages-success",
+  "load-remote-message",
+  "update-success",
+]);
+
 export default runExtension({
   // migratedTo: "SamePage", // query github
   run: async ({ extensionAPI }) => {
@@ -48,17 +54,20 @@ export default runExtension({
       app: "Roam",
       workspace: window.roamAlphaAPI.graph.name,
     });
-    onAppEvent("log", (evt) =>
-      renderToast({
-        id: evt.id,
-        content: evt.content,
-        intent:
-          evt.intent === "error"
-            ? "danger"
-            : evt.intent === "info"
-            ? "primary"
-            : evt.intent,
-      })
+    onAppEvent(
+      "log",
+      (evt) =>
+        !IGNORED_LOGS.has(evt.id) &&
+        renderToast({
+          id: evt.id,
+          content: evt.content,
+          intent:
+            evt.intent === "error"
+              ? "danger"
+              : evt.intent === "info"
+              ? "primary"
+              : evt.intent,
+        })
     );
     onAppEvent("connection", (evt) => {
       if (evt.status === "PENDING") removeLoadingCallback = renderLoading();
