@@ -8,7 +8,8 @@ import {
   Label,
 } from "@blueprintjs/core";
 import MenuItemSelect from "roamjs-components/components/MenuItemSelect";
-import type { Notebook, Apps, AppId } from "samepage/types";
+import type { Notebook, AppId } from "samepage/types";
+import apps from "samepage/internal/apps";
 
 const GraphMessageDialog = ({
   onClose,
@@ -16,14 +17,12 @@ const GraphMessageDialog = ({
   disabled = false,
   onSubmit,
   title,
-  apps = { 1: { name: "Roam" } },
 }: {
   onClose: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
   onSubmit: (notebooks: Notebook[]) => Promise<void>;
   title: string;
-  apps?: Apps;
 }) => {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [currentApp, setCurrentApp] = useState(Object.keys(apps)[0]);

@@ -1,7 +1,7 @@
 import type { Schema, AppId, InitialSchema } from "samepage/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
 import atJsonParser from "samepage/utils/atJsonParser";
-import { apps } from "samepage/internal/registry";
+import apps from "samepage/internal/apps";
 import type {
   ViewType,
   InputTextNode,
