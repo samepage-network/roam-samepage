@@ -1,0 +1,22 @@
+name: Test Extension
+on:
+  push:
+    branches: main
+    paths:
+      - "tests/**"
+      - ".github/workflows/tests.yaml"
+
+env:
+  ROAM_USERNAME: test@samepage.network
+  ROAM_PASSWORD: ${{ secrets.ROAM_PASSWORD }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: npm install
+      - name: test
+        run: npm t
+      

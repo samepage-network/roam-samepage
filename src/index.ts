@@ -79,7 +79,8 @@ export default runExtension({
     const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);
     const unloadSendPageToGraph = loadSendPageToGraph(api);
 
-    window.roamjs.extension[process.env.ROAMJS_EXTENSION_ID] = window.samepage;
+    // @ts-ignore
+    window.roamjs.extension.samepage = window.samepage;
     return () => {
       unloadSendPageToGraph();
       unloadCopyBlockToGraph();

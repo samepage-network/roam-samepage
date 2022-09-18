@@ -5,14 +5,15 @@
   "main": "./build/main.js",
   "scripts": {
     "postinstall": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
-    "start": "roamjs-scripts dev --depot"
+    "start": "node scripts/dev.js",
+    "test": "node scripts/test.js"
   },
   "license": "MIT",
   "devDependencies": {
-    "roamjs-scripts": "^0.22.1"
+    "roamjs-scripts": "^0.22.5"
   },
   "dependencies": {
     "roamjs-components": "^0.73.8",
-    "samepage": "^0.15.2"
+    "samepage": "^0.16.6"
   }
 }

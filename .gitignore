@@ -7,3 +7,6 @@ out
 RoamJSSamePage.pem
 a.js
 extension.js
+/test-results/
+/playwright-report/
+/playwright/.cache/
