@@ -13,23 +13,22 @@ declare global {
 const enterCommandPaletteCommand = async (page: Page, command: string) => {
   await page.keyboard.press("Meta+p");
   await expect(page.locator(".rm-command-palette")).toBeVisible();
-  await expect(page.locator("*:focus")).toHaveJSProperty("tagName", `input`);
-  await page.locator("*:focus").press("Meta+a");
-  await page.locator("*:focus").press("Backspace");
-  await page.locator("*:focus").type(command);
+  await expect(page.locator("*:focus")).toHaveJSProperty("tagName", `INPUT`);
+  await page.locator("*:focus").fill("");
+  await page.locator("*:focus").fill(command);
   await expect(page.locator(`text=${command}`)).toBeVisible();
   await page.keyboard.press("Enter");
 };
 
 let unload: () => Promise<void>;
-test.afterEach(async () => {
+test.afterEach(async ({ page }) => {
   await unload?.();
 });
 test("Should share a page with the SamePage test app", async ({ page }) => {
   const oldLog = console.log;
   oldLog("Starting test...");
   const samePageClientCallbacks: Record<string, (a: unknown) => unknown> = {
-    log: (data) => oldLog(data),
+    log: ({ data }) => oldLog(data),
     error: (message) => {
       throw new Error(message as string);
     },
@@ -80,8 +79,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   await page.goto("https://roamresearch.com/#/signin");
   await page.locator(".loading-astrolabe");
   expect(page.url(), `page.url()`).toBe("https://roamresearch.com/#/signin");
-  await page.locator("[name=email]").type(process.env.ROAM_USERNAME);
-  await page.locator("[name=password]").type(process.env.ROAM_PASSWORD);
+  await page.locator("[name=email]").fill(process.env.ROAM_USERNAME);
+  await page.locator("[name=password]").fill(process.env.ROAM_PASSWORD);
   await page.locator(".bp3-button").first().click();
   await page.locator(".my-graphs");
   const graph = "samepage-test";
@@ -101,6 +100,13 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     .locator(".bp3-icon-cross")
     .click();
   await enterCommandPaletteCommand(page, "Roam Depot Settings");
+  // why is this happening on headless?
+  await expect(page.locator("text=Installed Extensions"))
+    .toBeVisible()
+    .catch(() =>
+      page.locator('.rm-settings__tab >> text="Roam Depot"').click()
+    );
+
   await page.locator("button.bp3-icon-cog").click();
   await page.locator("text=Enable Developer Mode").click();
   await page.locator("button.bp3-icon-folder-new").click();
@@ -112,7 +118,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   await page.locator("div.roam-article").click({ position: { x: 16, y: 16 } });
   const pageName = `SamePage Test ${v4().slice(0, 8)}`;
   await page.keyboard.press("Meta+Enter");
-  await page.locator("*:focus").type(`[[${pageName}]]`);
+  await page.locator("*:focus").fill(`[[${pageName}]]`);
   await page.keyboard.press("Escape");
   await page
     .locator(`span[data-link-title="${pageName}"]`)
@@ -122,7 +128,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   await page
     .locator("text=Click here to start writing. Type '/' to see commands.")
     .click();
-  await expect(page.locator("*:focus")).toHaveJSProperty("tagName", "textarea");
+  await expect(page.locator("*:focus")).toHaveJSProperty("tagName", "TEXTAREA");
   await page.locator("*:focus").type("This is an automated test case");
   const testClient = await clientReady;
   unload = () =>
@@ -140,20 +146,22 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   );
   await page.locator("text=App").locator("button").click();
   await page.locator(".bp3-menu").locator("text=SamePage").click();
-  await page.locator('input[placeholder="Enter workspace"]').type("test");
+  await page.locator('input[placeholder="Enter workspace"]').fill("test");
   await page.locator(".bp3-icon-plus").click();
   await page.locator(".bp3-toast.bp3-intent-success");
   await clientNotified;
-  await new Promise<unknown>((resolve) => {
-    samePageClientCallbacks["accept"] = resolve;
+  const acceptResponse = new Promise<unknown>((resolve) => {
+    samePageClientCallbacks["accept"] = () => resolve(true);
     testClient.send({ type: "accept", notebookPageId: pageName });
   });
-  const initialAcceptData = await new Promise<unknown>((resolve) => {
-    samePageClientCallbacks["read"] = (value: { data: InitialSchema }) =>
-      resolve(value.data);
-    testClient.send({ type: "read", notebookPageId: pageName });
-  });
-  expect(initialAcceptData, `initialAcceptData`).toEqual({
+  await expect.poll(() => acceptResponse).toBe(true);
+  const testClientRead = () =>
+    new Promise<unknown>((resolve) => {
+      samePageClientCallbacks["read"] = (value: { data: InitialSchema }) =>
+        resolve(value.data);
+      testClient.send({ type: "read", notebookPageId: pageName });
+    });
+  await expect.poll(testClientRead).toEqual({
     content: "This is an automated test case",
     annotations: [
       {
@@ -169,22 +177,20 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     .locator(".bp3-overlay-backdrop")
     .click({ position: { x: 300, y: 16 } });
   await page.locator("text=This is an automated test case").click();
+  await expect(page.locator("*:focus")).toHaveJSProperty("tagName", "TEXTAREA");
   await page.locator("*:focus").press("Meta+ArrowRight");
   await expect(page.locator("*:focus")).toHaveJSProperty(
     "selectionStart",
-    "This is an automated test case".length.toString()
+    "This is an automated test case".length
   );
   await page.locator("*:focus").type(" and we're adding edits.");
   await page.keyboard.press("Enter");
+  await expect(
+    page.locator(".roam-article .rm-block-children .rm-block-main")
+  ).toHaveCount(2);
   await page.locator("*:focus").type("And a new block");
 
-  const readData = () =>
-    new Promise<unknown>((resolve) => {
-      samePageClientCallbacks["read"] = (value: { data: InitialSchema }) =>
-        resolve(value.data);
-      testClient.send({ type: "read", notebookPageId: pageName });
-    });
-  await expect.poll(readData).toEqual({
+  await expect.poll(testClientRead).toEqual({
     content:
       "This is an automated test case and we're adding edits.And a new block",
     annotations: [
@@ -202,19 +208,21 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       },
     ],
   });
-  await new Promise<unknown>((resolve) => {
-    samePageClientCallbacks["insert"] = resolve;
+  await page.keyboard.press("Escape");
+  const insertResponse = new Promise<unknown>((resolve) => {
+    samePageClientCallbacks["insert"] = () => resolve(true);
     testClient.send({
       type: "insert",
       notebookPageId: pageName,
       content: " with a response",
-      index: 15,
+      index: 69,
     });
   });
-  await expect(page.locator(":nth-match(.roam-block, 1)")).toHaveText(
-    "This is an automated test case and we're adding edits."
-  );
-  await expect(page.locator(":nth-match(.roam-block, 2)")).toHaveText(
-    "And a new block with a response"
-  );
+  await expect.poll(() => insertResponse).toBe(true);
+  await expect(
+    page.locator(":nth-match(.roam-article .roam-block, 1)")
+  ).toHaveText("This is an automated test case and we're adding edits.");
+  await expect(
+    page.locator(":nth-match(.roam-article .roam-block, 2)")
+  ).toHaveText("And a new block with a response");
 });
