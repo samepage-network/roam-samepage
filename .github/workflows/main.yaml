@@ -26,14 +26,6 @@ jobs:
       - name: install
         run: npm install
       - name: build
-        run: npx roamjs-scripts build
+        run: node scripts/build.js
       - name: publish
-        run: npx roamjs-scripts publish
-      - name: build:depot
-        run: npx roamjs-scripts build --depot
-      - name: package
-        run: zip -q roam.zip README.md extension.js package.json
-      - name: Deploy to SamePage
-        run: |
-          VERSION=$(cat package.json | grep version | cut -d ':' -f 2 | cut -d '"' -f 2)
-          aws s3 cp roam.zip s3://samepage.network/extensions/roam.zip --metadata Version=$VERSION
+        run: npx samepage publish
