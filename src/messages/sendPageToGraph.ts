@@ -6,9 +6,8 @@ import { InputTextNode } from "roamjs-components/types/native";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
 import { render as pageRender } from "../components/SendPageDialog";
-import type { SamePageApi } from "../types";
 
-const load = (api: SamePageApi) => {
+const load = (api: typeof window.samepage) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Send Page to Graph",
     callback: () => {

@@ -217,8 +217,13 @@ const applyState = async (notebookPageId: string, state: Schema) => {
             ? -1
             : actualTree
                 .slice(0, index)
+                .map((node, originalIndex) => ({
+                  level: node.level,
+                  originalIndex,
+                }))
                 .reverse()
-                .findIndex((node) => node.level < expectedNode.level);
+                .concat([{ level: 0, originalIndex: -1 }])
+                .find(({ level }) => level < expectedNode.level)?.originalIndex;
         const order = expectedTree
           .slice(Math.max(0, parentIndex), index)
           .filter((e) => e.level === expectedNode.level).length;
@@ -242,12 +247,16 @@ const applyState = async (notebookPageId: string, state: Schema) => {
                     location: { "parent-uid": parentUid, order },
                     block: { uid: actualNode.uid },
                   })
-                  .then(() => Promise.resolve())
+                  .then(() => {
+                    actualNode.level = expectedNode.level;
+                    actualNode.order = order;
+                  })
                   .catch((e) =>
                     Promise.reject(`Failed to move block: ${e.message}`)
                   );
               }
             }
+            actualNode.text = expectedNode.text;
             return Promise.resolve();
           });
       } else {

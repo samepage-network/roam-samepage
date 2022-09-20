@@ -5,9 +5,8 @@ import type { InputTextNode } from "roamjs-components/types";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
 import { render as copyRender } from "../components/CopyBlockDialog";
-import type { SamePageApi } from "../types";
 
-const load = (api: SamePageApi) => {
+const load = (api: typeof window.samepage) => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Copy Block to Graph",
     callback: () => {

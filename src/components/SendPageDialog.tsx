@@ -5,12 +5,11 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import GraphMessageDialog from "./GraphMessageDialog";
-import type { SamePageApi } from "../types";
 import type { Notebook } from "samepage/types";
 
 type Props = {
   pageUid: string;
-} & SamePageApi;
+} & typeof window.samepage;
 
 const SendPageAlert = ({
   onClose,

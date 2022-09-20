@@ -6,13 +6,11 @@ import {
 } from "../components/CrossGraphReference";
 import apiClient from "../apiClient";
 import { InputTextNode } from "roamjs-components/types/native";
-import type { SamePageApi } from "../types";
 
 const load = ({
   addNotebookListener,
   removeNotebookListener,
-  sendToNotebook,
-}: SamePageApi) => {
+}: typeof window.samepage) => {
   addNotebookListener({
     operation: "QUERY",
     handler: (e, source) => {

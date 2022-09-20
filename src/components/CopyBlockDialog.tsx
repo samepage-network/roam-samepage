@@ -3,13 +3,12 @@ import { InputGroup, Label } from "@blueprintjs/core";
 import createOverlayRender from "roamjs-components/util/createOverlayRender";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import GraphMessageDialog from "./GraphMessageDialog";
-import type { SamePageApi } from "../types";
 import type { Notebook } from "samepage/types";
 import { PullBlock } from "roamjs-components/types/native";
 
 type Props = {
   blockUid: string;
-} & SamePageApi;
+} & typeof window.samepage;
 
 const CopyBlockDialog = ({
   onClose,
