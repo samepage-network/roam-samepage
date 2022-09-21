@@ -6,10 +6,13 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import { renderLoading } from "roamjs-components/components/Loading";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import addStyle from "roamjs-components/dom/addStyle";
-import setupSharePageWithNotebook from "./messages/sharePageWithNotebook";
+import setupSharePageWithNotebook, {
+  granularChanges,
+} from "./messages/sharePageWithNotebook";
 import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
+import { OnloadArgs } from "roamjs-components/types";
 
 const IGNORED_LOGS = new Set([
   "list-pages-success",
@@ -17,25 +20,38 @@ const IGNORED_LOGS = new Set([
   "update-success",
 ]);
 
+type Action = Parameters<
+  OnloadArgs["extensionAPI"]["settings"]["panel"]["create"]
+>[0]["settings"][number];
+
 export default runExtension({
   // migratedTo: "SamePage", // query github
   run: async ({ extensionAPI }) => {
     extensionAPI.settings.panel.create({
       tabTitle: "SamePage",
       settings: defaultSettings
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          action:
-            s.type === "boolean"
-              ? {
-                  type: "switch" as const,
-                }
-              : undefined,
-        }))
+        .map(
+          (s) =>
+            ({
+              id: s.id,
+              name: s.name,
+              description: s.description,
+              action:
+                s.type === "boolean"
+                  ? {
+                      type: "switch" as const,
+                      onChange: (e) =>
+                        s.id === "granular-changes" &&
+                        (granularChanges.enabled = e.target.checked),
+                    }
+                  : undefined,
+            } as Action)
+        )
         .filter((s) => !!s.action),
     });
+    granularChanges.enabled = !!extensionAPI.settings.get(
+      "granular-changes"
+    );
     addStyle(
       `div.samepage-notification-container { top: 40px; bottom: unset; }`
     );
