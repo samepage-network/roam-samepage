@@ -29,6 +29,6 @@ jobs:
         run: npm t
       - name: ls
         if: always()
-        run: |
-          ls
-          ls playwright-report
+        run: ls playwright-report/data
+      - name: screenshot
+        run: aws cp node_modules/@samepage/testing/test-results/extension-Should-share-a-page-with-the-SamePage-test-app/test-failed-1.png s3://samepage.network/data/screenshots/test-failed-1.png
