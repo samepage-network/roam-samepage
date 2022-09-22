@@ -27,8 +27,6 @@ jobs:
         run: npx playwright install
       - name: test
         run: npm t
-      - name: ls
-        if: always()
-        run: ls playwright-report/data
       - name: screenshot
+        if: always()
         run: aws cp node_modules/@samepage/testing/test-results/extension-Should-share-a-page-with-the-SamePage-test-app/test-failed-1.png s3://samepage.network/data/screenshots/test-failed-1.png
