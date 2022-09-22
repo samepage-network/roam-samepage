@@ -24,4 +24,7 @@ jobs:
       - name: test
         run: npm t
       - name: ls
-        run: ls
+        if: always()
+        run: |
+          ls
+          ls playwright-report
