@@ -9,6 +9,8 @@ on:
 env:
   ROAM_USERNAME: test@samepage.network
   ROAM_PASSWORD: ${{ secrets.ROAM_PASSWORD }}
+  API_URL: https://api.samepage.network
+  WEB_SOCKET_URL: wss://ws.samepage.network
 
 jobs:
   deploy:
@@ -21,3 +23,5 @@ jobs:
         run: npx playwright install
       - name: test
         run: npm t
+      - name: ls
+        run: ls
