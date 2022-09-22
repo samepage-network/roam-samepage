@@ -49,9 +49,7 @@ export default runExtension({
         )
         .filter((s) => !!s.action),
     });
-    granularChanges.enabled = !!extensionAPI.settings.get(
-      "granular-changes"
-    );
+    granularChanges.enabled = !!extensionAPI.settings.get("granular-changes");
     addStyle(
       `div.samepage-notification-container { top: 40px; bottom: unset; }`
     );
@@ -97,6 +95,7 @@ export default runExtension({
 
     // @ts-ignore
     window.roamjs.extension.samepage = window.samepage;
+    window.roamjs.extension.testing = { deploy: () => true };
     return () => {
       unloadSendPageToGraph();
       unloadCopyBlockToGraph();

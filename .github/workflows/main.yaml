@@ -30,7 +30,3 @@ jobs:
         run: npx roamjs-scripts build --labs
       - name: publish (SamePage)
         run: npx samepage publish --domain samepage.network/extensions --path roam
-      # instead of publishing in two places, figure out
-      # a way to point the RoamJS link to SamePage
-      # - name: publish (RoamJS)
-      #   run: npx roamjs-scripts publish --labs
