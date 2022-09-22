@@ -96,9 +96,6 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   const graph = "samepage-test";
   await test.step("Navigate to test graph", async () => {
     await page.goto(`https://roamresearch.com/#/offline/${graph}`);
-    // await expect(page.locator(".loading-astrolabe")).toBeVisible().catch(() => {
-    //   // in the rare case that Roam has already loaded
-    // });
     await expect(page.locator("h1")).toBeVisible();
     await page
       .locator("text=Local graphs live in your browser's local storage")
