@@ -51,7 +51,11 @@ export default runExtension({
     });
     granularChanges.enabled = !!extensionAPI.settings.get("granular-changes");
     addStyle(
-      `div.samepage-notification-container { top: 40px; bottom: unset; }`
+      `div.samepage-notification-container { top: 40px; bottom: unset; } 
+
+.samepage-shared-page-status img {
+  margin: 0;
+}`
     );
 
     let removeLoadingCallback: () => void;

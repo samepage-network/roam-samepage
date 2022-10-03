@@ -4,7 +4,6 @@ import atJsonParser from "samepage/utils/atJsonParser";
 import apps from "samepage/internal/apps";
 import type {
   ViewType,
-  InputTextNode,
   TreeNode,
   PullBlock,
 } from "roamjs-components/types/native";
@@ -26,7 +25,6 @@ import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBloc
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import Automerge from "automerge";
 import { openDB, IDBPDatabase } from "idb";
-import { v4 } from "uuid";
 import blockGrammar from "../utils/blockGrammar";
 
 let db: IDBPDatabase;
@@ -349,7 +347,6 @@ const setupSharePageWithNotebook = () => {
               joinPage({
                 pageUuid,
                 notebookPageId: title,
-                source: { app: Number(app) as AppId, workspace },
               })
                 .then(() => {
                   const todayUid = window.roamAlphaAPI.util.dateToPageUid(
@@ -373,10 +370,9 @@ const setupSharePageWithNotebook = () => {
                   return Promise.reject(e);
                 })
             ),
-          reject: async ({ workspace, app, pageUuid }) =>
+          reject: async ({ title }) =>
             rejectPage({
-              source: { app: Number(app) as AppId, workspace },
-              pageUuid,
+              notebookPageId: title
             }),
         },
         api: {
