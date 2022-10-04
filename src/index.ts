@@ -13,6 +13,7 @@ import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
 import { OnloadArgs } from "roamjs-components/types";
+import React from "react";
 
 const IGNORED_LOGS = new Set([
   "list-pages-success",
@@ -26,28 +27,45 @@ type Action = Parameters<
 
 export default runExtension({
   // migratedTo: "SamePage", // query github
-  run: async ({ extensionAPI }) => {
+  run: async ({ extensionAPI, extension }) => {
     extensionAPI.settings.panel.create({
       tabTitle: "SamePage",
-      settings: defaultSettings
-        .map(
-          (s) =>
-            ({
-              id: s.id,
-              name: s.name,
-              description: s.description,
-              action:
-                s.type === "boolean"
-                  ? {
-                      type: "switch" as const,
-                      onChange: (e) =>
-                        s.id === "granular-changes" &&
-                        (granularChanges.enabled = e.target.checked),
-                    }
-                  : undefined,
-            } as Action)
-        )
-        .filter((s) => !!s.action),
+      settings: [
+        {
+          id: "display-version",
+          name: "Version",
+          description: "The SamePage published version of this extension",
+          action: {
+            type: "reactComponent",
+            component: () =>
+              React.createElement(
+                "span",
+                {},
+                process.env.VERSION || extension.version
+              ),
+          },
+        } as Action,
+      ].concat(
+        defaultSettings
+          .map(
+            (s) =>
+              ({
+                id: s.id,
+                name: s.name,
+                description: s.description,
+                action:
+                  s.type === "boolean"
+                    ? {
+                        type: "switch" as const,
+                        onChange: (e) =>
+                          s.id === "granular-changes" &&
+                          (granularChanges.enabled = e.target.checked),
+                      }
+                    : undefined,
+              } as Action)
+          )
+          .filter((s) => !!s.action)
+      ),
     });
     granularChanges.enabled = !!extensionAPI.settings.get("granular-changes");
     addStyle(

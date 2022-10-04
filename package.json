@@ -1,6 +1,6 @@
 {
   "name": "roam-samepage",
-  "version": "1.2.8",
+  "version": "2022-10-04-16-47",
   "description": "Official Roam client into the inter-TFT-protocol",
   "main": "./build/main.js",
   "scripts": {
@@ -12,10 +12,10 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "roamjs-scripts": "^0.23.9"
+    "roamjs-scripts": "^0.23.12"
   },
   "dependencies": {
     "roamjs-components": "^0.73.8",
-    "samepage": "^0.18.7"
+    "samepage": "^0.19.0"
   }
 }
