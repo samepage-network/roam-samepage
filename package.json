@@ -1,13 +1,13 @@
 {
   "name": "roam-samepage",
-  "version": "2022-10-05-12-36",
+  "version": "test",
   "description": "Official Roam client into the inter-TFT-protocol",
   "main": "./build/main.js",
   "scripts": {
     "prebuild:roam": "npm install",
-    "build:roam": "roamjs-scripts dev --labs",
-    "postinstall": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
+    "build:roam": "roamjs-scripts build --labs",
     "start": "roamjs-scripts dev --labs",
+    "pretest": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
     "test": "roamjs-scripts test"
   },
   "license": "MIT",
@@ -16,6 +16,6 @@
   },
   "dependencies": {
     "roamjs-components": "^0.73.8",
-    "samepage": "^0.19.3"
+    "samepage": "^0.20.2"
   }
 }

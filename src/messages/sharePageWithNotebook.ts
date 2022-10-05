@@ -26,6 +26,7 @@ import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import Automerge from "automerge";
 import { openDB, IDBPDatabase } from "idb";
 import blockGrammar from "../utils/blockGrammar";
+import renderAtJson from "samepage/utils/renderAtJson";
 
 let db: IDBPDatabase;
 const openIdb = async () =>
@@ -165,59 +166,32 @@ const applyState = async (notebookPageId: string, state: Schema) => {
       start: a.start - offset,
       end: a.end - offset,
     }));
-    const annotatedText = normalizedAnnotations
-      .map((annotation, index) => ({ annotation, index }))
-      .sort((a, b) => {
-        const asize = a.annotation.end - a.annotation.start;
-        const bsize = b.annotation.end - b.annotation.start;
-        return bsize - asize || a.index - b.index;
-      })
-      .map(({ annotation }) => annotation)
-      .reduce((p, c, index, all) => {
-        const appliedAnnotation =
-          c.type === "bold"
-            ? {
-                prefix: "**",
-                suffix: `**`,
-              }
-            : c.type === "highlighting"
-            ? {
-                prefix: "^^",
-                suffix: `^^`,
-              }
-            : c.type === "italics"
-            ? {
-                prefix: "__",
-                suffix: `__`,
-              }
-            : c.type === "strikethrough"
-            ? {
-                prefix: "~~",
-                suffix: `~~`,
-              }
-            : c.type === "link"
-            ? {
-                prefix: "[",
-                suffix: `](${c.attributes.href})`,
-              }
-            : { prefix: "", suffix: "" };
-        const annotatedContent = p.slice(c.start, c.end);
-        const isEmptyAnnotation = annotatedContent === String.fromCharCode(0);
-        all.slice(index + 1).forEach((a) => {
-          a.start +=
-            (a.start >= c.start ? appliedAnnotation.prefix.length : 0) +
-            (a.start >= c.end ? appliedAnnotation.suffix.length : 0) +
-            (isEmptyAnnotation && a.start >= c.end ? -1 : 0);
-          a.end +=
-            (a.end >= c.start ? appliedAnnotation.prefix.length : 0) +
-            (a.end >= c.end ? appliedAnnotation.suffix.length : 0) +
-            (isEmptyAnnotation && a.end > c.end ? -1 : 0);
-        });
-        return `${p.slice(0, c.start)}${appliedAnnotation.prefix}${
-          isEmptyAnnotation ? "" : annotatedContent
-        }${appliedAnnotation.suffix}${p.slice(c.end)}`;
-      }, block.text);
-    block.text = annotatedText;
+    block.text = renderAtJson({
+      state: { content: block.text, annotations: normalizedAnnotations },
+      applyAnnotation: {
+        bold: {
+          prefix: "**",
+          suffix: `**`,
+        },
+        highlighting: {
+          prefix: "^^",
+          suffix: `^^`,
+        },
+        italics: {
+          prefix: "__",
+          suffix: `__`,
+        },
+        strikethrough: {
+          prefix: "~~",
+          suffix: `~~`,
+        },
+        link: ({ href }) => ({
+          prefix: "[",
+          suffix: `](${href})`,
+        }),
+        image: ({ src }) => ({ prefix: "![", suffix: `](${src})` }),
+      },
+    });
   });
   const actualTree = flattenTree(
     getFullTreeByParentUid(rootPageUid).children,
@@ -479,7 +453,36 @@ const setupSharePageWithNotebook = () => {
       refreshRef = undefined;
     }
   };
-  const bodyListener = (e: KeyboardEvent) => {
+  const refreshState = ({
+    blockUid,
+    notebookPageId,
+  }: {
+    blockUid: string;
+    notebookPageId: string;
+  }) => {
+    refreshRef = [
+      "[:block/string]",
+      `[:block/uid "${blockUid}"]`,
+      async () => {
+        clearRefreshRef();
+        const doc = calculateState(notebookPageId);
+        updatePage({
+          notebookPageId,
+          label: `Refresh`,
+          callback: (oldDoc) => {
+            oldDoc.content.deleteAt?.(0, oldDoc.content.length);
+            oldDoc.content.insertAt?.(0, ...new Automerge.Text(doc.content));
+            if (!oldDoc.annotations) oldDoc.annotations = [];
+            oldDoc.annotations.splice(0, oldDoc.annotations.length);
+            doc.annotations.forEach((a) => oldDoc.annotations.push(a));
+          },
+        });
+        // refreshContent();
+      },
+    ];
+    window.roamAlphaAPI.data.addPullWatch(...refreshRef);
+  };
+  const bodyKeydownListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (e.metaKey) return;
     if (/^Arrow/.test(e.key)) return;
@@ -536,39 +539,29 @@ const setupSharePageWithNotebook = () => {
                 : Math.abs(selectionEnd - selectionStart),
           });
         } else {
-          refreshRef = [
-            "[:block/string]",
-            `[:block/uid "${blockUid}"]`,
-            async () => {
-              clearRefreshRef();
-              const doc = await calculateState(notebookPageId);
-              updatePage({
-                notebookPageId,
-                label: `Refresh`,
-                callback: (oldDoc) => {
-                  oldDoc.content.deleteAt?.(0, oldDoc.content.length);
-                  oldDoc.content.insertAt?.(
-                    0,
-                    ...new Automerge.Text(doc.content)
-                  );
-                  if (!oldDoc.annotations) oldDoc.annotations = [];
-                  oldDoc.annotations.splice(0, oldDoc.annotations.length);
-                  doc.annotations.forEach((a) => oldDoc.annotations.push(a));
-                },
-              });
-              // refreshContent();
-            },
-          ];
-          window.roamAlphaAPI.data.addPullWatch(...refreshRef);
+          refreshState({ blockUid, notebookPageId });
         }
       }
     }
   };
-  document.body.addEventListener("keydown", bodyListener);
+  document.body.addEventListener("keydown", bodyKeydownListener);
+  const bodyPasteListener = (e: ClipboardEvent) => {
+    const el = e.target as HTMLElement;
+    if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
+      const { blockUid } = getUids(el as HTMLTextAreaElement);
+      const notebookPageId = getPageTitleByBlockUid(blockUid);
+      if (isShared(notebookPageId)) {
+        clearRefreshRef();
+        refreshState({ blockUid, notebookPageId });
+      }
+    }
+  };
+  document.body.addEventListener("paste", bodyPasteListener);
 
   return () => {
     clearRefreshRef();
-    document.body.removeEventListener("keydown", bodyListener);
+    document.body.removeEventListener("keydown", bodyKeydownListener);
+    document.body.removeEventListener("paste", bodyPasteListener);
     unload();
   };
 };

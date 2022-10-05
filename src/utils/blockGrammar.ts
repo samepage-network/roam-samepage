@@ -12,6 +12,7 @@ declare var rightBracket: any;
 declare var leftParen: any;
 declare var url: any;
 declare var rightParen: any;
+declare var exclamationMark: any;
 declare var text: any;
 declare var star: any;
 declare var carot: any;
@@ -23,13 +24,14 @@ import {
    createBoldToken,
    createHighlightingToken,
    createItalicsToken,
-   createLinkToken,
    createStrikethroughToken,
    createTextToken,
-   disambiguateTokens,
+   createImageToken,
+   createLinkToken,
 } from "samepage/utils/atJsonTokens";
-
-const lexer = compileLexer({});
+import lexer, {
+   disambiguateTokens,
+} from "./blockLexer";
 
 interface NearleyToken {
   value: any;
@@ -163,6 +165,9 @@ const grammar: Grammar = {
     {"name": "token", "symbols": [(lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder), "tokens", (lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder)], "postprocess": createItalicsToken},
     {"name": "token", "symbols": [(lexer.has("boldStar") ? {type: "boldStar"} : boldStar), "tokens", (lexer.has("boldStar") ? {type: "boldStar"} : boldStar)], "postprocess": createBoldToken},
     {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "tokens", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createLinkToken},
+    {"name": "token$subexpression$1", "symbols": ["tokens"], "postprocess": id},
+    {"name": "token$subexpression$1", "symbols": [], "postprocess": id},
+    {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "token$subexpression$1", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createImageToken},
     {"name": "token", "symbols": [(lexer.has("text") ? {type: "text"} : text)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("star") ? {type: "star"} : star)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("carot") ? {type: "carot"} : carot)], "postprocess": createTextToken},
@@ -171,7 +176,9 @@ const grammar: Grammar = {
     {"name": "token", "symbols": [(lexer.has("leftParen") ? {type: "leftParen"} : leftParen)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createTextToken},
-    {"name": "token", "symbols": [(lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket)], "postprocess": createTextToken}
+    {"name": "token", "symbols": [(lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket)], "postprocess": createTextToken},
+    {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark)], "postprocess": createTextToken},
+    {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createTextToken}
   ],
   ParserStart: "main",
 };
