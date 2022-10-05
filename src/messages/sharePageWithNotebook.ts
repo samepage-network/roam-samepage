@@ -52,7 +52,12 @@ const toAtJson = ({
 }): InitialSchema => {
   return nodes
     .map((n) => (index: number) => {
-      const { content, annotations } = atJsonParser(blockGrammar, n.text);
+      const { content, annotations } = n.text
+        ? atJsonParser(blockGrammar, n.text)
+        : {
+            content: String.fromCharCode(0),
+            annotations: [],
+          };
       const end = content.length + index;
       const blockAnnotation: Schema["annotations"] = [
         {
@@ -160,47 +165,58 @@ const applyState = async (notebookPageId: string, state: Schema) => {
       start: a.start - offset,
       end: a.end - offset,
     }));
-    const annotatedText = normalizedAnnotations.reduce((p, c, index, all) => {
-      const appliedAnnotation =
-        c.type === "bold"
-          ? {
-              prefix: "**",
-              suffix: `**`,
-            }
-          : c.type === "highlighting"
-          ? {
-              prefix: "^^",
-              suffix: `^^`,
-            }
-          : c.type === "italics"
-          ? {
-              prefix: "__",
-              suffix: `__`,
-            }
-          : c.type === "strikethrough"
-          ? {
-              prefix: "~~",
-              suffix: `~~`,
-            }
-          : c.type === "link"
-          ? {
-              prefix: "[",
-              suffix: `](${c.attributes.href})`,
-            }
-          : { prefix: "", suffix: "" };
-      all.slice(index + 1).forEach((a) => {
-        a.start +=
-          (a.start >= c.start ? appliedAnnotation.prefix.length : 0) +
-          (a.start >= c.end ? appliedAnnotation.suffix.length : 0);
-        a.end +=
-          (a.end >= c.start ? appliedAnnotation.prefix.length : 0) +
-          (a.end > c.end ? appliedAnnotation.suffix.length : 0);
-      });
-      return `${p.slice(0, c.start)}${appliedAnnotation.prefix}${p.slice(
-        c.start,
-        c.end
-      )}${appliedAnnotation.suffix}${p.slice(c.end)}`;
-    }, block.text);
+    const annotatedText = normalizedAnnotations
+      .map((annotation, index) => ({ annotation, index }))
+      .sort((a, b) => {
+        const asize = a.annotation.end - a.annotation.start;
+        const bsize = b.annotation.end - b.annotation.start;
+        return bsize - asize || a.index - b.index;
+      })
+      .map(({ annotation }) => annotation)
+      .reduce((p, c, index, all) => {
+        const appliedAnnotation =
+          c.type === "bold"
+            ? {
+                prefix: "**",
+                suffix: `**`,
+              }
+            : c.type === "highlighting"
+            ? {
+                prefix: "^^",
+                suffix: `^^`,
+              }
+            : c.type === "italics"
+            ? {
+                prefix: "__",
+                suffix: `__`,
+              }
+            : c.type === "strikethrough"
+            ? {
+                prefix: "~~",
+                suffix: `~~`,
+              }
+            : c.type === "link"
+            ? {
+                prefix: "[",
+                suffix: `](${c.attributes.href})`,
+              }
+            : { prefix: "", suffix: "" };
+        const annotatedContent = p.slice(c.start, c.end);
+        const isEmptyAnnotation = annotatedContent === String.fromCharCode(0);
+        all.slice(index + 1).forEach((a) => {
+          a.start +=
+            (a.start >= c.start ? appliedAnnotation.prefix.length : 0) +
+            (a.start >= c.end ? appliedAnnotation.suffix.length : 0) +
+            (isEmptyAnnotation && a.start >= c.end ? -1 : 0);
+          a.end +=
+            (a.end >= c.start ? appliedAnnotation.prefix.length : 0) +
+            (a.end >= c.end ? appliedAnnotation.suffix.length : 0) +
+            (isEmptyAnnotation && a.end > c.end ? -1 : 0);
+        });
+        return `${p.slice(0, c.start)}${appliedAnnotation.prefix}${
+          isEmptyAnnotation ? "" : annotatedContent
+        }${appliedAnnotation.suffix}${p.slice(c.end)}`;
+      }, block.text);
     block.text = annotatedText;
   });
   const actualTree = flattenTree(
@@ -372,7 +388,7 @@ const setupSharePageWithNotebook = () => {
             ),
           reject: async ({ title }) =>
             rejectPage({
-              notebookPageId: title
+              notebookPageId: title,
             }),
         },
         api: {
