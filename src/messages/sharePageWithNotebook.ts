@@ -1,4 +1,4 @@
-import type { Schema, AppId, InitialSchema } from "samepage/types";
+import type { Schema, InitialSchema } from "samepage/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
 import atJsonParser from "samepage/utils/atJsonParser";
 import apps from "samepage/internal/apps";
@@ -27,6 +27,7 @@ import Automerge from "automerge";
 import { openDB, IDBPDatabase } from "idb";
 import blockGrammar from "../utils/blockGrammar";
 import renderAtJson from "samepage/utils/renderAtJson";
+import getPageViewType from "roamjs-components/queries/getPageViewType";
 
 let db: IDBPDatabase;
 const openIdb = async () =>
@@ -53,12 +54,13 @@ const toAtJson = ({
 }): InitialSchema => {
   return nodes
     .map((n) => (index: number) => {
-      const { content, annotations } = n.text
+      const { content: _content, annotations } = n.text
         ? atJsonParser(blockGrammar, n.text)
         : {
             content: String.fromCharCode(0),
             annotations: [],
           };
+      const content = `${_content || String.fromCharCode(0)}\n`;
       const end = content.length + index;
       const blockAnnotation: Schema["annotations"] = [
         {
@@ -106,13 +108,15 @@ const toAtJson = ({
     );
 };
 
-const flattenTree = <T extends { children?: T[] }>(
+// In Roam, the view type of a block is actually determined by its parent.
+const flattenTree = <T extends { children?: T[]; viewType?: ViewType }>(
   tree: T[],
-  level: number
+  level: number,
+  viewType: ViewType
 ): (Omit<T, "children"> & { level: number })[] =>
   tree.flatMap(({ children = [], ...t }) => [
-    { ...t, level },
-    ...flattenTree(children, level + 1),
+    { ...t, level, viewType },
+    ...flattenTree(children, level + 1, t.viewType || viewType),
   ]);
 
 const calculateState = (notebookPageId: string) => {
@@ -127,6 +131,7 @@ const calculateState = (notebookPageId: string) => {
 type SamepageNode = {
   text: string;
   level: number;
+  viewType: ViewType;
   annotation: {
     start: number;
     end: number;
@@ -140,8 +145,12 @@ const applyState = async (notebookPageId: string, state: Schema) => {
   state.annotations.forEach((anno) => {
     if (anno.type === "block") {
       const currentBlock: SamepageNode = {
-        text: state.content.slice(anno.start, anno.end).join(""),
+        text: state.content
+          .slice(anno.start, anno.end)
+          .join("")
+          .replace(/\n$/, ""),
         level: anno.attributes.level,
+        viewType: anno.attributes.viewType,
         annotation: {
           start: anno.start,
           end: anno.end,
@@ -193,9 +202,11 @@ const applyState = async (notebookPageId: string, state: Schema) => {
       },
     });
   });
+  const pageViewType = getPageViewType(notebookPageId);
   const actualTree = flattenTree(
     getFullTreeByParentUid(rootPageUid).children,
-    1
+    1,
+    pageViewType
   );
   const promises = expectedTree
     .map((expectedNode, index) => () => {
@@ -226,11 +237,11 @@ const applyState = async (notebookPageId: string, state: Schema) => {
         const blockUid = actualNode.uid;
         return updateBlock({ uid: blockUid, text: expectedNode.text })
           .catch((e) => Promise.reject(`Failed to update block: ${e.message}`))
-          .then(() => {
+          .then(async () => {
             if ((actualNode.level || 0) !== expectedNode.level) {
               const { parentUid, order } = getLocation();
               if (parentUid) {
-                return window.roamAlphaAPI
+                await window.roamAlphaAPI
                   .moveBlock({
                     location: { "parent-uid": parentUid, order },
                     block: { uid: actualNode.uid },
@@ -243,6 +254,9 @@ const applyState = async (notebookPageId: string, state: Schema) => {
                     Promise.reject(`Failed to move block: ${e.message}`)
                   );
               }
+            }
+            if (actualNode.viewType !== expectedNode.viewType) {
+              // we'll want to resolve this some how
             }
             actualNode.text = expectedNode.text;
             return Promise.resolve();
