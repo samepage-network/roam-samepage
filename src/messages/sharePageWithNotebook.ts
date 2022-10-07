@@ -108,16 +108,22 @@ const toAtJson = ({
     );
 };
 
+type TreeNodeWithLevel = Omit<TreeNode, "children"> & {
+  level: number;
+  children: TreeNodeWithLevel[];
+};
+
 // In Roam, the view type of a block is actually determined by its parent.
-const flattenTree = <T extends { children?: T[]; viewType?: ViewType }>(
-  tree: T[],
+const flattenTree = (
+  tree: TreeNode[],
   level: number,
   viewType: ViewType
-): (Omit<T, "children"> & { level: number })[] =>
-  tree.flatMap(({ children = [], ...t }) => [
-    { ...t, level, viewType },
-    ...flattenTree(children, level + 1, t.viewType || viewType),
-  ]);
+): TreeNodeWithLevel[] => {
+  return tree.flatMap((t) => {
+    const children = flattenTree(t.children, level + 1, t.viewType || viewType);
+    return [{ ...t, level, viewType, children }, ...children];
+  });
+};
 
 const calculateState = (notebookPageId: string) => {
   const pageUid = getPageUidByPageTitle(notebookPageId);
@@ -126,6 +132,13 @@ const calculateState = (notebookPageId: string) => {
     nodes: node.children,
     viewType: node.viewType || "bullet",
   });
+};
+
+const updateLevel = (t: TreeNodeWithLevel, level: number) => {
+  t.level = level;
+  (t.children || []).forEach(
+    (t) => !Array.isArray(t) && updateLevel(t, level + 1)
+  );
 };
 
 type SamepageNode = {
@@ -247,7 +260,7 @@ const applyState = async (notebookPageId: string, state: Schema) => {
                     block: { uid: actualNode.uid },
                   })
                   .then(() => {
-                    actualNode.level = expectedNode.level;
+                    updateLevel(actualNode, expectedNode.level);
                     actualNode.order = order;
                   })
                   .catch((e) =>
@@ -583,11 +596,17 @@ const setupSharePageWithNotebook = () => {
           .closest(".rm-block-main")
           .querySelector(".roam-block, .rm-block-text")
       );
-      const notebookPageId = getPageTitleByBlockUid(blockUid);
-      if (isShared(notebookPageId)) {
-        clearRefreshRef();
-        refreshState({ blockUid, notebookPageId });
+      if (blockUid) {
+        const notebookPageId = getPageTitleByBlockUid(blockUid);
+        if (isShared(notebookPageId)) {
+          clearRefreshRef();
+          refreshState({ blockUid, notebookPageId });
+        }
+      } else {
+        console.log("bad block uid", el);
       }
+    } else {
+      console.log("bad el", el);
     }
   };
   document.body.addEventListener("dragend", dragEndListener);
