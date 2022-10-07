@@ -470,12 +470,14 @@ const setupSharePageWithNotebook = () => {
   const refreshState = ({
     blockUid,
     notebookPageId,
+    pull = "[*]",
   }: {
     blockUid: string;
     notebookPageId: string;
+    pull?: string;
   }) => {
     refreshRef = [
-      "[:block/string]",
+      pull,
       `[:block/uid "${blockUid}"]`,
       async () => {
         clearRefreshRef();
@@ -553,12 +555,13 @@ const setupSharePageWithNotebook = () => {
                 : Math.abs(selectionEnd - selectionStart),
           });
         } else {
-          refreshState({ blockUid, notebookPageId });
+          refreshState({ blockUid, notebookPageId, pull: "[:block/string]" });
         }
       }
     }
   };
   document.body.addEventListener("keydown", bodyKeydownListener);
+
   const bodyPasteListener = (e: ClipboardEvent) => {
     const el = e.target as HTMLElement;
     if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
@@ -566,16 +569,34 @@ const setupSharePageWithNotebook = () => {
       const notebookPageId = getPageTitleByBlockUid(blockUid);
       if (isShared(notebookPageId)) {
         clearRefreshRef();
-        refreshState({ blockUid, notebookPageId });
+        refreshState({ blockUid, notebookPageId, pull: "[:block/string]" });
       }
     }
   };
   document.body.addEventListener("paste", bodyPasteListener);
 
+  const dragEndListener = (e: DragEvent) => {
+    const el = e.target as HTMLElement;
+    if (el.tagName === "SPAN" && el.classList.contains("rm-bullet")) {
+      const { blockUid } = getUids(
+        el
+          .closest(".rm-block-main")
+          .querySelector(".roam-block, .rm-block-text")
+      );
+      const notebookPageId = getPageTitleByBlockUid(blockUid);
+      if (isShared(notebookPageId)) {
+        clearRefreshRef();
+        refreshState({ blockUid, notebookPageId });
+      }
+    }
+  };
+  document.body.addEventListener("dragend", dragEndListener);
+
   return () => {
     clearRefreshRef();
     document.body.removeEventListener("keydown", bodyKeydownListener);
     document.body.removeEventListener("paste", bodyPasteListener);
+    document.body.removeEventListener("dragend", dragEndListener);
     unload();
   };
 };
