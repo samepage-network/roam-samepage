@@ -24,22 +24,9 @@ import getSubTree from "roamjs-components/util/getSubTree";
 import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import Automerge from "automerge";
-import { openDB, IDBPDatabase } from "idb";
 import blockGrammar from "../utils/blockGrammar";
 import renderAtJson from "samepage/utils/renderAtJson";
 import getPageViewType from "roamjs-components/queries/getPageViewType";
-
-let db: IDBPDatabase;
-const openIdb = async () =>
-  db ||
-  (db = await openDB("samepage", 3, {
-    upgrade(db) {
-      const names = new Set(db.objectStoreNames);
-      ["pages"]
-        .filter((s) => !names.has(s))
-        .forEach((s) => db.createObjectStore(s));
-    },
-  }));
 
 const toAtJson = ({
   nodes,
@@ -323,25 +310,6 @@ const setupSharePageWithNotebook = () => {
         ),
     applyState,
     calculateState: async (...args) => calculateState(...args),
-    loadState: async (notebookPageId) =>
-      openIdb().then((db) =>
-        db.get("pages", `${window.roamAlphaAPI.graph.name}/${notebookPageId}`)
-      ),
-    saveState: async (notebookPageId, state) =>
-      openIdb().then((db) =>
-        db.put(
-          "pages",
-          state,
-          `${window.roamAlphaAPI.graph.name}/${notebookPageId}`
-        )
-      ),
-    removeState: async (notebookPageId) =>
-      openIdb().then((db) =>
-        db.delete(
-          "pages",
-          `${window.roamAlphaAPI.graph.name}/${notebookPageId}`
-        )
-      ),
     overlayProps: {
       viewSharedPageProps: {
         onLinkClick: (notebookPageId, e) => {
