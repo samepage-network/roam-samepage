@@ -326,7 +326,7 @@ const setupSharePageWithNotebook = () => {
       },
       notificationContainerProps: {
         actions: {
-          accept: ({ app, workspace, pageUuid, title }) =>
+          accept: ({ pageUuid, title }) =>
             // TODO support block or page tree as a user action
             createPage({ title }).then((rootPageUid) =>
               joinPage({
@@ -334,19 +334,9 @@ const setupSharePageWithNotebook = () => {
                 notebookPageId: title,
               })
                 .then(() => {
-                  const todayUid = window.roamAlphaAPI.util.dateToPageUid(
-                    new Date()
-                  );
-                  const order = getChildrenLengthByParentUid(todayUid);
-                  return createBlock({
-                    node: {
-                      text: `Accepted page [[${title}]] from ${
-                        apps[Number(app)].name
-                      } / ${workspace}`,
-                    },
-                    parentUid: todayUid,
-                    order,
-                  }).then(() => Promise.resolve());
+                  return window.roamAlphaAPI.ui.mainWindow.openPage({
+                    page: { title },
+                  });
                 })
                 .catch((e) => {
                   window.roamAlphaAPI.deletePage({
