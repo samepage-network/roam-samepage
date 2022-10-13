@@ -178,7 +178,7 @@ const grammar: Grammar = {
     {"name": "token", "symbols": [(lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark)], "postprocess": createTextToken},
-    {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createTextToken}
+    {"name": "token", "symbols": [(lexer.has("url") ? {type: "url"} : url)], "postprocess": createTextToken}
   ],
   ParserStart: "main",
 };

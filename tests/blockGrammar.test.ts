@@ -134,3 +134,11 @@ test(
     ],
   })
 );
+
+test(
+  "Start with link",
+  runTest("https://samepage.network", {
+    content: "https://samepage.network",
+    annotations: [],
+  })
+);

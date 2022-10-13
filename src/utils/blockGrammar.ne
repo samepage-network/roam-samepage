@@ -40,4 +40,4 @@ token -> %highlight tokens %highlight {% createHighlightingToken %}
    | %rightParen {% createTextToken %}
    | %rightBracket {% createTextToken %}
    | %exclamationMark {% createTextToken %}
-   | %leftBracket %rightBracket %leftParen %url %rightParen {% createTextToken %}
+   | %url {% createTextToken %}
