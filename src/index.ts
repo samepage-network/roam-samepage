@@ -26,7 +26,7 @@ type Action = Parameters<
 >[0]["settings"][number];
 
 export default runExtension({
-  // migratedTo: "SamePage", // query github
+  // migratedTo: "SamePage",
   run: async ({ extensionAPI, extension }) => {
     extensionAPI.settings.panel.create({
       tabTitle: "SamePage",
@@ -61,6 +61,11 @@ export default runExtension({
                           s.id === "granular-changes" &&
                           (granularChanges.enabled = e.target.checked),
                       }
+                    : s.type === "string"
+                    ? {
+                        type: "input",
+                        placeholder: s.default,
+                      }
                     : undefined,
               } as Action)
           )
@@ -78,14 +83,15 @@ export default runExtension({
 
     let removeLoadingCallback: () => void;
     const { unload: unloadSamePageClient, ...api } = setupSamePageClient({
-      isAutoConnect: extensionAPI.settings.get("auto-connect") as boolean,
+      getSetting: (s) => (extensionAPI.settings.get(s) as string) || "",
+      setSetting: (s, v) => extensionAPI.settings.set(s, v),
       addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
       removeCommand: window.roamAlphaAPI.ui.commandPalette.removeCommand,
       renderOverlay: (args) => {
         if (args.id && args.id.startsWith("samepage-shared")) {
-          return renderOverlay({ ...args, before: 1 });
+          return renderOverlay({ ...args, before: 1 }) || (() => {});
         }
-        return renderOverlay(args);
+        return renderOverlay(args) || (() => {});
       },
       app: "Roam",
       workspace: window.roamAlphaAPI.graph.name,
@@ -117,7 +123,6 @@ export default runExtension({
 
     // @ts-ignore
     window.roamjs.extension.samepage = window.samepage;
-    window.roamjs.extension.testing = { deploy: () => true };
     return () => {
       unloadSendPageToGraph();
       unloadCopyBlockToGraph();
