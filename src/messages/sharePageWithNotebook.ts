@@ -27,6 +27,7 @@ import Automerge from "automerge";
 import blockGrammar from "../utils/blockGrammar";
 import renderAtJson from "samepage/utils/renderAtJson";
 import getPageViewType from "roamjs-components/queries/getPageViewType";
+import nanoid from "nanoid";
 
 const toAtJson = ({
   nodes,
@@ -326,11 +327,10 @@ const setupSharePageWithNotebook = () => {
       },
       notificationContainerProps: {
         actions: {
-          accept: ({ pageUuid, title }) =>
+          accept: ({ title }) =>
             // TODO support block or page tree as a user action
             createPage({ title }).then((rootPageUid) =>
               joinPage({
-                pageUuid,
                 notebookPageId: title,
               })
                 .then(() => {
@@ -425,7 +425,12 @@ const setupSharePageWithNotebook = () => {
         },
         selector: "h1.rm-title-display",
         getNotebookPageId: async (el) => elToTitle(el as Element),
-        getPath: (heading) => heading?.parentElement?.parentElement,
+        getPath: (heading) => {
+          const parent = heading?.parentElement?.parentElement;
+          const sel = nanoid();
+          parent.setAttribute("data-samepage-shared", sel);
+          return `div[data-samepage-shared="${sel}"]::before(1)`;
+        },
       },
     },
   });
