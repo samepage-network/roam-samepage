@@ -9,12 +9,8 @@ import setupSharePageWithNotebook, {
 import loadSendPageToGraph from "./messages/sendPageToGraph";
 import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
-import { OnloadArgs, } from "roamjs-components/types/native";
+import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
-
-type Action = Parameters<
-  OnloadArgs["extensionAPI"]["settings"]["panel"]["create"]
->[0]["settings"][number];
 
 const setupUserSettings = ({ extensionAPI, extension }: OnloadArgs) => {
   extensionAPI.settings.panel.create({
@@ -32,32 +28,28 @@ const setupUserSettings = ({ extensionAPI, extension }: OnloadArgs) => {
               {},
               process.env.VERSION || extension.version
             ),
-        },
-      } as Action,
+        } as Action,
+      },
     ].concat(
       defaultSettings
-        .map(
-          (s) =>
-            ({
-              id: s.id,
-              name: s.name,
-              description: s.description,
-              action:
-                s.type === "boolean"
-                  ? {
-                      type: "switch" as const,
-                      onChange: (e) =>
-                        s.id === "granular-changes" &&
-                        (granularChanges.enabled = e.target.checked),
-                    }
-                  : s.type === "string"
-                  ? {
-                      type: "input",
-                      placeholder: s.default,
-                    }
-                  : undefined,
-            } as Action)
-        )
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          action: (s.type === "boolean"
+            ? {
+                type: "switch" as const,
+                onChange: (e) =>
+                  s.id === "granular-changes" &&
+                  (granularChanges.enabled = e.target.checked),
+              }
+            : s.type === "string"
+            ? {
+                type: "input",
+                placeholder: s.default,
+              }
+            : undefined) as Action,
+        }))
         .filter((s) => !!s.action)
     ),
   });
@@ -97,8 +89,8 @@ const setupProtocols = (api: typeof window.samepage) => {
     unloadCopyBlockToGraph();
     unloadCrossGraphBlockReference();
     unloadSendPageToGraph();
-  }
-}
+  };
+};
 
 export default runExtension({
   run: async (args) => {
