@@ -1,4 +1,4 @@
-import { InitialSchema } from "samepage/types";
+import { InitialSchema } from "samepage/internal/types";
 import {
   compileLexer,
   Processor,

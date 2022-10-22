@@ -12,7 +12,57 @@ import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
 import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
 
-const setupUserSettings = ({ extensionAPI, extension }: OnloadArgs) => {
+const cacheSetting = ({
+  extension,
+  k,
+  v,
+}: Pick<OnloadArgs, "extension"> & { k: string; v: string }) => {
+  // Roam in dev mode has a bug with settings persistence. cache in local storage
+  if (extension.version === "DEV") {
+    localStorage.setItem(`samepage:${k}`, v);
+  }
+};
+
+const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
+  const fields = await Promise.all(
+    defaultSettings.map(async (s) => {
+      if (extension.version === "DEV") {
+        const raw = localStorage.getItem(`samepage:${s.id}`);
+        if (typeof raw === "string") {
+          const value = raw === "true" ? true : raw === "false" ? false : raw;
+          await extensionAPI.settings.set(s.id, value);
+        }
+      }
+      return {
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        action: (s.type === "boolean"
+          ? {
+              type: "switch" as const,
+              onChange: (e) => {
+                if (s.id === "granular-changes") {
+                  granularChanges.enabled = e.target.checked;
+                }
+                cacheSetting({
+                  extension,
+                  k: s.id,
+                  v: `${e.target.checked}`,
+                });
+              },
+            }
+          : s.type === "string"
+          ? {
+              type: "input",
+              placeholder: s.default,
+              onChange: (e) => {
+                cacheSetting({ extension, k: s.id, v: e.target.value });
+              },
+            }
+          : undefined) as Action,
+      };
+    })
+  );
   extensionAPI.settings.panel.create({
     tabTitle: "SamePage",
     settings: [
@@ -30,38 +80,23 @@ const setupUserSettings = ({ extensionAPI, extension }: OnloadArgs) => {
             ),
         } as Action,
       },
-    ].concat(
-      defaultSettings
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          action: (s.type === "boolean"
-            ? {
-                type: "switch" as const,
-                onChange: (e) =>
-                  s.id === "granular-changes" &&
-                  (granularChanges.enabled = e.target.checked),
-              }
-            : s.type === "string"
-            ? {
-                type: "input",
-                placeholder: s.default,
-              }
-            : undefined) as Action,
-        }))
-        .filter((s) => !!s.action)
-    ),
+    ].concat(fields.filter((s) => !!s.action)),
   });
   granularChanges.enabled = !!extensionAPI.settings.get("granular-changes");
 };
 
-const setupClient = ({ extensionAPI }: OnloadArgs) =>
+const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
   setupSamePageClient({
     app: "Roam",
     workspace: window.roamAlphaAPI.graph.name,
     getSetting: (s) => (extensionAPI.settings.get(s) as string) || "",
-    setSetting: (s, v) => extensionAPI.settings.set(s, v),
+    setSetting: (s, v) => {
+      extensionAPI.settings.set(s, v);
+      // Roam in dev mode has a bug with settings persistence. cache in local storage
+      if (extension.version === "DEV") {
+        localStorage.setItem(`samepage:${s}`, v);
+      }
+    },
     addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
     removeCommand: window.roamAlphaAPI.ui.commandPalette.removeCommand,
     renderOverlay,
@@ -94,7 +129,7 @@ const setupProtocols = (api: typeof window.samepage) => {
 
 export default runExtension({
   run: async (args) => {
-    setupUserSettings(args);
+    await setupUserSettings(args);
     const { unload: unloadSamePageClient, ...api } = setupClient(args);
     const unloadProtocols = setupProtocols(api);
     return () => {

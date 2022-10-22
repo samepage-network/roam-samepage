@@ -1,5 +1,5 @@
 import blockGrammar from "../src/utils/blockGrammar";
-import type { InitialSchema } from "samepage/types";
+import type { InitialSchema } from "samepage/internal/types";
 import atJsonParser from "samepage/utils/atJsonParser";
 import { test, expect } from "@playwright/test";
 

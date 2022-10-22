@@ -2,7 +2,7 @@ import { Page, test, expect } from "@playwright/test";
 import fs from "fs";
 import { v4 } from "uuid";
 import createTestSamePageClient from "samepage/testing/createTestSamePageClient";
-import { InitialSchema } from "samepage/types";
+import { InitialSchema } from "samepage/internal/types";
 
 declare global {
   interface Window {

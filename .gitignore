@@ -10,3 +10,4 @@ extension.js
 /test-results/
 /playwright-report/
 /playwright/.cache/
+extension.css

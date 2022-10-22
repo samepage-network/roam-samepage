@@ -1,4 +1,4 @@
-import type { Schema, InitialSchema } from "samepage/types";
+import type { Schema, InitialSchema } from "samepage/internal/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
 import atJsonParser from "samepage/utils/atJsonParser";
 import apps from "samepage/internal/apps";
