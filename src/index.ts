@@ -19,7 +19,7 @@ const cacheSetting = ({
 }: Pick<OnloadArgs, "extension"> & { k: string; v: string }) => {
   // Roam in dev mode has a bug with settings persistence. cache in local storage
   if (extension.version === "DEV") {
-    localStorage.setItem(`samepage:${k}`, v);
+    localStorage.setItem(`samepage:${window.roamAlphaAPI.graph.name}:${k}`, v);
   }
 };
 
@@ -27,7 +27,7 @@ const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
   const fields = await Promise.all(
     defaultSettings.map(async (s) => {
       if (extension.version === "DEV") {
-        const raw = localStorage.getItem(`samepage:${s.id}`);
+        const raw = localStorage.getItem(`samepage:${window.roamAlphaAPI.graph.name}:${s.id}`);
         if (typeof raw === "string") {
           const value = raw === "true" ? true : raw === "false" ? false : raw;
           await extensionAPI.settings.set(s.id, value);
@@ -94,7 +94,7 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
       extensionAPI.settings.set(s, v);
       // Roam in dev mode has a bug with settings persistence. cache in local storage
       if (extension.version === "DEV") {
-        localStorage.setItem(`samepage:${s}`, v);
+        localStorage.setItem(`samepage:${window.roamAlphaAPI.graph.name}:${s}`, v);
       }
     },
     addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
