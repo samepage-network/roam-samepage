@@ -6,3 +6,9 @@ div.samepage-notification-container {
 .samepage-shared-page-status img {
   margin: 0;
 }
+.samepage-notification-container > div {
+  margin-top: 60px;
+}
+#samepage-notification-container {
+  z-index: 1;
+}

@@ -1,7 +1,6 @@
 import type { Schema, InitialSchema } from "samepage/internal/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
 import atJsonParser from "samepage/utils/atJsonParser";
-import apps from "samepage/internal/apps";
 import type {
   ViewType,
   TreeNode,
@@ -16,7 +15,6 @@ import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParen
 import elToTitle from "roamjs-components/dom/elToTitle";
 import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
-import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
@@ -350,72 +348,7 @@ const setupSharePageWithNotebook = () => {
               notebookPageId: title,
             }),
         },
-        api: {
-          addNotification: (not) =>
-            createPage({
-              title: `samepage/notifications/${not.uuid}`,
-              tree: [
-                { text: "Title", children: [{ text: not.title }] },
-                {
-                  text: "Description",
-                  children: [{ text: not.description }],
-                },
-                {
-                  text: "Buttons",
-                  children: not.buttons.map((a) => ({
-                    text: a,
-                  })),
-                },
-                {
-                  text: "Data",
-                  children: Object.entries(not.data).map((arg) => ({
-                    text: arg[0],
-                    children: [{ text: arg[1] }],
-                  })),
-                },
-              ],
-            }),
-          deleteNotification: (uuid) =>
-            window.roamAlphaAPI.deletePage({
-              page: {
-                uid: getPageUidByPageTitle(`samepage/notifications/${uuid}`),
-              },
-            }),
-          getNotifications: async () => {
-            const pages = window.roamAlphaAPI.data.fast
-              .q(
-                `[:find (pull ?b [:block/uid :node/title]) :where [?b :node/title ?title] [(clojure.string/starts-with? ?title  "samepage/notifications/")]]`
-              )
-              .map((r) => r[0] as PullBlock);
-            return pages.map((block) => {
-              const tree = getBasicTreeByParentUid(block[":block/uid"]);
-              return {
-                title: getSettingValueFromTree({
-                  tree,
-                  key: "Title",
-                }),
-                uuid: block[":node/title"].replace(
-                  /^samepage\/notifications\//,
-                  ""
-                ),
-                description: getSettingValueFromTree({
-                  tree,
-                  key: "Description",
-                }),
-                buttons: getSubTree({
-                  tree,
-                  key: "Buttons",
-                }).children.map((act) => act.text),
-                data: Object.fromEntries(
-                  getSubTree({ key: "Data", tree }).children.map((arg) => [
-                    arg.text,
-                    arg.children[0]?.text,
-                  ])
-                ),
-              };
-            });
-          },
-        },
+        path: `.rm-topbar::before(.rm-find-or-create-wrapper)`,
       },
       sharedPageStatusProps: {
         getHtmlElement: async (notebookPageId) => {
