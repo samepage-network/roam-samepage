@@ -1,9 +1,11 @@
-import { InitialSchema } from "samepage/internal/types";
+import type { Annotation, InitialSchema } from "samepage/internal/types";
+import { getSetting } from "samepage/internal/registry";
 import {
   compileLexer,
   Processor,
   reduceTokens,
 } from "samepage/utils/atJsonTokens";
+import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 
 export const disambiguateTokens: Processor<InitialSchema> = (
   data,
@@ -67,4 +69,29 @@ export const disambiguateTokens: Processor<InitialSchema> = (
   return reduceTokens(data);
 };
 
-export default compileLexer();
+export const createReferenceToken: Processor<InitialSchema> = (_data) => {
+  const [token] = _data as [moo.Token];
+  const parts = token.value.slice(2, -2).split(":");
+  const { notebookPageId, notebookUuid } =
+    parts.length === 1
+      ? { notebookPageId: parts[0], notebookUuid: getSetting("uuid") }
+      : { notebookPageId: parts[1], notebookUuid: parts[0] };
+  return {
+    content: String.fromCharCode(0),
+    annotations: [
+      {
+        type: "reference",
+        start: 0,
+        end: 1,
+        attributes: {
+          notebookPageId,
+          notebookUuid,
+        },
+      } as Annotation,
+    ],
+  };
+};
+
+export default compileLexer({
+  blockReference: /\(\([^)]*\)\)/,
+});

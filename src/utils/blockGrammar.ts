@@ -13,6 +13,7 @@ declare var leftParen: any;
 declare var url: any;
 declare var rightParen: any;
 declare var exclamationMark: any;
+declare var blockReference: any;
 declare var text: any;
 declare var star: any;
 declare var carot: any;
@@ -31,6 +32,7 @@ import {
 } from "samepage/utils/atJsonTokens";
 import lexer, {
    disambiguateTokens,
+   createReferenceToken,
 } from "./blockLexer";
 
 interface NearleyToken {
@@ -168,6 +170,7 @@ const grammar: Grammar = {
     {"name": "token$subexpression$1", "symbols": ["tokens"], "postprocess": id},
     {"name": "token$subexpression$1", "symbols": [], "postprocess": id},
     {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "token$subexpression$1", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createImageToken},
+    {"name": "token", "symbols": [(lexer.has("blockReference") ? {type: "blockReference"} : blockReference)], "postprocess": createReferenceToken},
     {"name": "token", "symbols": [(lexer.has("text") ? {type: "text"} : text)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("star") ? {type: "star"} : star)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("carot") ? {type: "carot"} : carot)], "postprocess": createTextToken},

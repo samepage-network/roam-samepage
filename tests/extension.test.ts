@@ -44,6 +44,12 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     const client = createTestSamePageClient({
       workspace: "test",
       onMessage: ({ type, ...data }) => samePageClientCallbacks[type]?.(data),
+      initOptions: {
+        uuid: process.env.SAMEPAGE_TEST_UUID,
+        token: process.env.SAMEPAGE_TEST_TOKEN,
+        "auto-connect": "true",
+        "granular-changes": "false",
+      },
     });
   });
   await test.step("Setup Test", async () => {
@@ -123,6 +129,23 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page.locator("button.bp3-icon-cog").click();
     await page.locator("text=Enable Developer Mode").click();
     await page.locator("button.bp3-icon-folder-new").click();
+  });
+
+  await test.step("Connect Notebook Onboarding Flow", async () => {
+    await page.locator('div[role=dialog] >> text="Get Started"').click();
+    await page.locator('div[role=dialog] >> text="Connect Notebook"').click();
+    await page
+      .locator("text=Notebook Universal ID >> input")
+      .fill(process.env.SAMEPAGE_TEST_UUID);
+    await page
+      .locator("text=Token >> input")
+      .fill(process.env.SAMEPAGE_TEST_TOKEN);
+    await page.locator("text=I have read and agree").click();
+    await page.locator('div[role=dialog] >> text="Connect"').click();
+    await page.locator('div[role=dialog] >> text="All Done"').click();
+    await expect(
+      page.locator('div[role=dialog] >> text="Welcome to SamePage"')
+    ).not.toBeVisible();
     await page
       .locator("div.bp3-overlay-backdrop")
       .click({ position: { x: 300, y: 16 } });
@@ -158,11 +181,13 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page
       .locator("text=Click here to start writing. Type '/' to see commands.")
       .click();
-    await expect(page.locator("*:focus")).toHaveJSProperty(
-      "tagName",
-      "TEXTAREA"
+    // *:focus was failing due to random blurring to body
+    await page
+      .locator("textarea.rm-block-input")
+      .type("This is an automated test case");
+    await expect(page.locator("textarea.rm-block-input")).toHaveValue(
+      "This is an automated test case"
     );
-    await page.locator("*:focus").type("This is an automated test case");
   });
 
   await enterCommandPaletteCommand(page, "Share Page on SamePage");
@@ -191,17 +216,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       testClient.send({ type: "accept", notebookPageId: pageName });
     });
     await expect.poll(() => acceptResponse).toBe(true);
-    await expect.poll(testClientRead).toEqual({
-      content: "This is an automated test case",
-      annotations: [
-        {
-          type: "block",
-          start: 0,
-          end: 30,
-          attributes: { viewType: "bullet", level: 1 },
-        },
-      ],
-    });
+    await expect.poll(testClientRead)
+      .toEqual(`<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case</li>`);
   });
 
   await test.step("Edit some content in Roam", async () => {
@@ -225,24 +241,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       page.locator(".roam-article .rm-block-children .rm-block-main")
     ).toHaveCount(2);
     await page.locator("*:focus").type("And a new block");
-    await expect.poll(testClientRead).toEqual({
-      content:
-        "This is an automated test case and we're adding edits.And a new block",
-      annotations: [
-        {
-          type: "block",
-          start: 0,
-          end: 54,
-          attributes: { viewType: "bullet", level: 1 },
-        },
-        {
-          type: "block",
-          start: 54,
-          end: 69,
-          attributes: { viewType: "bullet", level: 1 },
-        },
-      ],
-    });
+    await expect.poll(testClientRead)
+      .toEqual(`<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we&#x27;re adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`);
     await page.keyboard.press("Escape");
   });
 
@@ -253,7 +253,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         type: "insert",
         notebookPageId: pageName,
         content: " with a response",
-        index: 69,
+        index: 70,
       });
     });
     await expect.poll(() => insertResponse).toBe(true);

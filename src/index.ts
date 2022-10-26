@@ -3,12 +3,10 @@ import setupSamePageClient from "samepage/protocols/setupSamePageClient";
 import runExtension from "roamjs-components/util/runExtension";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import renderOverlay from "roamjs-components/util/renderOverlay";
-import setupSharePageWithNotebook, {
-  granularChanges,
-} from "./messages/sharePageWithNotebook";
-import loadSendPageToGraph from "./messages/sendPageToGraph";
-import loadCopyBlockToGraph from "./messages/copyBlockToGraph";
-import loadCrossGraphBlockReference from "./messages/crossGraphBlockReference";
+import setupSharePageWithNotebook from "./protocols/sharePageWithNotebook";
+import loadSendPageToGraph from "./protocols/sendPageToGraph";
+import loadCopyBlockToGraph from "./protocols/copyBlockToGraph";
+import loadCrossGraphBlockReference from "./protocols/crossGraphBlockReference";
 import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
 
@@ -41,9 +39,6 @@ const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
           ? {
               type: "switch" as const,
               onChange: (e) => {
-                if (s.id === "granular-changes") {
-                  granularChanges.enabled = e.target.checked;
-                }
                 cacheSetting({
                   extension,
                   k: s.id,
@@ -82,7 +77,6 @@ const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
       },
     ].concat(fields.filter((s) => !!s.action)),
   });
-  granularChanges.enabled = !!extensionAPI.settings.get("granular-changes");
 };
 
 const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
@@ -114,8 +108,8 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
       }),
   });
 
-const setupProtocols = (api: typeof window.samepage) => {
-  const unloadSharePageWithNotebook = setupSharePageWithNotebook();
+const setupProtocols = (args: OnloadArgs, api: typeof window.samepage) => {
+  const unloadSharePageWithNotebook = setupSharePageWithNotebook(args);
   const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
   const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);
   const unloadSendPageToGraph = loadSendPageToGraph(api);
@@ -131,7 +125,7 @@ export default runExtension({
   run: async (args) => {
     await setupUserSettings(args);
     const { unload: unloadSamePageClient, ...api } = setupClient(args);
-    const unloadProtocols = setupProtocols(api);
+    const unloadProtocols = setupProtocols(args, api);
     return () => {
       unloadProtocols();
       unloadSamePageClient();

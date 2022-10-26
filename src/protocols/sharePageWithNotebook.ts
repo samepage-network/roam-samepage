@@ -5,6 +5,7 @@ import type {
   ViewType,
   TreeNode,
   PullBlock,
+  OnloadArgs,
 } from "roamjs-components/types/native";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
@@ -16,9 +17,6 @@ import elToTitle from "roamjs-components/dom/elToTitle";
 import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
-import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
-import getSubTree from "roamjs-components/util/getSubTree";
 import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import Automerge from "automerge";
@@ -138,7 +136,11 @@ type SamepageNode = {
   };
 };
 
-const applyState = async (notebookPageId: string, state: Schema) => {
+export const applyState = async (
+  notebookPageId: string,
+  state: Schema,
+  onloadArgs: OnloadArgs
+) => {
   const rootPageUid = getPageUidByPageTitle(notebookPageId);
   const expectedTree: SamepageNode[] = [];
   state.annotations.forEach((anno) => {
@@ -197,7 +199,20 @@ const applyState = async (notebookPageId: string, state: Schema) => {
           prefix: "[",
           suffix: `](${href})`,
         }),
-        image: ({ src }) => ({ prefix: "![", suffix: `](${src})` }),
+        image: ({ src }, content) => ({
+          prefix: "![",
+          suffix: `](${src})`,
+          replace: content === String.fromCharCode(0),
+        }),
+        reference: ({ notebookPageId, notebookUuid }, content) => ({
+          prefix: "((",
+          suffix: `${
+            notebookUuid === onloadArgs.extensionAPI.settings.get("uuid")
+              ? notebookPageId
+              : `${notebookUuid}:${notebookPageId}`
+          }))`,
+          replace: content === String.fromCharCode(0),
+        }),
       },
     });
   });
@@ -286,14 +301,10 @@ const applyState = async (notebookPageId: string, state: Schema) => {
   return promises.reduce((p, c) => p.then(c), Promise.resolve<unknown>(""));
 };
 
-export let granularChanges = { enabled: false };
-
-const setupSharePageWithNotebook = () => {
+const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
   const {
     unload,
     updatePage,
-    joinPage,
-    rejectPage,
     isShared,
     insertContent,
     // refreshContent,
@@ -307,7 +318,16 @@ const setupSharePageWithNotebook = () => {
             ? getPageTitleByPageUid(uid)
             : window.roamAlphaAPI.util.dateToPageTitle(new Date())
         ),
-    applyState,
+    createPage: (title) => createPage({ title }),
+    openPage: (title) =>
+      window.roamAlphaAPI.ui.mainWindow.openPage({
+        page: { title },
+      }),
+    deletePage: (title) =>
+      window.roamAlphaAPI.deletePage({
+        page: { title },
+      }),
+    applyState: async (...args) => applyState(...args, onloadArgs),
     calculateState: async (...args) => calculateState(...args),
     overlayProps: {
       viewSharedPageProps: {
@@ -322,33 +342,6 @@ const setupSharePageWithNotebook = () => {
         },
         linkClassName: "rm-page-ref",
         linkNewPage: (_, title) => createPage({ title }),
-      },
-      notificationContainerProps: {
-        actions: {
-          accept: ({ title }) =>
-            // TODO support block or page tree as a user action
-            createPage({ title }).then((rootPageUid) =>
-              joinPage({
-                notebookPageId: title,
-              })
-                .then(() => {
-                  return window.roamAlphaAPI.ui.mainWindow.openPage({
-                    page: { title },
-                  });
-                })
-                .catch((e) => {
-                  window.roamAlphaAPI.deletePage({
-                    page: { uid: rootPageUid },
-                  });
-                  return Promise.reject(e);
-                })
-            ),
-          reject: async ({ title }) =>
-            rejectPage({
-              notebookPageId: title,
-            }),
-        },
-        path: `.rm-topbar::before(.rm-find-or-create-wrapper)`,
       },
       sharedPageStatusProps: {
         getHtmlElement: async (notebookPageId) => {
@@ -435,7 +428,9 @@ const setupSharePageWithNotebook = () => {
             ? annotations.filter((b) => b.type === "block")[index]?.start || 0
             : 0;
         };
-        if (granularChanges.enabled && /^[a-zA-Z0-9 ]$/.test(e.key)) {
+        const granularEnabled =
+          onloadArgs.extensionAPI.settings.get("granular-changes");
+        if (granularEnabled && /^[a-zA-Z0-9 ]$/.test(e.key)) {
           const index =
             Math.min(selectionStart, selectionEnd) + getBlockAnnotationStart();
           (selectionStart !== selectionEnd
@@ -452,7 +447,7 @@ const setupSharePageWithNotebook = () => {
               index,
             })
           );
-        } else if (granularChanges.enabled && /^Backspace$/.test(e.key)) {
+        } else if (granularEnabled && /^Backspace$/.test(e.key)) {
           const index =
             Math.min(selectionStart, selectionEnd) + getBlockAnnotationStart();
           deleteContent({
