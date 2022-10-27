@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import ReactDOM from "react-dom";
-import type { InputTextNode } from "roamjs-components/types";
-import apiClient from "../apiClient";
+import type { InitialSchema } from "samepage/internal/types";
+import apiClient from "samepage/internal/apiClient";
+import AtJsonRendered from "samepage/components/AtJsonRendered";
+import atJsonToRoam from "../utils/atJsonToRoam";
+import { OnloadArgs } from "roamjs-components/types";
 
-export const references: Record<string, Record<string, string>> = {};
+export const references: Record<string, Record<string, InitialSchema>> = {};
 
 const CrossGraphReference = ({
-  graph,
-  uid,
+  notebookUuid,
+  notebookPageId,
+  onloadArgs,
 }: {
-  graph: string;
-  uid: string;
+  notebookUuid: string;
+  notebookPageId: string;
+  onloadArgs: OnloadArgs,
 }) => {
   /* the dream
     window.roamAlphaAPI.ui.components.renderBlockText({
@@ -18,48 +23,74 @@ const CrossGraphReference = ({
         el,
     });
     */
-  const [text, setText] = useState(
-    references[graph]?.[uid] || `Loading reference from ${graph}`
+  const [data, setData] = useState<InitialSchema>(
+    references[notebookUuid]?.[notebookPageId] || {
+      content: `Loading reference from external notebook...`,
+      annotations: [],
+    }
+  );
+  const setReferenceData = useCallback(
+    (data: InitialSchema) => {
+      if (!references[notebookUuid]) references[notebookUuid] = {};
+      setData((references[notebookUuid][notebookPageId] = data));
+    },
+    [notebookPageId, notebookUuid]
   );
   useEffect(() => {
     apiClient<{
       found: boolean;
-      node: InputTextNode;
+      data: InitialSchema;
       fromCache?: true;
     }>({
       method: "query",
-      data: {
-        // TODO: replace with a datalog query
-        // [:find
-        //    (pull ?b [:content])
-        //  :where
-        //    [?b :uid "${uid}"]
-        //    [?b :notebook "${graph}"]
-        //    [?b :app "Roam"]
-        // ]
-        request: `${graph}:${uid}`,
-      },
+      request: `${notebookUuid}:${notebookPageId}`,
     }).then((e) => {
-      const { found, node } = e;
-      const newText = found ? node.text : `Reference not found`;
-      if (!references[graph]) references[graph] = {};
-      references[graph][uid] = newText;
-      setText(newText);
+      const { found, data } = e;
+      const newData = found
+        ? data
+        : { content: "Notebook reference not found", annotations: [] };
+      setReferenceData(newData);
     });
-  }, []);
-  return <span className="roamjs-connected-ref">{text}</span>;
+    const queryResponseListener = (e: CustomEvent) => {
+      const { request, data } = e.detail as {
+        request: string;
+        data: InitialSchema;
+      };
+      if (request === `${notebookUuid}:${notebookPageId}`) {
+        setReferenceData(data);
+      }
+    };
+    document.body.addEventListener(
+      "samepage:reference:response",
+      queryResponseListener
+    );
+    return () =>
+      document.body.removeEventListener(
+        "samepage:reference:response",
+        queryResponseListener
+      );
+  }, [setReferenceData, notebookUuid, notebookPageId]);
+  return (
+    <span className="roamjs-connected-ref">
+      {atJsonToRoam(data, onloadArgs)}
+    </span>
+  );
 };
 
-export const render = (s: HTMLSpanElement) => {
+export const render = (s: HTMLSpanElement, onloadArgs: OnloadArgs) => {
   const text = s.getAttribute("data-paren-str");
   if (text) {
-    const [graph, uid] = text.split(":");
-    if (uid && /[\w\d-]{9}/.test(uid)) {
+    const [notebookUuid, notebookPageId] = text.split(":");
+    if (notebookPageId) {
       s.classList.remove("rm-paren");
       s.classList.remove("rm-paren--closed");
       s.classList.add("rm-block-ref");
       ReactDOM.render(
-        <CrossGraphReference graph={graph} uid={uid}/>,
+        <CrossGraphReference
+          notebookUuid={notebookUuid}
+          notebookPageId={notebookPageId}
+          onloadArgs={onloadArgs}
+        />,
         s
       );
     }

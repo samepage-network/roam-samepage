@@ -24,6 +24,7 @@ import blockGrammar from "../utils/blockGrammar";
 import renderAtJson from "samepage/utils/renderAtJson";
 import getPageViewType from "roamjs-components/queries/getPageViewType";
 import nanoid from "nanoid";
+import atJsonToRoam from "../utils/atJsonToRoam";
 
 const toAtJson = ({
   nodes,
@@ -176,45 +177,10 @@ export const applyState = async (
       start: a.start - offset,
       end: a.end - offset,
     }));
-    block.text = renderAtJson({
-      state: { content: block.text, annotations: normalizedAnnotations },
-      applyAnnotation: {
-        bold: {
-          prefix: "**",
-          suffix: `**`,
-        },
-        highlighting: {
-          prefix: "^^",
-          suffix: `^^`,
-        },
-        italics: {
-          prefix: "__",
-          suffix: `__`,
-        },
-        strikethrough: {
-          prefix: "~~",
-          suffix: `~~`,
-        },
-        link: ({ href }) => ({
-          prefix: "[",
-          suffix: `](${href})`,
-        }),
-        image: ({ src }, content) => ({
-          prefix: "![",
-          suffix: `](${src})`,
-          replace: content === String.fromCharCode(0),
-        }),
-        reference: ({ notebookPageId, notebookUuid }, content) => ({
-          prefix: "((",
-          suffix: `${
-            notebookUuid === onloadArgs.extensionAPI.settings.get("uuid")
-              ? notebookPageId
-              : `${notebookUuid}:${notebookPageId}`
-          }))`,
-          replace: content === String.fromCharCode(0),
-        }),
-      },
-    });
+    block.text = atJsonToRoam(
+      { content: block.text, annotations: normalizedAnnotations },
+      onloadArgs
+    );
   });
   const pageViewType = getPageViewType(notebookPageId);
   const actualTree = flattenTree(

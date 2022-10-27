@@ -3,6 +3,7 @@ import fs from "fs";
 import { v4 } from "uuid";
 import createTestSamePageClient from "samepage/testing/createTestSamePageClient";
 import { InitialSchema } from "samepage/internal/types";
+import type { PullBlock } from "roamjs-components/types/native";
 
 declare global {
   interface Window {
@@ -91,7 +92,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
 
   await test.step("Log into Roam", async () => {
     await page.goto("https://roamresearch.com/#/signin");
-    await expect(page.locator(".loading-astrolabe")).toBeVisible();
+    await page.waitForTimeout(5000); // Roam has an annoying refresh bug to wait to pass
     expect(page.url(), `page.url()`).toBe("https://roamresearch.com/#/signin");
     await page.locator("[name=email]").fill(process.env.ROAM_USERNAME);
     await page.locator("[name=password]").fill(process.env.ROAM_PASSWORD);
@@ -131,6 +132,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page.locator("button.bp3-icon-folder-new").click();
   });
 
+  let notebookUuid = "";
   await test.step("Connect Notebook Onboarding Flow", async () => {
     await page.locator('div[role=dialog] >> text="Get Started"').click();
     await page.locator('div[role=dialog] >> text="Connect Notebook"').click();
@@ -146,6 +148,11 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await expect(
       page.locator('div[role=dialog] >> text="Welcome to SamePage"')
     ).not.toBeVisible();
+    await page.locator("div[role=tab] >> text=SamePage").click();
+    notebookUuid = await page
+      .locator("text=Notebook Universal Id >> .. >> .. >> input")
+      .getAttribute("value");
+
     await page
       .locator("div.bp3-overlay-backdrop")
       .click({ position: { x: 300, y: 16 } });
@@ -173,15 +180,18 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       samePageClientCallbacks["unload"] = resolve;
       testClient.send({ type: "unload" });
     });
-  const clientNotified = new Promise<unknown>(
-    (inner) => (samePageClientCallbacks["notification"] = inner)
+  const clientNotified = new Promise<boolean>(
+    (inner) => (samePageClientCallbacks["notification"] = () => inner(true))
   );
 
   await test.step("Enter content", async () => {
     await page
       .locator("text=Click here to start writing. Type '/' to see commands.")
       .click();
-    // *:focus was failing due to random blurring to body
+    await expect(page.locator("*:focus")).toHaveJSProperty(
+      "tagName",
+      "TEXTAREA"
+    );
     await page
       .locator("textarea.rm-block-input")
       .type("This is an automated test case");
@@ -201,7 +211,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page.locator('input[placeholder="Enter workspace"]').fill("test");
     await page.locator(".bp3-icon-plus").click();
     await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
-    await clientNotified;
+    await expect.poll(() => clientNotified).toBe(true);
   });
   const testClientRead = () =>
     new Promise<unknown>((resolve) => {
@@ -216,8 +226,11 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       testClient.send({ type: "accept", notebookPageId: pageName });
     });
     await expect.poll(() => acceptResponse).toBe(true);
-    await expect.poll(testClientRead)
-      .toEqual(`<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case</li>`);
+    await expect
+      .poll(testClientRead)
+      .toEqual(
+        `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case</li>`
+      );
   });
 
   await test.step("Edit some content in Roam", async () => {
@@ -241,8 +254,11 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       page.locator(".roam-article .rm-block-children .rm-block-main")
     ).toHaveCount(2);
     await page.locator("*:focus").type("And a new block");
-    await expect.poll(testClientRead)
-      .toEqual(`<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we&#x27;re adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`);
+    await expect
+      .poll(testClientRead)
+      .toEqual(
+        `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we&#x27;re adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`
+      );
     await page.keyboard.press("Escape");
   });
 
@@ -263,5 +279,66 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await expect(
       page.locator(":nth-match(.roam-article .roam-block, 2)")
     ).toHaveText("And a new block with a response");
+  });
+
+  await test.step("Accepting AtJson with a reference", async () => {
+    const refreshResponse = new Promise<unknown>((resolve) => {
+      samePageClientCallbacks["refresh"] = () => resolve(true);
+      testClient.send({
+        type: "refresh",
+        notebookPageId: pageName,
+        data: {
+          content: `This is an automated test with my ref: ${String.fromCharCode(
+            0
+          )} and your ref: ${String.fromCharCode(0)}\n`,
+          annotations: [
+            {
+              start: 0,
+              end: 57,
+              type: "block",
+              attributes: {
+                viewType: "bullet",
+                level: 1,
+              },
+            },
+            {
+              start: 39,
+              end: 40,
+              type: "reference",
+              attributes: {
+                notebookPageId: "asdfghjkl",
+                notebookUuid,
+              },
+            },
+            {
+              start: 55,
+              end: 56,
+              type: "reference",
+              attributes: {
+                notebookPageId: "abcde1234",
+                notebookUuid: process.env.SAMEPAGE_TEST_UUID,
+              },
+            },
+          ],
+        },
+      });
+    });
+    await expect.poll(() => refreshResponse).toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (pageName) =>
+            (
+              window.roamAlphaAPI.pull(
+                "[:block/string {:block/children ...}]",
+                [":node/title", pageName]
+              )[":block/children"]?.[0] as PullBlock
+            )?.[":block/string"],
+          pageName
+        )
+      )
+      .toEqual(
+        `This is an automated test with my ref: ((asdfghjkl)) and your ref: ((${process.env.SAMEPAGE_TEST_UUID}:abcde1234))\n`
+      );
   });
 });

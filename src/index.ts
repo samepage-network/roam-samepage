@@ -25,7 +25,9 @@ const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
   const fields = await Promise.all(
     defaultSettings.map(async (s) => {
       if (extension.version === "DEV") {
-        const raw = localStorage.getItem(`samepage:${window.roamAlphaAPI.graph.name}:${s.id}`);
+        const raw = localStorage.getItem(
+          `samepage:${window.roamAlphaAPI.graph.name}:${s.id}`
+        );
         if (typeof raw === "string") {
           const value = raw === "true" ? true : raw === "false" ? false : raw;
           await extensionAPI.settings.set(s.id, value);
@@ -88,7 +90,10 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
       extensionAPI.settings.set(s, v);
       // Roam in dev mode has a bug with settings persistence. cache in local storage
       if (extension.version === "DEV") {
-        localStorage.setItem(`samepage:${window.roamAlphaAPI.graph.name}:${s}`, v);
+        localStorage.setItem(
+          `samepage:${window.roamAlphaAPI.graph.name}:${s}`,
+          v
+        );
       }
     },
     addCommand: window.roamAlphaAPI.ui.commandPalette.addCommand,
@@ -106,12 +111,16 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
             ? "primary"
             : evt.intent,
       }),
+    notificationContainerPath: `.rm-topbar::before(.rm-find-or-create-wrapper)`,
   });
 
 const setupProtocols = (args: OnloadArgs, api: typeof window.samepage) => {
   const unloadSharePageWithNotebook = setupSharePageWithNotebook(args);
   const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
-  const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(api);
+  const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(
+    api,
+    args
+  );
   const unloadSendPageToGraph = loadSendPageToGraph(api);
   return () => {
     unloadSharePageWithNotebook();
