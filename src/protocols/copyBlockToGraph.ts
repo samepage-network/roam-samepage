@@ -46,7 +46,7 @@ const load = (api: typeof window.samepage) => {
             target: source,
             operation: `COPY_BLOCK_RESPONSE/${blockUid}`,
             data: {
-              ephemeral: true,
+              blockUid,
             },
           });
         });

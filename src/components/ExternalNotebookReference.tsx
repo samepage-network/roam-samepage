@@ -2,13 +2,12 @@ import React, { useEffect, useState, useCallback } from "react";
 import ReactDOM from "react-dom";
 import type { InitialSchema } from "samepage/internal/types";
 import apiClient from "samepage/internal/apiClient";
-import AtJsonRendered from "samepage/components/AtJsonRendered";
 import atJsonToRoam from "../utils/atJsonToRoam";
 import { OnloadArgs } from "roamjs-components/types";
 
 export const references: Record<string, Record<string, InitialSchema>> = {};
 
-const CrossGraphReference = ({
+const ExternalNotebookReference = ({
   notebookUuid,
   notebookPageId,
   onloadArgs,
@@ -17,12 +16,6 @@ const CrossGraphReference = ({
   notebookPageId: string;
   onloadArgs: OnloadArgs,
 }) => {
-  /* the dream
-    window.roamAlphaAPI.ui.components.renderBlockText({
-        text: node.text,
-        el,
-    });
-    */
   const [data, setData] = useState<InitialSchema>(
     references[notebookUuid]?.[notebookPageId] || {
       content: `Loading reference from external notebook...`,
@@ -40,7 +33,6 @@ const CrossGraphReference = ({
     apiClient<{
       found: boolean;
       data: InitialSchema;
-      fromCache?: true;
     }>({
       method: "query",
       request: `${notebookUuid}:${notebookPageId}`,
@@ -86,7 +78,7 @@ export const render = (s: HTMLSpanElement, onloadArgs: OnloadArgs) => {
       s.classList.remove("rm-paren--closed");
       s.classList.add("rm-block-ref");
       ReactDOM.render(
-        <CrossGraphReference
+        <ExternalNotebookReference
           notebookUuid={notebookUuid}
           notebookPageId={notebookPageId}
           onloadArgs={onloadArgs}
@@ -97,4 +89,4 @@ export const render = (s: HTMLSpanElement, onloadArgs: OnloadArgs) => {
   }
 };
 
-export default CrossGraphReference;
+export default ExternalNotebookReference;

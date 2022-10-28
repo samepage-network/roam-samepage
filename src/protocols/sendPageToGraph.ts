@@ -57,7 +57,7 @@ const load = (api: typeof window.samepage) => {
             target: source,
             operation: `SEND_PAGE_RESPONSE/${source.workspace}/${uid}`,
             data: {
-              ephemeral: true,
+              uid,
             },
           });
         });

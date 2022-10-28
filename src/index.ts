@@ -6,7 +6,7 @@ import renderOverlay from "roamjs-components/util/renderOverlay";
 import setupSharePageWithNotebook from "./protocols/sharePageWithNotebook";
 import loadSendPageToGraph from "./protocols/sendPageToGraph";
 import loadCopyBlockToGraph from "./protocols/copyBlockToGraph";
-import loadCrossGraphBlockReference from "./protocols/crossGraphBlockReference";
+import loadCrossGraphBlockReference from "./protocols/notebookQuerying";
 import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
 
