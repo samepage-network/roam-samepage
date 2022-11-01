@@ -3,13 +3,11 @@ import { render as referenceRender } from "../components/ExternalNotebookReferen
 import { OnloadArgs } from "roamjs-components/types/native";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import atJsonParser from "samepage/utils/atJsonParser";
-import blockGrammar from "../utils/blockGrammar";
+// @ts-ignore for now until we fix types
+import blockGrammar from "../utils/blockGrammar.ne";
 import setupNotebookQuerying from "samepage/protocols/notebookQuerying";
 
-const load = (
-  { addNotebookListener, removeNotebookListener }: typeof window.samepage,
-  onloadArgs: OnloadArgs
-) => {
+const load = (onloadArgs: OnloadArgs) => {
   const { unload } = setupNotebookQuerying({
     onQuery: async (notebookPageId: string) => {
       return atJsonParser(blockGrammar, getTextByBlockUid(notebookPageId));
