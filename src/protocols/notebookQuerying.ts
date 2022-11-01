@@ -1,4 +1,4 @@
-import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
+import createHTMLObserver from "samepage/utils/createHTMLObserver";
 import { render as referenceRender } from "../components/ExternalNotebookReference";
 import { OnloadArgs } from "roamjs-components/types/native";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
@@ -14,7 +14,7 @@ const load = (onloadArgs: OnloadArgs) => {
     },
     onQueryResponse: async ({ data, request }) => {
       document.body.dispatchEvent(
-        new CustomEvent("samepage:reference", {
+        new CustomEvent("samepage:reference:response", {
           detail: {
             request,
             data,
@@ -23,10 +23,9 @@ const load = (onloadArgs: OnloadArgs) => {
       );
     },
   });
-  const observer = createHTMLObserver({
+  const observer = createHTMLObserver<HTMLSpanElement>({
     callback: (s) => referenceRender(s, onloadArgs),
-    tag: "SPAN",
-    className: "rm-paren--closed",
+    selector: "span.rm-paren--closed",
   });
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Copy Cross Notebook Reference",

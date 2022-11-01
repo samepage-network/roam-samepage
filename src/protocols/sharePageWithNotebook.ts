@@ -425,7 +425,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
                 : Math.abs(selectionEnd - selectionStart),
           });
         } else {
-          refreshState({ blockUid, notebookPageId, pull: "[:block/string]" });
+          refreshState({ blockUid, notebookPageId, pull: "[:block/string :block/parents]" });
         }
       }
     }
