@@ -293,6 +293,8 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
       window.roamAlphaAPI.deletePage({
         page: { title },
       }),
+    doesPageExist: async (title) =>
+      !!window.roamAlphaAPI.pull("[:db/id]", [":node/title", title]),
     applyState: async (...args) => applyState(...args, onloadArgs),
     calculateState: async (...args) => calculateState(...args),
     overlayProps: {
@@ -425,7 +427,11 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
                 : Math.abs(selectionEnd - selectionStart),
           });
         } else {
-          refreshState({ blockUid, notebookPageId, pull: "[:block/string :block/parents]" });
+          refreshState({
+            blockUid,
+            notebookPageId,
+            pull: "[:block/string :block/parents]",
+          });
         }
       }
     }

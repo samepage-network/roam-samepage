@@ -1,7 +1,9 @@
 import { Page, test, expect } from "@playwright/test";
 import fs from "fs";
 import { v4 } from "uuid";
-import createTestSamePageClient from "samepage/testing/createTestSamePageClient";
+import createTestSamePageClient, {
+  MessageSchema,
+} from "samepage/testing/createTestSamePageClient";
 import { InitialSchema } from "samepage/internal/types";
 import type { PullBlock } from "roamjs-components/types/native";
 
@@ -38,17 +40,30 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       throw new Error(message as string);
     },
   };
-  const clientReady = new Promise<
-    Awaited<ReturnType<typeof createTestSamePageClient>>
-  >((resolve) => {
-    samePageClientCallbacks["ready"] = () => resolve(client);
+  const clientReady = new Promise<{
+    testClient: Awaited<ReturnType<typeof createTestSamePageClient>>;
+    clientSend: (m: MessageSchema) => Promise<unknown>;
+  }>((resolve) => {
+    samePageClientCallbacks["ready"] = async () => {
+      const testClient = await client;
+      resolve({
+        testClient,
+        clientSend: (m) => {
+          const uuid = v4();
+          return new Promise<unknown>((resolve) => {
+            samePageClientCallbacks[uuid] = resolve;
+            // @ts-ignore
+            testClient.send({ ...m, uuid });
+          });
+        },
+      });
+    };
     const client = createTestSamePageClient({
       workspace: "test",
       onMessage: ({ type, ...data }) => samePageClientCallbacks[type]?.(data),
       initOptions: {
         uuid: process.env.SAMEPAGE_TEST_UUID,
         token: process.env.SAMEPAGE_TEST_TOKEN,
-        "auto-connect": "true",
         "granular-changes": "false",
       },
     });
@@ -174,15 +189,12 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .click();
     await expect(page.locator("h1")).toHaveText(pageName);
   });
-  const testClient = await clientReady;
+  const { testClient, clientSend } = await clientReady;
   unload = () =>
     new Promise<void>((resolve) => {
       samePageClientCallbacks["unload"] = resolve;
       testClient.send({ type: "unload" });
     });
-  const clientNotified = new Promise<boolean>(
-    (inner) => (samePageClientCallbacks["notification"] = () => inner(true))
-  );
 
   await test.step("Enter content", async () => {
     await page
@@ -202,6 +214,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
 
   await enterCommandPaletteCommand(page, "Share Page on SamePage");
 
+  const waitForNotification = clientSend({ type: "waitForNotification" });
   await test.step("Invite SamePage Client to page", async () => {
     await expect(page.locator(".bp3-dialog-header")).toHaveText(
       "Share Page on SamePage"
@@ -215,7 +228,6 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page.keyboard.press("Enter");
     await page.locator(".bp3-icon-plus").click();
     await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
-    await expect.poll(() => clientNotified).toBe(true);
   });
   const testClientRead = () =>
     new Promise<unknown>((resolve) => {
@@ -225,9 +237,14 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     });
 
   await test.step("Accept Shared Page from Roam", async () => {
+    const notification = await waitForNotification;
     const acceptResponse = new Promise<unknown>((resolve) => {
       samePageClientCallbacks["accept"] = () => resolve(true);
-      testClient.send({ type: "accept", notebookPageId: pageName });
+      testClient.send({
+        type: "accept",
+        notebookPageId: pageName,
+        notificationUuid: (notification as { uuid: string }).uuid,
+      });
     });
     await expect.poll(() => acceptResponse).toBe(true);
     await expect
