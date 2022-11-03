@@ -208,7 +208,11 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     );
     await page.locator("text=App").locator("button").click();
     await page.locator(".bp3-menu").locator("text=SamePage").click();
-    await page.locator('input[placeholder="Enter workspace"]').fill("test");
+    // TODO - backend needs to support Samepage test options
+    await page
+      .locator('input[placeholder="Enter notebook or email"]')
+      .fill("SamePage test");
+    await page.keyboard.press("Enter");
     await page.locator(".bp3-icon-plus").click();
     await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
     await expect.poll(() => clientNotified).toBe(true);
@@ -269,7 +273,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         type: "insert",
         notebookPageId: pageName,
         content: " with a response",
-        index: 70,
+        index: 15,
+        path: "li:first-child",
       });
     });
     await expect.poll(() => insertResponse).toBe(true);
