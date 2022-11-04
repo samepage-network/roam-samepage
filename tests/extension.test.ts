@@ -148,9 +148,9 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
 
   let notebookUuid = "";
-  await test.step("Connect Notebook Onboarding Flow", async () => {
+  await test.step("Onboard Notebook Onboarding Flow", async () => {
     await page.locator('div[role=dialog] >> text="Get Started"').click();
-    await page.locator('div[role=dialog] >> text="Connect Notebook"').click();
+    await page.locator('div[role=dialog] >> text="Use Existing Notebook"').click();
     await page
       .locator("text=Notebook Universal ID >> input")
       .fill(process.env.SAMEPAGE_TEST_UUID);
