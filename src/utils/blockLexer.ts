@@ -5,7 +5,10 @@ import {
   Processor,
   reduceTokens,
 } from "samepage/utils/atJsonTokens";
-import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+
+const REGEXES = {
+  blockReference: /\(\([^)]*\)\)/,
+};
 
 export const disambiguateTokens: Processor<InitialSchema> = (
   data,
@@ -92,6 +95,4 @@ export const createReferenceToken: Processor<InitialSchema> = (_data) => {
   };
 };
 
-export default compileLexer({
-  blockReference: /\(\([^)]*\)\)/,
-});
+export default compileLexer(REGEXES);

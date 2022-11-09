@@ -5,23 +5,16 @@ on:
     branches: main
     paths:
       - "src/**"
-      - "package.json"
       - ".github/workflows/main.yaml"
 
 env:
-  API_URL: https://api.samepage.network
   AWS_ACCESS_KEY_ID: ${{ secrets.SAMEPAGE_AWS_ACCESS_KEY }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SAMEPAGE_AWS_ACCESS_SECRET }}
   AWS_REGION: us-east-1
-  ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
-  ROAMJS_EMAIL: support@roamjs.com
-  ROAMJS_EXTENSION_ID: samepage
-  ROAMJS_RELEASE_TOKEN: ${{ secrets.ROAMJS_RELEASE_TOKEN }}
-  WEB_SOCKET_URL: wss://ws.samepage.network
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
       - name: install
