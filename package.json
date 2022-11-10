@@ -12,10 +12,11 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "edn-data": "^1.0.0",
     "roamjs-scripts": "^0.24.2"
   },
   "dependencies": {
-    "roamjs-components": "^0.74.19",
+    "roamjs-components": "^0.74.22",
     "samepage": "^0.28.3"
   }
 }

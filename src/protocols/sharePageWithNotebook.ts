@@ -93,6 +93,8 @@ const toAtJson = ({
     );
 };
 
+// TODO - Remove this when we have more testing
+// we should have reference to parents.length
 type TreeNodeWithLevel = Omit<TreeNode, "children"> & {
   level: number;
   children: TreeNodeWithLevel[];
@@ -249,7 +251,14 @@ export const applyState = async (
           order,
           node: { text: expectedNode.text },
         })
-          .then(() => Promise.resolve())
+          .then((uid) => {
+            const newActualNode = getFullTreeByParentUid(uid);
+            actualTree.push({
+              ...newActualNode,
+              level: newActualNode.parents.length,
+              children: [],
+            });
+          })
           .catch((e) => Promise.reject(`Failed to append block: ${e.message}`));
       }
     })
