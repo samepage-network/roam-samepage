@@ -8,6 +8,7 @@ on:
       - ".github/workflows/main.yaml"
 
 env:
+  API_URL: https://api.samepage.network
   AWS_ACCESS_KEY_ID: ${{ secrets.SAMEPAGE_AWS_ACCESS_KEY }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SAMEPAGE_AWS_ACCESS_SECRET }}
   AWS_REGION: us-east-1
