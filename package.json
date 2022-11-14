@@ -17,6 +17,6 @@
   },
   "dependencies": {
     "roamjs-components": "^0.74.22",
-    "samepage": "^0.28.3"
+    "samepage": "^0.28.5"
   }
 }
