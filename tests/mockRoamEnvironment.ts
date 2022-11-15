@@ -1416,7 +1416,6 @@ const mockRoamEnvironment = () => {
         parentBlock[":block/children"] || []
       ).concat({ ":db/id": id });
       graph.state[id] = block;
-      console.log(JSON.stringify(graph.state, null, 4));
     },
     createPage: async (action) => {
       if (!action.page) throw new Error(`page field is required`);

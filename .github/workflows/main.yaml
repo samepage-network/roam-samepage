@@ -1,5 +1,6 @@
 name: Publish Extension
 on:
+  pull_request:
   workflow_dispatch:
   push:
     branches: main
@@ -12,6 +13,7 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.SAMEPAGE_AWS_ACCESS_KEY }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SAMEPAGE_AWS_ACCESS_SECRET }}
   AWS_REGION: us-east-1
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   deploy:
@@ -22,5 +24,3 @@ jobs:
         run: npm install
       - name: build
         run: npx roamjs-scripts build --labs
-      - name: publish (SamePage)
-        run: npx samepage publish --domain samepage.network/extensions --path roam

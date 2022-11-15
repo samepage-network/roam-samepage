@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { v4 } from "uuid";
 import { applyState } from "../src/protocols/sharePageWithNotebook";
 import Automerge from "automerge";
-import mockRoamEnvironment from "./mockRoamEnvironment";
+import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
 import createPage from "roamjs-components/writes/createPage";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 

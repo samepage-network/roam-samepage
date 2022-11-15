@@ -1,4 +1,4 @@
-import { Page, test, expect } from "@playwright/test";
+import { Keyboard, Locator, Page, test, expect } from "@playwright/test";
 import fs from "fs";
 import { v4 } from "uuid";
 import createTestSamePageClient, {
@@ -13,12 +13,17 @@ declare global {
   }
 }
 
+const metaPress = (obj: Keyboard | Locator, key: string) =>
+  process.platform === "darwin"
+    ? obj.press(`Meta+${key}`)
+    : obj.press(`Control+${key}`);
+
 const enterCommandPaletteCommand = (page: Page, command: string) =>
   test.step(`Enter command ${command}`, async () => {
-    await page.keyboard.press("Meta+p");
+    await metaPress(page.keyboard, "p");
     await expect(page.locator(".rm-command-palette")).toBeVisible();
     await expect(page.locator("*:focus")).toHaveJSProperty("tagName", `INPUT`);
-    await page.locator("*:focus").press("Meta+a");
+    await metaPress(page.locator("*:focus"), "a");
     await page.locator("*:focus").press("Backspace");
     await page.locator("*:focus").fill(command);
     await expect(page.locator(`text="${command}" >> .. >> ..`)).toHaveCSS(
@@ -150,7 +155,9 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   let notebookUuid = "";
   await test.step("Onboard Notebook Onboarding Flow", async () => {
     await page.locator('div[role=dialog] >> text="Get Started"').click();
-    await page.locator('div[role=dialog] >> text="Use Existing Notebook"').click();
+    await page
+      .locator('div[role=dialog] >> text="Use Existing Notebook"')
+      .click();
     await page
       .locator("text=Notebook Universal ID >> input")
       .fill(process.env.SAMEPAGE_TEST_UUID);
@@ -180,7 +187,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
 
   const pageName = `SamePage Test ${v4().slice(0, 8)}`;
   await test.step(`Create and Navigate to ${pageName}`, async () => {
-    await page.keyboard.press("Meta+Enter");
+    await metaPress(page.keyboard, "Enter");
     await page.locator("*:focus").fill(`[[${pageName}]]`);
     await page.keyboard.press("Escape");
     await page
@@ -264,7 +271,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       "tagName",
       "TEXTAREA"
     );
-    await page.locator("*:focus").press("Meta+ArrowRight");
+    await metaPress(page.locator("*:focus"), "ArrowRight");
     await expect(page.locator("*:focus")).toHaveJSProperty(
       "selectionStart",
       "This is an automated test case".length
