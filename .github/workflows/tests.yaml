@@ -16,8 +16,8 @@ env:
   PLAYWRIGHT_HTML_REPORT: playwright-report
   ROAM_USERNAME: test@samepage.network
   ROAM_PASSWORD: ${{ secrets.ROAM_PASSWORD }}
-  SAMEPAGE_TEST_UUID: ${{ secrets.SAMEPAGE_TEST_UUID }},
-  SAMEPAGE_TEST_TOKEN: ${{ secrets.SAMEPAGE_TEST_TOKEN }},
+  SAMEPAGE_TEST_UUID: ${{ secrets.SAMEPAGE_TEST_UUID }}
+  SAMEPAGE_TEST_TOKEN: ${{ secrets.SAMEPAGE_TEST_TOKEN }}
   WEB_SOCKET_URL: wss://ws.samepage.network
 
 jobs:
