@@ -3,8 +3,8 @@ import fs from "fs";
 import { v4 } from "uuid";
 import createTestSamePageClient, {
   MessageSchema,
+  ResponseSchema,
 } from "samepage/testing/createTestSamePageClient";
-import { InitialSchema } from "samepage/internal/types";
 import type { PullBlock } from "roamjs-components/types/native";
 
 declare global {
@@ -39,35 +39,44 @@ test.afterEach(async () => {
 });
 test("Should share a page with the SamePage test app", async ({ page }) => {
   const oldLog = console.log;
-  const samePageClientCallbacks: Record<string, (a: unknown) => unknown> = {
-    log: ({ data }) => process.env.DEBUG && oldLog(`SamePage Client:`, data),
-    error: (message) => {
-      throw new Error(
-        typeof message === "string" ? message : JSON.stringify(message)
-      );
-    },
-  };
   const clientReady = new Promise<{
     testClient: Awaited<ReturnType<typeof createTestSamePageClient>>;
     clientSend: (m: MessageSchema) => Promise<unknown>;
   }>((resolve) => {
-    samePageClientCallbacks["ready"] = async () => {
-      const testClient = await client;
-      resolve({
-        testClient,
-        clientSend: (m) => {
-          const uuid = v4();
-          return new Promise<unknown>((resolve) => {
-            samePageClientCallbacks[uuid] = resolve;
-            // @ts-ignore
-            testClient.send({ ...m, uuid });
-          });
-        },
-      });
+    const pendingRequests: Record<string, (data: unknown) => void> = {};
+    const samePageClientCallbacks: {
+      [k in ResponseSchema as k["type"]]: (data: k) => void;
+    } = {
+      log: ({ data }) => process.env.DEBUG && oldLog(`SamePage Client:`, data),
+      error: (message) => {
+        throw new Error(
+          typeof message === "string" ? message : JSON.stringify(message)
+        );
+      },
+      ready: async () => {
+        const testClient = await client;
+        resolve({
+          testClient,
+          clientSend: (m) => {
+            const uuid = v4();
+            return new Promise<unknown>((resolve) => {
+              pendingRequests[uuid] = (a) => {
+                console.log("test client response", uuid);
+                resolve(a);
+              };
+              console.log("sending test client", m.type, uuid);
+              testClient.send({ ...m, uuid });
+            });
+          },
+        });
+      },
+      response: (data) => pendingRequests[data.uuid]?.(data.data),
     };
     const client = createTestSamePageClient({
       workspace: "test",
-      onMessage: ({ type, ...data }) => samePageClientCallbacks[type]?.(data),
+      onMessage: ({ type, ...data }) =>
+        // @ts-ignore same problem I always have about discriminated unions...
+        samePageClientCallbacks[type]?.(data),
       initOptions: {
         uuid: process.env.SAMEPAGE_TEST_UUID,
         token: process.env.SAMEPAGE_TEST_TOKEN,
@@ -226,7 +235,11 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .fill("SamePage test");
     await page.keyboard.press("Enter");
     await page.locator(".bp3-icon-plus").click();
-    await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
+    await expect(
+      page.locator(
+        '.bp3-toast.bp3-intent-success >> text="Successfully shared page! We will now await for the other notebook(s) to accept"'
+      )
+    ).toBeVisible();
   });
   const testClientRead = () =>
     clientSend({ type: "read", notebookPageId: pageName });
