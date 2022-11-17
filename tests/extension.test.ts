@@ -33,7 +33,7 @@ const enterCommandPaletteCommand = (page: Page, command: string) =>
     await page.keyboard.press("Enter");
   });
 
-let unload: () => Promise<void>;
+let unload: () => Promise<unknown>;
 test.afterEach(async () => {
   await unload?.();
 });
@@ -195,12 +195,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .click();
     await expect(page.locator("h1")).toHaveText(pageName);
   });
-  const { testClient, clientSend } = await clientReady;
-  unload = () =>
-    new Promise<void>((resolve) => {
-      samePageClientCallbacks["unload"] = resolve;
-      testClient.send({ type: "unload" });
-    });
+  const { clientSend } = await clientReady;
+  unload = () => clientSend({ type: "unload" });
 
   await test.step("Enter content", async () => {
     await page
@@ -236,21 +232,14 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
   });
   const testClientRead = () =>
-    new Promise<unknown>((resolve) => {
-      samePageClientCallbacks["read"] = (value: { data: InitialSchema }) =>
-        resolve(value.data);
-      testClient.send({ type: "read", notebookPageId: pageName });
-    });
+    clientSend({ type: "read", notebookPageId: pageName });
 
   await test.step("Accept Shared Page from Roam", async () => {
     const notification = await waitForNotification;
-    const acceptResponse = new Promise<unknown>((resolve) => {
-      samePageClientCallbacks["accept"] = () => resolve(true);
-      testClient.send({
-        type: "accept",
-        notebookPageId: pageName,
-        notificationUuid: (notification as { uuid: string }).uuid,
-      });
+    const acceptResponse = clientSend({
+      type: "accept",
+      notebookPageId: pageName,
+      notificationUuid: (notification as { uuid: string }).uuid,
     });
     await expect.poll(() => acceptResponse).toBe(true);
     await expect
@@ -290,15 +279,12 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
 
   await test.step("Insert content in samepage client", async () => {
-    const insertResponse = new Promise<unknown>((resolve) => {
-      samePageClientCallbacks["insert"] = () => resolve(true);
-      testClient.send({
-        type: "insert",
-        notebookPageId: pageName,
-        content: " with a response",
-        index: 15,
-        path: "li:first-child",
-      });
+    const insertResponse = clientSend({
+      type: "insert",
+      notebookPageId: pageName,
+      content: " with a response",
+      index: 15,
+      path: "li:first-child",
     });
     await expect.poll(() => insertResponse).toBe(true);
     await expect(
@@ -310,46 +296,43 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
 
   await test.step("Accepting AtJson with a reference", async () => {
-    const refreshResponse = new Promise<unknown>((resolve) => {
-      samePageClientCallbacks["refresh"] = () => resolve(true);
-      testClient.send({
-        type: "refresh",
-        notebookPageId: pageName,
-        data: {
-          content: `This is an automated test with my ref: ${String.fromCharCode(
-            0
-          )} and your ref: ${String.fromCharCode(0)}\n`,
-          annotations: [
-            {
-              start: 0,
-              end: 57,
-              type: "block",
-              attributes: {
-                viewType: "bullet",
-                level: 1,
-              },
+    const refreshResponse = clientSend({
+      type: "refresh",
+      notebookPageId: pageName,
+      data: {
+        content: `This is an automated test with my ref: ${String.fromCharCode(
+          0
+        )} and your ref: ${String.fromCharCode(0)}\n`,
+        annotations: [
+          {
+            start: 0,
+            end: 57,
+            type: "block",
+            attributes: {
+              viewType: "bullet",
+              level: 1,
             },
-            {
-              start: 39,
-              end: 40,
-              type: "reference",
-              attributes: {
-                notebookPageId: "asdfghjkl",
-                notebookUuid,
-              },
+          },
+          {
+            start: 39,
+            end: 40,
+            type: "reference",
+            attributes: {
+              notebookPageId: "asdfghjkl",
+              notebookUuid,
             },
-            {
-              start: 55,
-              end: 56,
-              type: "reference",
-              attributes: {
-                notebookPageId: "abcde1234",
-                notebookUuid: process.env.SAMEPAGE_TEST_UUID,
-              },
+          },
+          {
+            start: 55,
+            end: 56,
+            type: "reference",
+            attributes: {
+              notebookPageId: "abcde1234",
+              notebookUuid: process.env.SAMEPAGE_TEST_UUID,
             },
-          ],
-        },
-      });
+          },
+        ],
+      },
     });
     await expect.poll(() => refreshResponse).toBe(true);
     await expect
