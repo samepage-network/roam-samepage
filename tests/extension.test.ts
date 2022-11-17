@@ -233,7 +233,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page
       .locator('input[placeholder="Enter notebook or email..."]')
       .fill("SamePage test");
-    await page.keyboard.press("Enter");
+    await page.locator('li >> text="test"').click();
     await page.locator(".bp3-icon-plus").click();
     await expect(
       page.locator(
