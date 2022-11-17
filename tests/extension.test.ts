@@ -124,7 +124,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   await test.step("Log into Roam", async () => {
     await page.goto("https://roamresearch.com/#/signin");
     await page.waitForTimeout(5000); // Roam has an annoying refresh bug to wait to pass
-    expect(page.url(), `page.url()`).toBe("https://roamresearch.com/#/signin");
+    expect(page.url(), `page.url()`).toEqual("https://roamresearch.com/#/signin");
     await page.locator("[name=email]").fill(process.env.ROAM_USERNAME);
     await page.locator("[name=password]").fill(process.env.ROAM_PASSWORD);
     await page.locator(".bp3-button").first().click();
@@ -254,7 +254,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       notebookPageId: pageName,
       notificationUuid: (notification as { uuid: string }).uuid,
     });
-    await expect.poll(() => acceptResponse).toBe(undefined);
+    await expect.poll(() => acceptResponse).toEqual(undefined);
     await expect
       .poll(testClientRead)
       .toEqual(
@@ -299,7 +299,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       index: 15,
       path: "li:first-child",
     });
-    await expect.poll(() => insertResponse).toBe({ success: true });
+    await expect.poll(() => insertResponse).toEqual({ success: true });
     await expect(
       page.locator(":nth-match(.roam-article .roam-block, 1)")
     ).toHaveText("This is an automated test case and we're adding edits.");
@@ -347,7 +347,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         ],
       },
     });
-    await expect.poll(() => refreshResponse).toBe(undefined);
+    await expect.poll(() => refreshResponse).toEqual(undefined);
     await expect
       .poll(() =>
         page.evaluate(
