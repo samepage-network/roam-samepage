@@ -38,6 +38,7 @@ test.afterEach(async () => {
   await unload?.();
 });
 test("Should share a page with the SamePage test app", async ({ page }) => {
+  test.setTimeout(60000);
   const oldLog = console.log;
   const clientReady = new Promise<{
     testClient: Awaited<ReturnType<typeof createTestSamePageClient>>;
@@ -124,7 +125,9 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   await test.step("Log into Roam", async () => {
     await page.goto("https://roamresearch.com/#/signin");
     await page.waitForTimeout(5000); // Roam has an annoying refresh bug to wait to pass
-    expect(page.url(), `page.url()`).toEqual("https://roamresearch.com/#/signin");
+    expect(page.url(), `page.url()`).toEqual(
+      "https://roamresearch.com/#/signin"
+    );
     await page.locator("[name=email]").fill(process.env.ROAM_USERNAME);
     await page.locator("[name=password]").fill(process.env.ROAM_PASSWORD);
     await page.locator(".bp3-button").first().click();
