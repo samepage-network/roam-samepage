@@ -299,7 +299,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       index: 15,
       path: "li:first-child",
     });
-    await expect.poll(() => insertResponse).toBe(true);
+    await expect.poll(() => insertResponse).toBe({ success: true });
     await expect(
       page.locator(":nth-match(.roam-article .roam-block, 1)")
     ).toHaveText("This is an automated test case and we're adding edits.");
@@ -347,7 +347,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         ],
       },
     });
-    await expect.poll(() => refreshResponse).toBe(true);
+    await expect.poll(() => refreshResponse).toBe(undefined);
     await expect
       .poll(() =>
         page.evaluate(

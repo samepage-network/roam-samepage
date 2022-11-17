@@ -21,8 +21,8 @@ env:
   WEB_SOCKET_URL: wss://ws.samepage.network
 
 jobs:
-  deploy:
-    # runs-on: ubuntu-latest
+  test-mac:
+    # runs-on: ubuntu-latest - TODO instead of reintroducing, we could look into matrixing. Seems low value, high cost tho
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
