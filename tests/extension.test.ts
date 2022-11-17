@@ -42,7 +42,9 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   const samePageClientCallbacks: Record<string, (a: unknown) => unknown> = {
     log: ({ data }) => process.env.DEBUG && oldLog(`SamePage Client:`, data),
     error: (message) => {
-      throw new Error(message as string);
+      throw new Error(
+        typeof message === "string" ? message : JSON.stringify(message)
+      );
     },
   };
   const clientReady = new Promise<{
