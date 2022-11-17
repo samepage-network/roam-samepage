@@ -286,7 +286,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await expect
       .poll(testClientRead)
       .toEqual(
-        `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we&#x27;re adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`
+        `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we're adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`
       );
     await page.keyboard.press("Escape");
   });
