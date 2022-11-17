@@ -221,11 +221,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await expect(page.locator(".bp3-dialog-header")).toHaveText(
       "Share Page on SamePage"
     );
-    await page.locator("text=App").locator("button").click();
-    await page.locator(".bp3-menu").locator("text=SamePage").click();
-    // TODO - backend needs to support Samepage test options
     await page
-      .locator('input[placeholder="Enter notebook or email"]')
+      .locator('input[placeholder="Enter notebook or email..."]')
       .fill("SamePage test");
     await page.keyboard.press("Enter");
     await page.locator(".bp3-icon-plus").click();

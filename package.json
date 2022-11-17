@@ -1,6 +1,6 @@
 {
   "name": "roam-samepage",
-  "version": "test",
+  "version": "1.2.8",
   "description": "Official Roam client into the intra tool-for-thought protocol",
   "main": "./build/main.js",
   "scripts": {
@@ -17,10 +17,10 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "roamjs-scripts": "^0.26.8"
+    "roamjs-scripts": "^0.26.9"
   },
   "dependencies": {
     "roamjs-components": "^0.74.25",
-    "samepage": "^0.29.11"
+    "samepage": "^0.30.0"
   }
 }
