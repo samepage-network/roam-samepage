@@ -297,7 +297,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       notebookPageId: pageName,
       content: " with a response",
       index: 15,
-      path: "li:first-child",
+      path: "li:nth-child(2)",
     });
     await expect.poll(() => insertResponse).toEqual({ success: true });
     await expect(
