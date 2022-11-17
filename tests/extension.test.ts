@@ -252,7 +252,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       notebookPageId: pageName,
       notificationUuid: (notification as { uuid: string }).uuid,
     });
-    await expect.poll(() => acceptResponse).toBe(true);
+    await expect.poll(() => acceptResponse).toBe(undefined);
     await expect
       .poll(testClientRead)
       .toEqual(
