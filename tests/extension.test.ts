@@ -179,11 +179,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .locator("div.bp3-overlay-backdrop")
       .click({ position: { x: 300, y: 16 } });
     await expect(page.locator(".rm-settings")).not.toBeVisible();
+    await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
   });
-
-  await enterCommandPaletteCommand(page, "Connect to SamePage Network");
-  await expect(page.locator(".bp3-toast.bp3-intent-success")).toBeVisible();
-  await page.locator("div.roam-article").click({ position: { x: 16, y: 16 } });
 
   const pageName = `SamePage Test ${v4().slice(0, 8)}`;
   await test.step(`Create and Navigate to ${pageName}`, async () => {
