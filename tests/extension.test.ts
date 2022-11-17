@@ -242,7 +242,9 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     ).toBeVisible();
   });
   const testClientRead = () =>
-    clientSend({ type: "read", notebookPageId: pageName });
+    clientSend({ type: "read", notebookPageId: pageName }).then(
+      (r) => (r as { html: string }).html
+    );
 
   await test.step("Accept Shared Page from Roam", async () => {
     await expect.poll(() => waitForNotification).toHaveProperty("uuid");
