@@ -330,7 +330,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
 
   await page.waitForTimeout(5000);
-  await page.screenshot({path: v4()})
+  await page.screenshot({ path: `${v4()}.png` });
 
   await test.step("Insert content in samepage client", async () => {
     const insertResponse = clientSend({
