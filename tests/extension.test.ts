@@ -90,7 +90,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       class MockFileSystemDirectoryHandle implements FileSystemDirectoryHandle {
         constructor() {}
         kind = "directory" as const;
-        name = "roamjs-samepage";
+        name = "roam-samepage";
 
         async getDirectoryHandle(name: string) {
           return Promise.reject(`No subdirectories with name ${name}`);
@@ -110,7 +110,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
           return Promise.reject(`\`removeEntry\` of ${name} is not supported`);
         }
         async resolve() {
-          return ["roamjs-samepage"];
+          return ["roam-samepage"];
         }
         async queryPermission() {
           return "granted";
@@ -291,6 +291,33 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .toEqual(
         `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we're adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`
       );
+    await expect
+      .poll(() => clientSend({ type: "ipfs", notebookPageId: pageName }))
+      .toEqual({
+        content:
+          "This is an automated test case and we're adding edits.\nAnd a new block\n",
+        annotations: [
+          {
+            start: 0,
+            end: 55,
+            type: "block",
+            attributes: {
+              viewType: "bullet",
+              level: 1,
+            },
+          },
+          {
+            start: 55,
+            end: 71,
+            type: "block",
+            attributes: {
+              viewType: "bullet",
+              level: 1,
+            },
+          },
+        ],
+      });
+    await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
   });
 
