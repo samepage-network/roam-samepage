@@ -312,6 +312,11 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
 
   await test.step("Accepting AtJson with a reference", async () => {
+    await clientSend({
+      type: "setAppClientState",
+      notebookPageId: "abcde1234",
+      data: "<div>A ref</div>",
+    });
     const refreshResponse = clientSend({
       type: "refresh",
       notebookPageId: pageName,
@@ -365,7 +370,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         )
       )
       .toEqual(
-        `This is an automated test with my ref: ((asdfghjkl)) and your ref: ((${process.env.SAMEPAGE_TEST_UUID}:abcde1234))\n`
+        `This is an automated test with my ref: ((asdfghjkl)) and your ref: ((${process.env.SAMEPAGE_TEST_UUID}:abcde1234))`
       );
   });
 });
