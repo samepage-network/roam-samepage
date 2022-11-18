@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { v4 } from "uuid";
-import { applyState } from "../src/protocols/sharePageWithNotebook";
+import setupSharePageWithNotebook, {
+  applyState,
+} from "../src/protocols/sharePageWithNotebook";
 import Automerge from "automerge";
 import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
 import createPage from "roamjs-components/writes/createPage";
@@ -85,4 +87,8 @@ test("`applyState` handles a tree with multiple indentation", async () => {
   expect(tree[0].children[1].text).toEqual("Publish to Stores");
   expect(tree[0].children[2].text).toEqual("Write Content");
   expect(tree[1].text).toEqual("Shalom t");
+});
+
+test.skip("Receiving updates before local updates should not result in double blocks", async () => {
+  setupSharePageWithNotebook(mockOnLoadArgs);
 });

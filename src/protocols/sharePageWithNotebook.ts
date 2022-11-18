@@ -281,9 +281,6 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
     unload,
     updatePage,
     isShared,
-    insertContent,
-    // refreshContent,
-    deleteContent,
   } = loadSharePageWithNotebook({
     getCurrentNotebookPageId: () =>
       window.roamAlphaAPI.ui.mainWindow
@@ -434,11 +431,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
           clearRefreshRef();
           refreshState({ blockUid, notebookPageId, label: "Drag Block" });
         }
-      } else {
-        console.log("bad block uid", el);
       }
-    } else {
-      console.log("bad el", el);
     }
   };
   document.body.addEventListener("dragend", dragEndListener);
