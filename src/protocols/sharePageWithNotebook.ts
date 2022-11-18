@@ -384,67 +384,19 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
     if (e.metaKey) return;
     if (/^Arrow/.test(e.key)) return;
     if (/^Shift/.test(e.key)) return;
+    if (/^Alt/.test(e.key)) return;
+    if (/^Escape/.test(e.key)) return;
     if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
       const notebookPageId = getPageTitleByBlockUid(blockUid);
       if (isShared(notebookPageId)) {
-        const { selectionStart, selectionEnd } = el as HTMLTextAreaElement;
         clearRefreshRef();
-        const getBlockAnnotationStart = () => {
-          const { annotations } = calculateState(notebookPageId);
-          const blockUids = (
-            window.roamAlphaAPI.pull("[:block/uid {:block/children ...}]", [
-              ":node/title",
-              notebookPageId,
-            ])?.[":block/children"] || []
-          ).flatMap(function flat(b: PullBlock): string[] {
-            return [b[":block/uid"]].concat(
-              (b[":block/children"] || []).flatMap(flat)
-            );
-          });
-          const index = blockUids.indexOf(blockUid);
-          return index >= 0
-            ? annotations.filter((b) => b.type === "block")[index]?.start || 0
-            : 0;
-        };
-        const granularEnabled =
-          onloadArgs.extensionAPI.settings.get("granular-changes");
-        if (granularEnabled && /^[a-zA-Z0-9 ]$/.test(e.key)) {
-          const index =
-            Math.min(selectionStart, selectionEnd) + getBlockAnnotationStart();
-          (selectionStart !== selectionEnd
-            ? deleteContent({
-                notebookPageId,
-                index,
-                count: Math.abs(selectionEnd - selectionStart),
-              })
-            : Promise.resolve()
-          ).then(() =>
-            insertContent({
-              notebookPageId,
-              content: e.key,
-              index,
-            })
-          );
-        } else if (granularEnabled && /^Backspace$/.test(e.key)) {
-          const index =
-            Math.min(selectionStart, selectionEnd) + getBlockAnnotationStart();
-          deleteContent({
-            notebookPageId,
-            index: selectionEnd === selectionStart ? index - 1 : index,
-            count:
-              selectionEnd === selectionStart
-                ? 1
-                : Math.abs(selectionEnd - selectionStart),
-          });
-        } else {
-          refreshState({
-            label: `Edit Block - ${blockUid}`,
-            blockUid,
-            notebookPageId,
-            pull: "[:block/string :block/parents]",
-          });
-        }
+        refreshState({
+          label: `Edit Block - ${blockUid}`,
+          blockUid,
+          notebookPageId,
+          pull: "[:block/string :block/parents]",
+        });
       }
     }
   };

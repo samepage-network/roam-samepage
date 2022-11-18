@@ -346,8 +346,6 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     ).toHaveText("And a new block with a response");
   });
 
-  await page.waitForTimeout(5000);
-
   await test.step("Accepting AtJson with a reference", async () => {
     await clientSend({
       type: "setAppClientState",
