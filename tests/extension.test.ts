@@ -6,6 +6,7 @@ import createTestSamePageClient, {
   ResponseSchema,
 } from "samepage/testing/createTestSamePageClient";
 import type { PullBlock } from "roamjs-components/types/native";
+import { Schema } from "samepage/internal/types";
 
 declare global {
   interface Window {
@@ -292,7 +293,14 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we're adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`
       );
     await expect
-      .poll(() => clientSend({ type: "ipfs", notebookPageId: pageName }))
+      .poll(() =>
+        clientSend({ type: "ipfs", notebookPageId: pageName }).then(
+          (r: Schema) => ({
+            content: r.content.toString(),
+            annotations: r.annotations,
+          })
+        )
+      )
       .toEqual({
         contentType: "application/vnd.atjson+samepage; version=2022-08-17",
         content:
