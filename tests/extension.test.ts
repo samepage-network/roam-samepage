@@ -82,7 +82,6 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       initOptions: {
         uuid: process.env.SAMEPAGE_TEST_UUID,
         token: process.env.SAMEPAGE_TEST_TOKEN,
-        "granular-changes": "false",
       },
     });
   });
@@ -407,5 +406,101 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .toEqual(
         `This is an automated test with my ref: ((asdfghjkl)) and your ref: ((${process.env.SAMEPAGE_TEST_UUID}:abcde1234))`
       );
+  });
+
+  // It's now properly failing
+  await test.skip("Replay changes from disconnect", async () => {
+    await enterCommandPaletteCommand(page, "Disconnect from SamePage Network");
+    const newBlockResponse = clientSend({
+      type: "insert",
+      notebookPageId: pageName,
+      path: "body",
+      content: "LI",
+      index: 2,
+    });
+    await expect.poll(() => newBlockResponse).toEqual({ success: true });
+    const newBlockContent = clientSend({
+      type: "insert",
+      notebookPageId: pageName,
+      path: "li:nth-child(2)",
+      content: "Offline edit",
+      index: 0,
+    });
+    await expect.poll(() => newBlockContent).toEqual({ success: true });
+    await enterCommandPaletteCommand(page, "Connect to SamePage Network");
+    await page.locator('text="Offline edit"').click();
+    await expect(page.locator("*:focus")).toHaveJSProperty(
+      "tagName",
+      "TEXTAREA"
+    );
+    await metaPress(page.locator("*:focus"), "ArrowRight");
+    await expect(page.locator("*:focus")).toHaveJSProperty(
+      "selectionStart",
+      "Offline edit".length
+    );
+    await page.locator("*:focus").type(" and online edits");
+    await expect
+      .poll(() =>
+        clientSend({ type: "ipfs", notebookPageId: pageName }).then(
+          (r: Schema) => ({
+            content: r.content.toString(),
+            annotations: r.annotations,
+          })
+        )
+      )
+      .toEqual({
+        content: `This is an automated test with my ref: ${String.fromCharCode(
+          0
+        )} and your ref: ${String.fromCharCode(
+          0
+        )}\nOffline edit and online edits\n`,
+        annotations: [
+          {
+            start: 0,
+            end: 57,
+            type: "block",
+            attributes: {
+              viewType: "bullet",
+              level: 1,
+            },
+          },
+          {
+            start: 39,
+            end: 40,
+            type: "reference",
+            attributes: {
+              notebookPageId: "asdfghjkl",
+              notebookUuid,
+            },
+          },
+          {
+            start: 55,
+            end: 56,
+            type: "reference",
+            attributes: {
+              notebookPageId: "abcde1234",
+              notebookUuid: process.env.SAMEPAGE_TEST_UUID,
+            },
+          },
+          {
+            start: 57,
+            end: 87,
+            type: "block",
+            attributes: {
+              viewType: "bullet",
+              level: 1,
+            },
+          },
+        ],
+      });
+  });
+
+  await test.skip("Receiving updates before local updates should not result in double blocks", async () => {
+    // This is the double annotation bug - need a way to reproduce
+    // Test client makes a change C0 at T0
+    // Roam Client makes a change C1 at T1
+    // Roam and test Client exchange changes at T2
+    // Roam begins to apply C0. There's nothing to delete, bc C1 deleted everything. Both C0 and C1 are additive
+    // Resulting state is made up of both block trees
   });
 });

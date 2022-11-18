@@ -88,7 +88,3 @@ test("`applyState` handles a tree with multiple indentation", async () => {
   expect(tree[0].children[2].text).toEqual("Write Content");
   expect(tree[1].text).toEqual("Shalom t");
 });
-
-test.skip("Receiving updates before local updates should not result in double blocks", async () => {
-  setupSharePageWithNotebook(mockOnLoadArgs);
-});
