@@ -347,10 +347,12 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
     }
   };
   const refreshState = ({
+    label,
     blockUid,
     notebookPageId,
     pull = "[*]",
   }: {
+    label: string;
     blockUid: string;
     notebookPageId: string;
     pull?: string;
@@ -363,7 +365,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
         const doc = calculateState(notebookPageId);
         updatePage({
           notebookPageId,
-          label: `Refresh`,
+          label,
           callback: (oldDoc) => {
             oldDoc.content.deleteAt?.(0, oldDoc.content.length);
             oldDoc.content.insertAt?.(0, ...new Automerge.Text(doc.content));
@@ -437,6 +439,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
           });
         } else {
           refreshState({
+            label: `Edit Block - ${blockUid}`,
             blockUid,
             notebookPageId,
             pull: "[:block/string :block/parents]",
@@ -454,7 +457,12 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
       const notebookPageId = getPageTitleByBlockUid(blockUid);
       if (isShared(notebookPageId)) {
         clearRefreshRef();
-        refreshState({ blockUid, notebookPageId, pull: "[:block/string]" });
+        refreshState({
+          blockUid,
+          notebookPageId,
+          pull: "[:block/string]",
+          label: "Paste",
+        });
       }
     }
   };
@@ -472,7 +480,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
         const notebookPageId = getPageTitleByBlockUid(blockUid);
         if (isShared(notebookPageId)) {
           clearRefreshRef();
-          refreshState({ blockUid, notebookPageId });
+          refreshState({ blockUid, notebookPageId, label: "Drag Block" });
         }
       } else {
         console.log("bad block uid", el);
