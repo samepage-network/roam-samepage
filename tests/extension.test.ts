@@ -329,9 +329,6 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await page.keyboard.press("Escape");
   });
 
-  await page.waitForTimeout(5000);
-  await page.screenshot({ path: `${v4()}.png` });
-
   await test.step("Insert content in samepage client", async () => {
     const insertResponse = clientSend({
       type: "insert",
@@ -348,6 +345,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       page.locator(":nth-match(.roam-article .roam-block, 2)")
     ).toHaveText("And a new block with a response");
   });
+
+  await page.waitForTimeout(5000);
 
   await test.step("Accepting AtJson with a reference", async () => {
     await clientSend({
