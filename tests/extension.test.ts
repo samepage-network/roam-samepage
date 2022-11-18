@@ -294,6 +294,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     await expect
       .poll(() => clientSend({ type: "ipfs", notebookPageId: pageName }))
       .toEqual({
+        contentType: "application/vnd.atjson+samepage; version=2022-08-17",
         content:
           "This is an automated test case and we're adding edits.\nAnd a new block\n",
         annotations: [
