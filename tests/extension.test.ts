@@ -389,7 +389,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         ],
       },
     });
-    await expect.poll(() => refreshResponse).toEqual(undefined);
+    await expect.poll(() => refreshResponse).toEqual({ success: true });
     await expect
       .poll(() =>
         page.evaluate(
