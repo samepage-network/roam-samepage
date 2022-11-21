@@ -275,11 +275,7 @@ export const applyState = async (
 };
 
 const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
-  const {
-    unload,
-    updatePage,
-    isShared,
-  } = loadSharePageWithNotebook({
+  const { unload, updatePage, isShared } = loadSharePageWithNotebook({
     getCurrentNotebookPageId: () =>
       window.roamAlphaAPI.ui.mainWindow
         .getOpenPageOrBlockUid()
@@ -387,7 +383,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
       if (isShared(notebookPageId)) {
         clearRefreshRef();
         refreshState({
-          label: `Edit Block - ${blockUid}`,
+          label: `Key Presses - ${e.key}`,
           blockUid,
           notebookPageId,
           pull: "[:block/string :block/parents]",
