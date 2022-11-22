@@ -2,12 +2,18 @@ import type { Annotation, InitialSchema } from "samepage/internal/types";
 import { getSetting } from "samepage/internal/registry";
 import {
   compileLexer,
+  DEFAULT_TOKENS,
   Processor,
   reduceTokens,
 } from "samepage/utils/atJsonTokens";
+import atJsonToRoam from "./atJsonToRoam";
 
 const REGEXES = {
+  url: DEFAULT_TOKENS.url,
   blockReference: /\(\([^)]*\)\)/,
+  hashtag: /#[a-zA-Z0-9_.-]+/,
+  hash: /#/,
+  text: { match: /[^^~_*#[\]()!]+/, lineBreaks: true },
 };
 
 export const disambiguateTokens: Processor<InitialSchema> = (
@@ -15,7 +21,6 @@ export const disambiguateTokens: Processor<InitialSchema> = (
   _,
   reject
 ) => {
-  // keeping this here in case there are other Roam oddities we need to disambiguate
   const [tokens] = data as [InitialSchema[]];
   const exclamationMarkIndices = tokens
     .map((token, index) => ({ token, index }))
@@ -58,11 +63,18 @@ export const disambiguateTokens: Processor<InitialSchema> = (
     leftBracketIndices.some(({ index, token }) => {
       if (token.annotations.length === 0) {
         // TODO regex match or investigate ordered rules in nearley
-        return (
+        if (
           tokens[index + 2]?.content === "]" &&
           tokens[index + 3]?.content === "(" &&
           tokens[index + 5]?.content === ")"
-        );
+        )
+          return true;
+        if (
+          tokens[index + 1]?.content === "[" &&
+          tokens[index + 3]?.content === "]" &&
+          tokens[index + 4]?.content === "]"
+        )
+          return true;
       }
       return false;
     })
@@ -89,6 +101,49 @@ export const createReferenceToken: Processor<InitialSchema> = (_data) => {
         attributes: {
           notebookPageId,
           notebookUuid,
+        },
+      } as Annotation,
+    ],
+  };
+};
+
+export const createWikilinkToken: Processor<InitialSchema> = (_data) => {
+  const [, , , token] = _data as [
+    moo.Token,
+    moo.Token,
+    moo.Token,
+    InitialSchema,
+    moo.Token,
+    moo.Token
+  ];
+  return {
+    content: String.fromCharCode(0),
+    annotations: [
+      {
+        type: "reference",
+        start: 0,
+        end: 1,
+        attributes: {
+          notebookPageId: atJsonToRoam(token),
+          notebookUuid: getSetting("uuid"),
+        },
+      } as Annotation,
+    ],
+  };
+};
+
+export const createHashtagToken: Processor<InitialSchema> = (_data) => {
+  const [token] = _data as [moo.Token];
+  return {
+    content: String.fromCharCode(0),
+    annotations: [
+      {
+        type: "reference",
+        start: 0,
+        end: 1,
+        attributes: {
+          notebookPageId: token.value.replace(/^#/, ""),
+          notebookUuid: getSetting("uuid"),
         },
       } as Annotation,
     ],

@@ -178,8 +178,7 @@ export const applyState = async (
       end: a.end - offset,
     }));
     block.text = atJsonToRoam(
-      { content: block.text, annotations: normalizedAnnotations },
-      onloadArgs
+      { content: block.text, annotations: normalizedAnnotations }
     );
   });
   const pageViewType = getPageViewType(notebookPageId);

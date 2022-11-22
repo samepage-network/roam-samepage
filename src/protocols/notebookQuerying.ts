@@ -24,7 +24,7 @@ const load = (onloadArgs: OnloadArgs) => {
     },
   });
   const observer = createHTMLObserver<HTMLSpanElement>({
-    callback: (s) => referenceRender(s, onloadArgs),
+    callback: (s) => referenceRender(s),
     selector: "span.rm-paren--closed",
   });
   window.roamAlphaAPI.ui.commandPalette.addCommand({

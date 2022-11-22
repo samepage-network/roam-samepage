@@ -3,6 +3,7 @@ import type { InitialSchema } from "samepage/internal/types";
 import atJsonParser from "samepage/utils/atJsonParser";
 import { test, expect } from "@playwright/test";
 import { v4 } from "uuid";
+import mockRoamEnvironment from "./mockRoamEnvironment";
 
 const notebookUuid = v4();
 // @ts-ignore
@@ -20,6 +21,10 @@ const runTest = (md: string, expected: InitialSchema) => () => {
   expect(output.annotations[expected.annotations.length]).toBeUndefined();
   expect(expected.annotations[output.annotations.length]).toBeUndefined();
 };
+
+test.beforeAll(() => {
+  mockRoamEnvironment();
+});
 
 test(
   "Highlighted Text",
@@ -183,3 +188,74 @@ test("A cross app block reference", () => {
     ],
   })();
 });
+
+test("A normal page reference", () => {
+  runTest("A page [[reference]] to content", {
+    content: `A page ${String.fromCharCode(0)} to content`,
+    annotations: [
+      {
+        start: 7,
+        end: 8,
+        type: "reference",
+        attributes: {
+          notebookPageId: "reference",
+          notebookUuid,
+        },
+      },
+    ],
+  })();
+});
+
+test(
+  "A nested page reference",
+  runTest("A page [[with [[nested]] references]] to content", {
+    content: `A page ${String.fromCharCode(0)} to content`,
+    annotations: [
+      {
+        start: 7,
+        end: 8,
+        type: "reference",
+        attributes: {
+          notebookPageId: "with [[nested]] references",
+          notebookUuid,
+        },
+      },
+    ],
+  })
+);
+
+test(
+  "A hashtag",
+  runTest("A page #tag to content", {
+    content: `A page ${String.fromCharCode(0)} to content`,
+    annotations: [
+      {
+        start: 7,
+        end: 8,
+        type: "reference",
+        attributes: {
+          notebookPageId: "tag",
+          notebookUuid,
+        },
+      },
+    ],
+  })
+);
+
+test(
+  "A hashtagged page reference",
+  runTest("A page #[[That hashtags]] to content", {
+    content: `A page ${String.fromCharCode(0)} to content`,
+    annotations: [
+      {
+        start: 7,
+        end: 8,
+        type: "reference",
+        attributes: {
+          notebookPageId: "That hashtags",
+          notebookUuid,
+        },
+      },
+    ],
+  })
+);

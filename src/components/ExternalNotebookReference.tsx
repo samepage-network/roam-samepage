@@ -3,18 +3,15 @@ import ReactDOM from "react-dom";
 import type { InitialSchema } from "samepage/internal/types";
 import apiClient from "samepage/internal/apiClient";
 import atJsonToRoam from "../utils/atJsonToRoam";
-import { OnloadArgs } from "roamjs-components/types";
 
 export const references: Record<string, Record<string, InitialSchema>> = {};
 
 const ExternalNotebookReference = ({
   notebookUuid,
   notebookPageId,
-  onloadArgs,
 }: {
   notebookUuid: string;
   notebookPageId: string;
-  onloadArgs: OnloadArgs,
 }) => {
   const [data, setData] = useState<InitialSchema>(
     references[notebookUuid]?.[notebookPageId] || {
@@ -62,14 +59,10 @@ const ExternalNotebookReference = ({
         queryResponseListener
       );
   }, [setReferenceData, notebookUuid, notebookPageId]);
-  return (
-    <span className="roamjs-connected-ref">
-      {atJsonToRoam(data, onloadArgs)}
-    </span>
-  );
+  return <span className="roamjs-connected-ref">{atJsonToRoam(data)}</span>;
 };
 
-export const render = (s: HTMLSpanElement, onloadArgs: OnloadArgs) => {
+export const render = (s: HTMLSpanElement) => {
   const text = s.getAttribute("data-paren-str");
   if (text) {
     const [notebookUuid, notebookPageId] = text.split(":");
@@ -81,7 +74,6 @@ export const render = (s: HTMLSpanElement, onloadArgs: OnloadArgs) => {
         <ExternalNotebookReference
           notebookUuid={notebookUuid}
           notebookPageId={notebookPageId}
-          onloadArgs={onloadArgs}
         />,
         s
       );

@@ -1,8 +1,8 @@
-import { OnloadArgs } from "roamjs-components/types";
+import { getSetting } from "samepage/internal/registry";
 import { InitialSchema } from "samepage/internal/types";
 import renderAtJson from "samepage/utils/renderAtJson";
 
-const atJsonToRoam = (state: InitialSchema, onloadArgs: OnloadArgs) => {
+const atJsonToRoam = (state: InitialSchema) => {
   return renderAtJson({
     state,
     applyAnnotation: {
@@ -31,15 +31,28 @@ const atJsonToRoam = (state: InitialSchema, onloadArgs: OnloadArgs) => {
         suffix: `](${src})`,
         replace: content === String.fromCharCode(0),
       }),
-      reference: ({ notebookPageId, notebookUuid }, content) => ({
-        prefix: "((",
-        suffix: `${
-          notebookUuid === onloadArgs.extensionAPI.settings.get("uuid")
-            ? notebookPageId
-            : `${notebookUuid}:${notebookPageId}`
-        }))`,
-        replace: content === String.fromCharCode(0),
-      }),
+      reference: ({ notebookPageId, notebookUuid }, content) => {
+        const replace = content === String.fromCharCode(0);
+        if (notebookUuid === getSetting("uuid")) {
+          if (!!window.roamAlphaAPI.pull("[:db/id]", [":block/uid", "*"])) {
+            return {
+              prefix: "",
+              suffix: `((${notebookPageId}))`,
+              replace,
+            };
+          }
+          return {
+            prefix: "",
+            suffix: `[[${notebookPageId}]]`,
+            replace,
+          };
+        }
+        return {
+          replace,
+          prefix: "",
+          suffix: `((${notebookUuid}:${notebookPageId}))`,
+        };
+      },
     },
   });
 };
