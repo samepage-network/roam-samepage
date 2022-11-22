@@ -23,6 +23,13 @@ import blockGrammar from "../utils/blockGrammar";
 import getPageViewType from "roamjs-components/queries/getPageViewType";
 import nanoid from "nanoid";
 import atJsonToRoam from "../utils/atJsonToRoam";
+import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBlockUid";
+
+const isPage = (notebookPageId: string) =>
+  !!window.roamAlphaAPI.pull("[:db/id]", [":node/title", notebookPageId]);
+
+const isBlock = (notebookPageId: string) =>
+  !!window.roamAlphaAPI.pull("[:db/id]", [":block/uid", notebookPageId]);
 
 const toAtJson = ({
   nodes,
@@ -110,8 +117,10 @@ const flattenTree = (
   });
 };
 
-const calculateState = (notebookPageId: string) => {
-  const pageUid = getPageUidByPageTitle(notebookPageId);
+const calculateState = async (notebookPageId: string) => {
+  const pageUid = isBlock(notebookPageId)
+    ? notebookPageId
+    : getPageUidByPageTitle(notebookPageId);
   const node = getFullTreeByParentUid(pageUid);
   return toAtJson({
     nodes: node.children,
@@ -140,9 +149,10 @@ type SamepageNode = {
 export const applyState = async (
   notebookPageId: string,
   state: Schema,
-  onloadArgs: OnloadArgs
 ) => {
-  const rootPageUid = getPageUidByPageTitle(notebookPageId);
+  const rootPageUid = isPage(notebookPageId)
+    ? getPageUidByPageTitle(notebookPageId)
+    : notebookPageId;
   const expectedTree: SamepageNode[] = [];
   state.annotations.forEach((anno) => {
     if (anno.type === "block") {
@@ -177,9 +187,10 @@ export const applyState = async (
       start: a.start - offset,
       end: a.end - offset,
     }));
-    block.text = atJsonToRoam(
-      { content: block.text, annotations: normalizedAnnotations }
-    );
+    block.text = atJsonToRoam({
+      content: block.text,
+      annotations: normalizedAnnotations,
+    });
   });
   const pageViewType = getPageViewType(notebookPageId);
   const actualTree = flattenTree(
@@ -280,7 +291,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
         .getOpenPageOrBlockUid()
         .then((uid) =>
           uid
-            ? getPageTitleByPageUid(uid)
+            ? getPageTitleByPageUid(uid) || uid
             : window.roamAlphaAPI.util.dateToPageTitle(new Date())
         ),
     createPage: (title) => createPage({ title }),
@@ -292,10 +303,10 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
       window.roamAlphaAPI.deletePage({
         page: { title },
       }),
-    doesPageExist: async (title) =>
-      !!window.roamAlphaAPI.pull("[:db/id]", [":node/title", title]),
-    applyState: async (...args) => applyState(...args, onloadArgs),
-    calculateState: async (...args) => calculateState(...args),
+    doesPageExist: async (notebookPageId) =>
+      isPage(notebookPageId) || isBlock(notebookPageId),
+    applyState,
+    calculateState,
     overlayProps: {
       viewSharedPageProps: {
         onLinkClick: (notebookPageId, e) => {
@@ -312,17 +323,47 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
       },
       sharedPageStatusProps: {
         getHtmlElement: async (notebookPageId) => {
-          return Array.from(
-            document.querySelectorAll<HTMLHeadingElement>("h1.rm-title-display")
-          ).find((h) => getPageTitleValueByHtmlElement(h) === notebookPageId);
+          return isPage(notebookPageId)
+            ? Array.from(
+                document.querySelectorAll<HTMLHeadingElement>(
+                  "h1.rm-title-display"
+                )
+              ).find(
+                (h) => getPageTitleValueByHtmlElement(h) === notebookPageId
+              )
+            : Array.from(
+                document.querySelectorAll<HTMLDivElement | HTMLTextAreaElement>(
+                  `div[id*="${notebookPageId}"],textarea[id*="${notebookPageId}"]`
+                )
+              )
+                .map((e) =>
+                  e
+                    .closest(".roam-article")
+                    ?.querySelector<HTMLDivElement>(".zoom-path-view")
+                )
+                .find((e) => !!e);
         },
-        selector: "h1.rm-title-display",
-        getNotebookPageId: async (el) => elToTitle(el as Element),
-        getPath: (heading) => {
-          const parent = heading?.parentElement?.parentElement;
-          const sel = nanoid();
-          parent.setAttribute("data-samepage-shared", sel);
-          return `div[data-samepage-shared="${sel}"]::before(1)`;
+        selector: "h1.rm-title-display, div.roam-article div.zoom-path-view",
+        getNotebookPageId: async (el) =>
+          el.nodeName === "H1"
+            ? elToTitle(el as Element)
+            : getUids(
+                el.parentElement.querySelector(
+                  "div.roam-block, textarea.rm-block-input"
+                )
+              ).blockUid,
+        getPath: (el) => {
+          if (el.nodeName === "H1") {
+            const parent = el?.parentElement?.parentElement;
+            const sel = nanoid();
+            parent.setAttribute("data-samepage-shared", sel);
+            return `div[data-samepage-shared="${sel}"]::before(1)`;
+          } else {
+            const parent = el.parentElement;
+            const sel = nanoid();
+            parent.setAttribute("data-samepage-shared", sel);
+            return `div[data-samepage-shared="${sel}"]::before(1)`;
+          }
         },
       },
     },
@@ -352,7 +393,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
       `[:block/uid "${blockUid}"]`,
       async () => {
         clearRefreshRef();
-        const doc = calculateState(notebookPageId);
+        const doc = await calculateState(notebookPageId);
         updatePage({
           notebookPageId,
           label,
@@ -369,6 +410,24 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
     ];
     window.roamAlphaAPI.data.addPullWatch(...refreshRef);
   };
+
+  const forEachNotebookPageId = ({
+    blockUid,
+    callback,
+  }: {
+    blockUid: string;
+    callback: (notebookPageId: string) => void;
+  }) => {
+    const notebookPageIds = getParentUidsOfBlockUid(blockUid).map((u, i) =>
+      i === 0 ? getPageTitleByPageUid(u) : u
+    );
+    notebookPageIds.forEach((n) => {
+      if (isShared(n)) {
+        callback(n);
+      }
+    });
+  };
+
   const bodyKeydownListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (e.metaKey) return;
@@ -378,16 +437,18 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
     if (/^Escape/.test(e.key)) return;
     if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
-      const notebookPageId = getPageTitleByBlockUid(blockUid);
-      if (isShared(notebookPageId)) {
-        clearRefreshRef();
-        refreshState({
-          label: `Key Presses - ${e.key}`,
-          blockUid,
-          notebookPageId,
-          pull: "[:block/string :block/parents]",
-        });
-      }
+      forEachNotebookPageId({
+        blockUid,
+        callback(notebookPageId) {
+          clearRefreshRef();
+          refreshState({
+            label: `Key Presses - ${e.key}`,
+            blockUid,
+            notebookPageId,
+            pull: "[:block/string :block/parents]",
+          });
+        },
+      });
     }
   };
   document.body.addEventListener("keydown", bodyKeydownListener);
@@ -396,16 +457,18 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
     const el = e.target as HTMLElement;
     if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
       const { blockUid } = getUids(el as HTMLTextAreaElement);
-      const notebookPageId = getPageTitleByBlockUid(blockUid);
-      if (isShared(notebookPageId)) {
-        clearRefreshRef();
-        refreshState({
-          blockUid,
-          notebookPageId,
-          pull: "[:block/string]",
-          label: "Paste",
-        });
-      }
+      forEachNotebookPageId({
+        blockUid,
+        callback(notebookPageId) {
+          clearRefreshRef();
+          refreshState({
+            blockUid,
+            notebookPageId,
+            pull: "[:block/string]",
+            label: "Paste",
+          });
+        },
+      });
     }
   };
   document.body.addEventListener("paste", bodyPasteListener);
@@ -419,11 +482,13 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
           .querySelector(".roam-block, .rm-block-text")
       );
       if (blockUid) {
-        const notebookPageId = getPageTitleByBlockUid(blockUid);
-        if (isShared(notebookPageId)) {
-          clearRefreshRef();
-          refreshState({ blockUid, notebookPageId, label: "Drag Block" });
-        }
+        forEachNotebookPageId({
+          blockUid,
+          callback(notebookPageId) {
+            clearRefreshRef();
+            refreshState({ blockUid, notebookPageId, label: "Drag Block" });
+          },
+        });
       }
     }
   };
