@@ -37,7 +37,7 @@ const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
         id: s.id,
         name: s.name,
         description: s.description,
-        action: (s.type === "boolean"
+        action: /*s.type === "boolean"
           ? {
               type: "switch" as const,
               onChange: (e) => {
@@ -48,7 +48,7 @@ const setupUserSettings = async ({ extensionAPI, extension }: OnloadArgs) => {
                 });
               },
             }
-          : s.type === "string"
+          : */ (s.type === "string"
           ? {
               type: "input",
               placeholder: s.default,
