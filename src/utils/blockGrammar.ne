@@ -6,6 +6,7 @@
 import { 
    compileLexer, 
    createBoldToken,
+   createEmpty,
    createHighlightingToken,
    createItalicsToken,
    createStrikethroughToken,
@@ -23,7 +24,7 @@ import lexer, {
 
 @lexer lexer
 
-main -> tokens {% id %}
+main -> tokens {% id %} | null {% createEmpty %}
 
 tokens -> token:+ {% disambiguateTokens %}
 

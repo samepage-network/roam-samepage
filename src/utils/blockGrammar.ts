@@ -25,6 +25,7 @@ declare var under: any;
 import { 
    compileLexer, 
    createBoldToken,
+   createEmpty,
    createHighlightingToken,
    createItalicsToken,
    createStrikethroughToken,
@@ -163,6 +164,7 @@ const grammar: Grammar = {
     {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
     {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
     {"name": "main", "symbols": ["tokens"], "postprocess": id},
+    {"name": "main", "symbols": [], "postprocess": createEmpty},
     {"name": "tokens$ebnf$1", "symbols": ["token"]},
     {"name": "tokens$ebnf$1", "symbols": ["tokens$ebnf$1", "token"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "tokens", "symbols": ["tokens$ebnf$1"], "postprocess": disambiguateTokens},

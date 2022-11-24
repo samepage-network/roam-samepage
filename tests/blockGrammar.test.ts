@@ -259,3 +259,22 @@ test(
     ],
   })
 );
+
+test(
+  "Empty block",
+  runTest("", {
+    content: ``,
+    annotations: [],
+  })
+);
+
+test(
+  "Double italics",
+  runTest("Deal __with__ two __sets__ of italics", {
+    content: "Deal with two sets of italics",
+    annotations: [
+      { start: 5, end: 9, type: "italics" },
+      { start: 14, end: 18, type: "italics" },
+    ],
+  })
+);

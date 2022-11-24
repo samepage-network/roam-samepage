@@ -6,10 +6,13 @@ import atJsonParser from "samepage/utils/atJsonParser";
 // @ts-ignore for now until we fix types
 import blockGrammar from "../utils/blockGrammar.ne";
 import setupNotebookQuerying from "samepage/protocols/notebookQuerying";
+import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
 const load = (onloadArgs: OnloadArgs) => {
   const { unload } = setupNotebookQuerying({
     onQuery: async (notebookPageId: string) => {
+      if (getPageUidByPageTitle(notebookPageId))
+        return { content: notebookPageId, annotations: [] };
       return atJsonParser(blockGrammar, getTextByBlockUid(notebookPageId));
     },
     onQueryResponse: async ({ data, request }) => {
