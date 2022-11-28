@@ -8,22 +8,6 @@ import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
 import createPage from "roamjs-components/writes/createPage";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 
-const mockOnLoadArgs = {
-  extension: {
-    version: "TEST",
-  },
-  extensionAPI: {
-    settings: {
-      get: () => "",
-      getAll: () => ({}),
-      panel: {
-        create: async () => {},
-      },
-      set: async () => {},
-    },
-  },
-};
-
 test.beforeAll(() => {
   mockRoamEnvironment();
 });
@@ -77,7 +61,7 @@ test("`applyState` handles a tree with multiple indentation", async () => {
     ),
     contentType: "application/vnd.atjson+samepage; version=2022-08-17" as const,
   };
-  await applyState(notebookPageId, state, mockOnLoadArgs);
+  await applyState(notebookPageId, state);
   const tree = getBasicTreeByParentUid(pageUid);
   expect(tree[0].text).toEqual("Business");
   expect(tree[0].children).toHaveLength(3);

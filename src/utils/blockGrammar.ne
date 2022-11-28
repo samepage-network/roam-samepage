@@ -19,6 +19,7 @@ import lexer, {
    createReferenceToken,
    createWikilinkToken,
    createHashtagToken,
+   createButtonToken,
 } from "./blockLexer";
 %}
 
@@ -37,6 +38,7 @@ token -> %highlight tokens %highlight {% createHighlightingToken %}
    | %blockReference {% createReferenceToken %}
    | %hash:? %leftBracket %leftBracket tokens %rightBracket %rightBracket {% createWikilinkToken %}
    | %hashtag {% createHashtagToken %}
+   | %button {% createButtonToken %}
    | %text {% createTextToken %}
    | %star  {% createTextToken %}
    | %carot  {% createTextToken %}

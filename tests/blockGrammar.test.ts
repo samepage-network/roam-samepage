@@ -173,7 +173,7 @@ test("A normal block reference", () => {
 });
 
 test("A cross app block reference", () => {
-  runTest("A ((abcd1234:reference)) to content", {
+  runTest("A {{samepage-reference:abcd1234:reference}} to content", {
     content: `A ${String.fromCharCode(0)} to content`,
     annotations: [
       {
@@ -292,5 +292,40 @@ test(
   runTest("Review **public pages", {
     content: "Review **public pages",
     annotations: [],
+  })
+);
+
+test(
+  "A normal button",
+  runTest("A normal {{button}} to press", {
+    content: "A normal {{button}} to press",
+    annotations: [],
+  })
+);
+
+test(
+  "Double page tags",
+  runTest("One [[page]] and two [[pages]]", {
+    content: `One ${String.fromCharCode(0)} and two ${String.fromCharCode(0)}`,
+    annotations: [
+      {
+        start: 4,
+        end: 5,
+        type: "reference",
+        attributes: {
+          notebookPageId: "page",
+          notebookUuid,
+        },
+      },
+      {
+        start: 14,
+        end: 15,
+        type: "reference",
+        attributes: {
+          notebookPageId: "pages",
+          notebookUuid,
+        },
+      },
+    ],
   })
 );

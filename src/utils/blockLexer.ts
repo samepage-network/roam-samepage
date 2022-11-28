@@ -13,7 +13,11 @@ const REGEXES = {
   blockReference: /\(\([^)]*\)\)/,
   hashtag: /#[a-zA-Z0-9_.-]+/,
   hash: /#/,
-  text: { match: /[^^~_*#[\]()!]+/, lineBreaks: true },
+  button: { match: /{{(?:[^}]|}(?!}))+}}/, lineBreaks: true },
+  text: {
+    match: /(?:[^^~_*#[\]()!{]|{(?!{(?:[^}]|}(?!}))+}}))+/,
+    lineBreaks: true,
+  },
 };
 
 export const disambiguateTokens: Processor<InitialSchema> = (
@@ -86,11 +90,67 @@ export const disambiguateTokens: Processor<InitialSchema> = (
 
 export const createReferenceToken: Processor<InitialSchema> = (_data) => {
   const [token] = _data as [moo.Token];
-  const parts = token.value.slice(2, -2).split(":");
-  const { notebookPageId, notebookUuid } =
-    parts.length === 1
-      ? { notebookPageId: parts[0], notebookUuid: getSetting("uuid") }
-      : { notebookPageId: parts[1], notebookUuid: parts[0] };
+  const ref = token.value.replace(/^\(\(/, "").replace(/\)\)$/, "");
+  return {
+    content: String.fromCharCode(0),
+    annotations: [
+      {
+        type: "reference",
+        start: 0,
+        end: 1,
+        attributes: {
+          notebookPageId: ref,
+          notebookUuid: getSetting("uuid"),
+        },
+      } as Annotation,
+    ],
+  };
+};
+
+export const createButtonToken: Processor<InitialSchema> = (_data) => {
+  const [token] = _data as [moo.Token];
+  const data = token.value.replace(/^{{/, "").replace(/}}$/, "").split(":");
+  if (data[0] === "samepage-reference") {
+    return {
+      content: String.fromCharCode(0),
+      annotations: [
+        {
+          type: "reference",
+          start: 0,
+          end: 1,
+          attributes: {
+            notebookPageId: data.slice(2).join(":"),
+            notebookUuid: data[1],
+          },
+        } as Annotation,
+      ],
+    };
+  }
+  return {
+    content: token.value,
+    annotations: [],
+  };
+};
+
+export const createWikilinkToken: Processor<InitialSchema> = (
+  _data,
+  _,
+  reject
+) => {
+  const [, , , token] = _data as [
+    moo.Token,
+    moo.Token,
+    moo.Token,
+    InitialSchema,
+    moo.Token,
+    moo.Token
+  ];
+  const notebookPageId = atJsonToRoam(token);
+  const closing = notebookPageId.indexOf("]]");
+  const opening = notebookPageId.indexOf("[[");
+  if (closing >= 0 && (opening < 0 || closing < opening)) {
+    return reject;
+  }
   return {
     content: String.fromCharCode(0),
     annotations: [
@@ -100,31 +160,6 @@ export const createReferenceToken: Processor<InitialSchema> = (_data) => {
         end: 1,
         attributes: {
           notebookPageId,
-          notebookUuid,
-        },
-      } as Annotation,
-    ],
-  };
-};
-
-export const createWikilinkToken: Processor<InitialSchema> = (_data) => {
-  const [, , , token] = _data as [
-    moo.Token,
-    moo.Token,
-    moo.Token,
-    InitialSchema,
-    moo.Token,
-    moo.Token
-  ];
-  return {
-    content: String.fromCharCode(0),
-    annotations: [
-      {
-        type: "reference",
-        start: 0,
-        end: 1,
-        attributes: {
-          notebookPageId: atJsonToRoam(token),
           notebookUuid: getSetting("uuid"),
         },
       } as Annotation,

@@ -50,7 +50,7 @@ const atJsonToRoam = (state: InitialSchema) => {
         return {
           replace,
           prefix: "",
-          suffix: `((${notebookUuid}:${notebookPageId}))`,
+          suffix: `{{samepage-reference:${notebookUuid}:${notebookPageId}}}`,
         };
       },
     },

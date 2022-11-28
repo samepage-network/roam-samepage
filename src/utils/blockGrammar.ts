@@ -16,6 +16,7 @@ declare var exclamationMark: any;
 declare var blockReference: any;
 declare var hash: any;
 declare var hashtag: any;
+declare var button: any;
 declare var text: any;
 declare var star: any;
 declare var carot: any;
@@ -38,6 +39,7 @@ import lexer, {
    createReferenceToken,
    createWikilinkToken,
    createHashtagToken,
+   createButtonToken,
 } from "./blockLexer";
 
 interface NearleyToken {
@@ -181,6 +183,7 @@ const grammar: Grammar = {
     {"name": "token$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "token", "symbols": ["token$ebnf$1", (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "tokens", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket)], "postprocess": createWikilinkToken},
     {"name": "token", "symbols": [(lexer.has("hashtag") ? {type: "hashtag"} : hashtag)], "postprocess": createHashtagToken},
+    {"name": "token", "symbols": [(lexer.has("button") ? {type: "button"} : button)], "postprocess": createButtonToken},
     {"name": "token", "symbols": [(lexer.has("text") ? {type: "text"} : text)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("star") ? {type: "star"} : star)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("carot") ? {type: "carot"} : carot)], "postprocess": createTextToken},
