@@ -43,6 +43,8 @@ token -> %highlight tokens %highlight {% createHighlightingToken %}
    | %tilde  {% createTextToken %}
    | %under  {% createTextToken %}
    | %hash {% createTextToken %}
+   | %boldUnder {% createTextToken %}
+   | %boldStar {% createTextToken %}
    | %leftParen {% createTextToken %}
    | %leftBracket {% createTextToken %}
    | %rightParen {% createTextToken %}

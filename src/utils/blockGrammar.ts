@@ -187,6 +187,8 @@ const grammar: Grammar = {
     {"name": "token", "symbols": [(lexer.has("tilde") ? {type: "tilde"} : tilde)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("under") ? {type: "under"} : under)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("hash") ? {type: "hash"} : hash)], "postprocess": createTextToken},
+    {"name": "token", "symbols": [(lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder)], "postprocess": createTextToken},
+    {"name": "token", "symbols": [(lexer.has("boldStar") ? {type: "boldStar"} : boldStar)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("leftParen") ? {type: "leftParen"} : leftParen)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createTextToken},
