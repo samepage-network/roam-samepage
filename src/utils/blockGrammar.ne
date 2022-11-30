@@ -20,6 +20,7 @@ import lexer, {
    createWikilinkToken,
    createHashtagToken,
    createButtonToken,
+   createNull,
 } from "./blockLexer";
 %}
 
@@ -29,10 +30,10 @@ main -> tokens {% id %} | null {% createEmpty %}
 
 tokens -> token:+ {% disambiguateTokens %}
 
-token -> %highlight tokens %highlight {% createHighlightingToken %}
-   | %strike tokens %strike {% createStrikethroughToken %}
-   | %boldUnder tokens %boldUnder {% createItalicsToken %}
-   | %boldStar tokens %boldStar  {% createBoldToken %}
+token -> %highlight (tokens {% id %} | null {% createNull %}) %highlight {% createHighlightingToken %}
+   | %strike (tokens {% id %} | null {% createNull %}) %strike {% createStrikethroughToken %}
+   | %boldUnder (tokens {% id %} | null {% createNull %}) %boldUnder {% createItalicsToken %}
+   | %boldStar (tokens {% id %} | null {% createNull %}) %boldStar  {% createBoldToken %}
    | %leftBracket tokens %rightBracket %leftParen %url %rightParen {% createLinkToken %}
    | %exclamationMark %leftBracket (tokens {% id %} | null {% id %}) %rightBracket %leftParen %url %rightParen {% createImageToken %}
    | %blockReference {% createReferenceToken %}

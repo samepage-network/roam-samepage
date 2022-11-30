@@ -6,22 +6,26 @@ const atJsonToRoam = (state: InitialSchema) => {
   return renderAtJson({
     state,
     applyAnnotation: {
-      bold: {
+      bold: (_, content) => ({
         prefix: "**",
         suffix: `**`,
-      },
-      highlighting: {
+        replace: content === String.fromCharCode(0),
+      }),
+      highlighting: (_, content) => ({
         prefix: "^^",
         suffix: `^^`,
-      },
-      italics: {
+        replace: content === String.fromCharCode(0),
+      }),
+      italics: (_, content) => ({
         prefix: "__",
         suffix: `__`,
-      },
-      strikethrough: {
+        replace: content === String.fromCharCode(0),
+      }),
+      strikethrough: (_, content) => ({
         prefix: "~~",
         suffix: `~~`,
-      },
+        replace: content === String.fromCharCode(0),
+      }),
       link: ({ href }) => ({
         prefix: "[",
         suffix: `](${href})`,
@@ -34,7 +38,11 @@ const atJsonToRoam = (state: InitialSchema) => {
       reference: ({ notebookPageId, notebookUuid }, content) => {
         const replace = content === String.fromCharCode(0);
         if (notebookUuid === getSetting("uuid")) {
-          if (!!window.roamAlphaAPI.pull("[:db/id]", [":block/uid", "*"])) {
+          const pull = window.roamAlphaAPI.pull("[:db/id]", [
+            ":block/uid",
+            notebookPageId,
+          ]);
+          if (!!pull) {
             return {
               prefix: "",
               suffix: `((${notebookPageId}))`,

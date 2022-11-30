@@ -3,7 +3,10 @@ import type { InitialSchema } from "samepage/internal/types";
 import atJsonParser from "samepage/utils/atJsonParser";
 import { test, expect } from "@playwright/test";
 import { v4 } from "uuid";
-import mockRoamEnvironment from "./mockRoamEnvironment";
+import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
+import atJsonToRoam from "../src/utils/atJsonToRoam";
+import createBlock from "roamjs-components/writes/createBlock";
+import createPage from "roamjs-components/writes/createPage";
 
 const notebookUuid = v4();
 // @ts-ignore
@@ -11,16 +14,20 @@ global.localStorage = {
   getItem: () => JSON.stringify({ uuid: notebookUuid }),
 };
 
-const runTest = (md: string, expected: InitialSchema) => () => {
-  const output = atJsonParser(blockGrammar, md);
-  expect(output).toBeTruthy();
-  expect(output.content).toEqual(expected.content);
-  expected.annotations.forEach((e, i) => {
-    expect(output.annotations[i]).toEqual(e);
-  });
-  expect(output.annotations[expected.annotations.length]).toBeUndefined();
-  expect(expected.annotations[output.annotations.length]).toBeUndefined();
-};
+const runTest =
+  (md: string, expected: InitialSchema, opts: { skipInverse?: true } = {}) =>
+  () => {
+    const output = atJsonParser(blockGrammar, md);
+    expect(output).toBeTruthy();
+    expect(output.content).toEqual(expected.content);
+    expected.annotations.forEach((e, i) => {
+      expect(output.annotations[i]).toEqual(e);
+    });
+    expect(output.annotations[expected.annotations.length]).toBeUndefined();
+    expect(expected.annotations[output.annotations.length]).toBeUndefined();
+    const backToMd = atJsonToRoam(output);
+    if (!opts.skipInverse) expect(backToMd).toBe(md);
+  };
 
 test.beforeAll(() => {
   mockRoamEnvironment();
@@ -155,7 +162,12 @@ test(
   })
 );
 
-test("A normal block reference", () => {
+test("A normal block reference", async () => {
+  const parentUid = await createPage({ title: v4().slice(0, 8) });
+  await createBlock({
+    node: { uid: "reference", text: "referenced" },
+    parentUid,
+  });
   runTest("A block ((reference)) to content", {
     content: `A block ${String.fromCharCode(0)} to content`,
     annotations: [
@@ -190,15 +202,15 @@ test("A cross app block reference", () => {
 });
 
 test("A normal page reference", () => {
-  runTest("A page [[reference]] to content", {
-    content: `A page ${String.fromCharCode(0)} to content`,
+  runTest("A [[page reference]] to content", {
+    content: `A ${String.fromCharCode(0)} to content`,
     annotations: [
       {
-        start: 7,
-        end: 8,
+        start: 2,
+        end: 3,
         type: "reference",
         attributes: {
-          notebookPageId: "reference",
+          notebookPageId: "page reference",
           notebookUuid,
         },
       },
@@ -226,38 +238,46 @@ test(
 
 test(
   "A hashtag",
-  runTest("A page #tag to content", {
-    content: `A page ${String.fromCharCode(0)} to content`,
-    annotations: [
-      {
-        start: 7,
-        end: 8,
-        type: "reference",
-        attributes: {
-          notebookPageId: "tag",
-          notebookUuid,
+  runTest(
+    "A page #tag to content",
+    {
+      content: `A page ${String.fromCharCode(0)} to content`,
+      annotations: [
+        {
+          start: 7,
+          end: 8,
+          type: "reference",
+          attributes: {
+            notebookPageId: "tag",
+            notebookUuid,
+          },
         },
-      },
-    ],
-  })
+      ],
+    },
+    { skipInverse: true }
+  )
 );
 
 test(
   "A hashtagged page reference",
-  runTest("A page #[[That hashtags]] to content", {
-    content: `A page ${String.fromCharCode(0)} to content`,
-    annotations: [
-      {
-        start: 7,
-        end: 8,
-        type: "reference",
-        attributes: {
-          notebookPageId: "That hashtags",
-          notebookUuid,
+  runTest(
+    "A page #[[That hashtags]] to content",
+    {
+      content: `A page ${String.fromCharCode(0)} to content`,
+      annotations: [
+        {
+          start: 7,
+          end: 8,
+          type: "reference",
+          attributes: {
+            notebookPageId: "That hashtags",
+            notebookUuid,
+          },
         },
-      },
-    ],
-  })
+      ],
+    },
+    { skipInverse: true }
+  )
 );
 
 test(
@@ -326,6 +346,50 @@ test(
           notebookUuid,
         },
       },
+    ],
+  })
+);
+
+test(
+  "Double double bold text means no bold",
+  runTest("A ****Bold**** text", {
+    content: `A ${String.fromCharCode(0)}Bold${String.fromCharCode(0)} text`,
+    annotations: [
+      { end: 3, start: 2, type: "bold" },
+      { end: 8, start: 7, type: "bold" },
+    ],
+  })
+);
+
+test(
+  "Double double underscore text means no italic",
+  runTest("A ____slanted____ text", {
+    content: `A ${String.fromCharCode(0)}slanted${String.fromCharCode(0)} text`,
+    annotations: [
+      { end: 3, start: 2, type: "italics" },
+      { end: 11, start: 10, type: "italics" },
+    ],
+  })
+);
+
+test(
+  "Double double highlight text means no highlight",
+  runTest("A ^^^^highlight^^^^ text", {
+    content: `A ${String.fromCharCode(0)}highlight${String.fromCharCode(0)} text`,
+    annotations: [
+      { end: 3, start: 2, type: "highlighting" },
+      { end: 13, start: 12, type: "highlighting" },
+    ],
+  })
+);
+
+test(
+  "Double double strikethrough text means no strikethrough",
+  runTest("A ~~~~struck~~~~ text", {
+    content: `A ${String.fromCharCode(0)}struck${String.fromCharCode(0)} text`,
+    annotations: [
+      { end: 3, start: 2, type: "strikethrough" },
+      { end: 10, start: 9, type: "strikethrough" },
     ],
   })
 );

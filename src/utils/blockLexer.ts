@@ -132,6 +132,11 @@ export const createButtonToken: Processor<InitialSchema> = (_data) => {
   };
 };
 
+export const createNull: Processor<InitialSchema> = () => ({
+  content: String.fromCharCode(0),
+  annotations: [],
+});
+
 export const createWikilinkToken: Processor<InitialSchema> = (
   _data,
   _,
