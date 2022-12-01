@@ -3,9 +3,13 @@
 // Bypasses TS6133. Allow declared but unused functions.
 // @ts-ignore
 function id(d: any[]): any { return d[0]; }
+declare var openDoubleCarot: any;
 declare var highlight: any;
+declare var openDoubleTilde: any;
 declare var strike: any;
+declare var openDoubleUnder: any;
 declare var boldUnder: any;
+declare var openDoubleStar: any;
 declare var boldStar: any;
 declare var leftBracket: any;
 declare var rightBracket: any;
@@ -173,20 +177,28 @@ const grammar: Grammar = {
     {"name": "tokens", "symbols": ["tokens$ebnf$1"], "postprocess": disambiguateTokens},
     {"name": "token$subexpression$1", "symbols": ["tokens"], "postprocess": id},
     {"name": "token$subexpression$1", "symbols": [], "postprocess": createNull},
-    {"name": "token", "symbols": [(lexer.has("highlight") ? {type: "highlight"} : highlight), "token$subexpression$1", (lexer.has("highlight") ? {type: "highlight"} : highlight)], "postprocess": createHighlightingToken},
-    {"name": "token$subexpression$2", "symbols": ["tokens"], "postprocess": id},
-    {"name": "token$subexpression$2", "symbols": [], "postprocess": createNull},
-    {"name": "token", "symbols": [(lexer.has("strike") ? {type: "strike"} : strike), "token$subexpression$2", (lexer.has("strike") ? {type: "strike"} : strike)], "postprocess": createStrikethroughToken},
+    {"name": "token$subexpression$2", "symbols": [(lexer.has("highlight") ? {type: "highlight"} : highlight)]},
+    {"name": "token$subexpression$2", "symbols": [(lexer.has("openDoubleCarot") ? {type: "openDoubleCarot"} : openDoubleCarot)]},
+    {"name": "token", "symbols": [(lexer.has("openDoubleCarot") ? {type: "openDoubleCarot"} : openDoubleCarot), "token$subexpression$1", "token$subexpression$2"], "postprocess": createHighlightingToken},
     {"name": "token$subexpression$3", "symbols": ["tokens"], "postprocess": id},
     {"name": "token$subexpression$3", "symbols": [], "postprocess": createNull},
-    {"name": "token", "symbols": [(lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder), "token$subexpression$3", (lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder)], "postprocess": createItalicsToken},
-    {"name": "token$subexpression$4", "symbols": ["tokens"], "postprocess": id},
-    {"name": "token$subexpression$4", "symbols": [], "postprocess": createNull},
-    {"name": "token", "symbols": [(lexer.has("boldStar") ? {type: "boldStar"} : boldStar), "token$subexpression$4", (lexer.has("boldStar") ? {type: "boldStar"} : boldStar)], "postprocess": createBoldToken},
-    {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "tokens", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createLinkToken},
+    {"name": "token$subexpression$4", "symbols": [(lexer.has("strike") ? {type: "strike"} : strike)]},
+    {"name": "token$subexpression$4", "symbols": [(lexer.has("openDoubleTilde") ? {type: "openDoubleTilde"} : openDoubleTilde)]},
+    {"name": "token", "symbols": [(lexer.has("openDoubleTilde") ? {type: "openDoubleTilde"} : openDoubleTilde), "token$subexpression$3", "token$subexpression$4"], "postprocess": createStrikethroughToken},
     {"name": "token$subexpression$5", "symbols": ["tokens"], "postprocess": id},
-    {"name": "token$subexpression$5", "symbols": [], "postprocess": id},
-    {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "token$subexpression$5", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createImageToken},
+    {"name": "token$subexpression$5", "symbols": [], "postprocess": createNull},
+    {"name": "token$subexpression$6", "symbols": [(lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder)]},
+    {"name": "token$subexpression$6", "symbols": [(lexer.has("openDoubleUnder") ? {type: "openDoubleUnder"} : openDoubleUnder)]},
+    {"name": "token", "symbols": [(lexer.has("openDoubleUnder") ? {type: "openDoubleUnder"} : openDoubleUnder), "token$subexpression$5", "token$subexpression$6"], "postprocess": createItalicsToken},
+    {"name": "token$subexpression$7", "symbols": ["tokens"], "postprocess": id},
+    {"name": "token$subexpression$7", "symbols": [], "postprocess": createNull},
+    {"name": "token$subexpression$8", "symbols": [(lexer.has("boldStar") ? {type: "boldStar"} : boldStar)]},
+    {"name": "token$subexpression$8", "symbols": [(lexer.has("openDoubleStar") ? {type: "openDoubleStar"} : openDoubleStar)]},
+    {"name": "token", "symbols": [(lexer.has("openDoubleStar") ? {type: "openDoubleStar"} : openDoubleStar), "token$subexpression$7", "token$subexpression$8"], "postprocess": createBoldToken},
+    {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "tokens", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createLinkToken},
+    {"name": "token$subexpression$9", "symbols": ["tokens"], "postprocess": id},
+    {"name": "token$subexpression$9", "symbols": [], "postprocess": id},
+    {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "token$subexpression$9", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createImageToken},
     {"name": "token", "symbols": [(lexer.has("blockReference") ? {type: "blockReference"} : blockReference)], "postprocess": createReferenceToken},
     {"name": "token$ebnf$1", "symbols": [(lexer.has("hash") ? {type: "hash"} : hash)], "postprocess": id},
     {"name": "token$ebnf$1", "symbols": [], "postprocess": () => null},
@@ -198,6 +210,8 @@ const grammar: Grammar = {
     {"name": "token", "symbols": [(lexer.has("carot") ? {type: "carot"} : carot)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("tilde") ? {type: "tilde"} : tilde)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("under") ? {type: "under"} : under)], "postprocess": createTextToken},
+    {"name": "token", "symbols": [(lexer.has("highlight") ? {type: "highlight"} : highlight)], "postprocess": createTextToken},
+    {"name": "token", "symbols": [(lexer.has("strike") ? {type: "strike"} : strike)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("hash") ? {type: "hash"} : hash)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("boldUnder") ? {type: "boldUnder"} : boldUnder)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("boldStar") ? {type: "boldStar"} : boldStar)], "postprocess": createTextToken},

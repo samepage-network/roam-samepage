@@ -30,10 +30,10 @@ main -> tokens {% id %} | null {% createEmpty %}
 
 tokens -> token:+ {% disambiguateTokens %}
 
-token -> %highlight (tokens {% id %} | null {% createNull %}) %highlight {% createHighlightingToken %}
-   | %strike (tokens {% id %} | null {% createNull %}) %strike {% createStrikethroughToken %}
-   | %boldUnder (tokens {% id %} | null {% createNull %}) %boldUnder {% createItalicsToken %}
-   | %boldStar (tokens {% id %} | null {% createNull %}) %boldStar  {% createBoldToken %}
+token -> %openDoubleCarot (tokens {% id %} | null {% createNull %}) (%highlight | %openDoubleCarot) {% createHighlightingToken %}
+   | %openDoubleTilde (tokens {% id %} | null {% createNull %}) (%strike | %openDoubleTilde) {% createStrikethroughToken %}
+   | %openDoubleUnder (tokens {% id %} | null {% createNull %}) (%boldUnder | %openDoubleUnder) {% createItalicsToken %}
+   | %openDoubleStar (tokens {% id %} | null {% createNull %}) (%boldStar | %openDoubleStar)  {% createBoldToken %}
    | %leftBracket tokens %rightBracket %leftParen %url %rightParen {% createLinkToken %}
    | %exclamationMark %leftBracket (tokens {% id %} | null {% id %}) %rightBracket %leftParen %url %rightParen {% createImageToken %}
    | %blockReference {% createReferenceToken %}
@@ -45,6 +45,8 @@ token -> %highlight (tokens {% id %} | null {% createNull %}) %highlight {% crea
    | %carot  {% createTextToken %}
    | %tilde  {% createTextToken %}
    | %under  {% createTextToken %}
+   | %highlight {% createTextToken %}
+   | %strike {% createTextToken %}
    | %hash {% createTextToken %}
    | %boldUnder {% createTextToken %}
    | %boldStar {% createTextToken %}

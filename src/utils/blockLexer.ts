@@ -13,9 +13,15 @@ const REGEXES = {
   blockReference: /\(\([^)]*\)\)/,
   hashtag: /#[a-zA-Z0-9_.-]+/,
   hash: /#/,
+  openDoubleUnder: { match: /__(?=(?:[^_]|_[^_])*__)/, lineBreaks: true },
+  openDoubleStar: { match: /\*\*(?=(?:[^*]|\*[^*])*\*\*)/, lineBreaks: true },
+  openDoubleTilde: { match: /~~(?=(?:[^~]|~[^~])*~~)/, lineBreaks: true },
+  openDoubleCarot: { match: /\^\^(?=(?:[^^]|\^[^^])*\^\^)/, lineBreaks: true },
   button: { match: /{{(?:[^}]|}(?!}))+}}/, lineBreaks: true },
   text: {
-    match: /(?:[^^~_*#[\]()!{]|{(?!{(?:[^}]|}(?!}))+}}))+/,
+    match:
+      // (plain text | alone left curl | alone right curl | alone under | alone asterisk | alone carot | alone tilde)
+      /(?:[^^~_*#[\]()!{]|{(?!{(?:[^}]|}(?!}))+}})|_(?=[^_]+$)|\*(?=[^*]+$)|\^(?=[^^]+$)|~(?=[^~]+$))+/,
     lineBreaks: true,
   },
 };

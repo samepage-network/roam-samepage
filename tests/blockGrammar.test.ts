@@ -393,3 +393,43 @@ test(
     ],
   })
 );
+
+test(
+  "Odd number double underscores",
+  runTest(
+    "Deal __with__ odd __underscores",
+    {
+      content: `Deal with odd __underscores`,
+      annotations: [{ start: 5, end: 9, type: "italics" }],
+    },
+    { skipInverse: true }
+  )
+);
+
+test(
+  "Odd number double asterisks",
+  runTest(
+    "Deal **with** odd **asterisks",
+    {
+      content: `Deal with odd **asterisks`,
+      annotations: [{ start: 5, end: 9, type: "bold" }],
+    },
+    { skipInverse: true }
+  )
+);
+
+test(
+  "Odd number double tilde",
+  runTest("Deal ~~with~~ odd ~~tildes", {
+    content: `Deal with odd ~~tildes`,
+    annotations: [{ start: 5, end: 9, type: "strikethrough" }],
+  })
+);
+
+test(
+  "Odd number double carot",
+  runTest("Deal ^^with^^ odd ^^carots", {
+    content: `Deal with odd ^^carots`,
+    annotations: [{ start: 5, end: 9, type: "highlighting" }],
+  })
+);
