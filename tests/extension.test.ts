@@ -180,7 +180,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .fill(process.env.SAMEPAGE_TEST_TOKEN);
     await page.locator("text=I have read and agree").click();
     await page.locator('div[role=dialog] >> text="Connect"').click();
-    await page.locator('div[role=dialog] >> text="All Done"').click();
+    await page.locator('div[role=dialog] >> button >> text="All Done"').click();
     await expect(
       page.locator('div[role=dialog] >> text="Welcome to SamePage"')
     ).not.toBeVisible();
