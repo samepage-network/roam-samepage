@@ -234,7 +234,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       "Share Page on SamePage"
     );
     await page
-      .locator('input[placeholder="Enter notebook or email..."]')
+      .locator('input[placeholder="Enter notebook..."]')
       .fill("SamePage test");
     await page.locator('li >> text="test"').click();
     await page.locator(".bp3-icon-plus").click();
