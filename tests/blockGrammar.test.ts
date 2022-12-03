@@ -7,6 +7,7 @@ import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
 import atJsonToRoam from "../src/utils/atJsonToRoam";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
+import registry from "samepage/internal/registry";
 
 const notebookUuid = v4();
 // @ts-ignore
@@ -30,6 +31,7 @@ const runTest =
   };
 
 test.beforeAll(() => {
+  registry({ app: 1 });
   mockRoamEnvironment();
 });
 
@@ -213,6 +215,11 @@ test("A normal page reference", () => {
           notebookPageId: "page reference",
           notebookUuid,
         },
+        appAttributes: {
+          roam: {
+            kind: "wikilink",
+          },
+        },
       },
     ],
   })();
@@ -231,6 +238,11 @@ test(
           notebookPageId: "with [[nested]] references",
           notebookUuid,
         },
+        appAttributes: {
+          roam: {
+            kind: "wikilink",
+          },
+        },
       },
     ],
   })
@@ -238,46 +250,48 @@ test(
 
 test(
   "A hashtag",
-  runTest(
-    "A page #tag to content",
-    {
-      content: `A page ${String.fromCharCode(0)} to content`,
-      annotations: [
-        {
-          start: 7,
-          end: 8,
-          type: "reference",
-          attributes: {
-            notebookPageId: "tag",
-            notebookUuid,
+  runTest("A page #tag to content", {
+    content: `A page ${String.fromCharCode(0)} to content`,
+    annotations: [
+      {
+        start: 7,
+        end: 8,
+        type: "reference",
+        attributes: {
+          notebookPageId: "tag",
+          notebookUuid,
+        },
+        appAttributes: {
+          roam: {
+            kind: "hash",
           },
         },
-      ],
-    },
-    { skipInverse: true }
-  )
+      },
+    ],
+  })
 );
 
 test(
   "A hashtagged page reference",
-  runTest(
-    "A page #[[That hashtags]] to content",
-    {
-      content: `A page ${String.fromCharCode(0)} to content`,
-      annotations: [
-        {
-          start: 7,
-          end: 8,
-          type: "reference",
-          attributes: {
-            notebookPageId: "That hashtags",
-            notebookUuid,
+  runTest("A page #[[That hashtags]] to content", {
+    content: `A page ${String.fromCharCode(0)} to content`,
+    annotations: [
+      {
+        start: 7,
+        end: 8,
+        type: "reference",
+        attributes: {
+          notebookPageId: "That hashtags",
+          notebookUuid,
+        },
+        appAttributes: {
+          roam: {
+            kind: "hash-wikilink",
           },
         },
-      ],
-    },
-    { skipInverse: true }
-  )
+      },
+    ],
+  })
 );
 
 test(
@@ -336,6 +350,11 @@ test(
           notebookPageId: "page",
           notebookUuid,
         },
+        appAttributes: {
+          roam: {
+            kind: "wikilink",
+          },
+        },
       },
       {
         start: 14,
@@ -344,6 +363,11 @@ test(
         attributes: {
           notebookPageId: "pages",
           notebookUuid,
+        },
+        appAttributes: {
+          roam: {
+            kind: "wikilink",
+          },
         },
       },
     ],
@@ -375,7 +399,9 @@ test(
 test(
   "Double double highlight text means no highlight",
   runTest("A ^^^^highlight^^^^ text", {
-    content: `A ${String.fromCharCode(0)}highlight${String.fromCharCode(0)} text`,
+    content: `A ${String.fromCharCode(0)}highlight${String.fromCharCode(
+      0
+    )} text`,
     annotations: [
       { end: 3, start: 2, type: "highlighting" },
       { end: 13, start: 12, type: "highlighting" },
@@ -396,26 +422,18 @@ test(
 
 test(
   "Odd number double underscores",
-  runTest(
-    "Deal __with__ odd __underscores",
-    {
-      content: `Deal with odd __underscores`,
-      annotations: [{ start: 5, end: 9, type: "italics" }],
-    },
-    { skipInverse: true }
-  )
+  runTest("Deal __with__ odd __underscores", {
+    content: `Deal with odd __underscores`,
+    annotations: [{ start: 5, end: 9, type: "italics" }],
+  })
 );
 
 test(
   "Odd number double asterisks",
-  runTest(
-    "Deal **with** odd **asterisks",
-    {
-      content: `Deal with odd **asterisks`,
-      annotations: [{ start: 5, end: 9, type: "bold" }],
-    },
-    { skipInverse: true }
-  )
+  runTest("Deal **with** odd **asterisks", {
+    content: `Deal with odd **asterisks`,
+    annotations: [{ start: 5, end: 9, type: "bold" }],
+  })
 );
 
 test(

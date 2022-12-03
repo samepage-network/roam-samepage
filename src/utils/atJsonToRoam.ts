@@ -6,36 +6,40 @@ const atJsonToRoam = (state: InitialSchema) => {
   return renderAtJson({
     state,
     applyAnnotation: {
-      bold: (_, content) => ({
+      bold: ({ content }) => ({
         prefix: "**",
         suffix: `**`,
         replace: content === String.fromCharCode(0),
       }),
-      highlighting: (_, content) => ({
+      highlighting: ({ content }) => ({
         prefix: "^^",
         suffix: `^^`,
         replace: content === String.fromCharCode(0),
       }),
-      italics: (_, content) => ({
+      italics: ({ content }) => ({
         prefix: "__",
         suffix: `__`,
         replace: content === String.fromCharCode(0),
       }),
-      strikethrough: (_, content) => ({
+      strikethrough: ({ content }) => ({
         prefix: "~~",
         suffix: `~~`,
         replace: content === String.fromCharCode(0),
       }),
-      link: ({ href }) => ({
+      link: ({ attributes: { href } }) => ({
         prefix: "[",
         suffix: `](${href})`,
       }),
-      image: ({ src }, content) => ({
+      image: ({ attributes: { src }, content }) => ({
         prefix: "![",
         suffix: `](${src})`,
         replace: content === String.fromCharCode(0),
       }),
-      reference: ({ notebookPageId, notebookUuid }, content) => {
+      reference: ({
+        attributes: { notebookPageId, notebookUuid },
+        content,
+        appAttributes: { kind },
+      }) => {
         const replace = content === String.fromCharCode(0);
         if (notebookUuid === getSetting("uuid")) {
           const pull = window.roamAlphaAPI.pull("[:db/id]", [
@@ -51,7 +55,12 @@ const atJsonToRoam = (state: InitialSchema) => {
           }
           return {
             prefix: "",
-            suffix: `[[${notebookPageId}]]`,
+            suffix:
+              kind === "hash-wikilink"
+                ? `#[[${notebookPageId}]]`
+                : kind === "hash"
+                ? `#${notebookPageId}`
+                : `[[${notebookPageId}]]`,
             replace,
           };
         }

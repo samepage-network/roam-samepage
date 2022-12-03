@@ -148,7 +148,7 @@ export const createWikilinkToken: Processor<InitialSchema> = (
   _,
   reject
 ) => {
-  const [, , , token] = _data as [
+  const [hash, , , token] = _data as [
     moo.Token,
     moo.Token,
     moo.Token,
@@ -173,6 +173,11 @@ export const createWikilinkToken: Processor<InitialSchema> = (
           notebookPageId,
           notebookUuid: getSetting("uuid"),
         },
+        appAttributes: {
+          roam: {
+            kind: hash ? "hash-wikilink" : "wikilink",
+          },
+        },
       } as Annotation,
     ],
   };
@@ -190,6 +195,11 @@ export const createHashtagToken: Processor<InitialSchema> = (_data) => {
         attributes: {
           notebookPageId: token.value.replace(/^#/, ""),
           notebookUuid: getSetting("uuid"),
+        },
+        appAttributes: {
+          roam: {
+            kind: "hash",
+          },
         },
       } as Annotation,
     ],
