@@ -115,7 +115,7 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
   });
 
 const setupProtocols = (args: OnloadArgs, api: typeof window.samepage) => {
-  const unloadSharePageWithNotebook = setupSharePageWithNotebook(args);
+  const unloadSharePageWithNotebook = setupSharePageWithNotebook();
   const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
   const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(args);
   const unloadSendPageToGraph = loadSendPageToGraph(api);

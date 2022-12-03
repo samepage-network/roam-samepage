@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { v4 } from "uuid";
-import setupSharePageWithNotebook, {
-  applyState,
-} from "../src/protocols/sharePageWithNotebook";
+import { applyState } from "../src/protocols/sharePageWithNotebook";
 import Automerge from "automerge";
 import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
 import createPage from "roamjs-components/writes/createPage";
