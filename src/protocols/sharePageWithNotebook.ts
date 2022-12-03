@@ -16,7 +16,6 @@ import elToTitle from "roamjs-components/dom/elToTitle";
 import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
-import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import Automerge from "automerge";
 import blockGrammar from "../utils/blockGrammar";
@@ -146,10 +145,7 @@ type SamepageNode = {
   };
 };
 
-export const applyState = async (
-  notebookPageId: string,
-  state: Schema,
-) => {
+export const applyState = async (notebookPageId: string, state: Schema) => {
   const rootPageUid = isPage(notebookPageId)
     ? getPageUidByPageTitle(notebookPageId)
     : notebookPageId;
@@ -284,7 +280,7 @@ export const applyState = async (
   return promises.reduce((p, c) => p.then(c), Promise.resolve<unknown>(""));
 };
 
-const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
+const setupSharePageWithNotebook = () => {
   const { unload, updatePage, isShared } = loadSharePageWithNotebook({
     getCurrentNotebookPageId: () =>
       window.roamAlphaAPI.ui.mainWindow
@@ -430,8 +426,15 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
 
   const bodyKeydownListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
-    if (e.metaKey) return;
-    if (/^Arrow/.test(e.key)) return;
+    console.log(
+      e.key,
+      e.shiftKey,
+      e.metaKey,
+      /^Arrow/.test(e.key) && !(e.shiftKey && (e.metaKey || e.altKey))
+    );
+    if (/^.$/.test(e.key) && e.metaKey) return;
+    if (/^Arrow/.test(e.key) && !(e.shiftKey && (e.metaKey || e.altKey)))
+      return;
     if (/^Shift/.test(e.key)) return;
     if (/^Alt/.test(e.key)) return;
     if (/^Escape/.test(e.key)) return;
@@ -445,7 +448,7 @@ const setupSharePageWithNotebook = (onloadArgs: OnloadArgs) => {
             label: `Key Presses - ${e.key}`,
             blockUid,
             notebookPageId,
-            pull: "[:block/string :block/parents]",
+            pull: "[:block/string :block/parents :block/order]",
           });
         },
       });
