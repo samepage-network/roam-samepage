@@ -126,7 +126,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
 
   await test.step("Log into Roam", async () => {
     await page.goto("https://roamresearch.com/#/signin");
-    await page.waitForTimeout(5000); // Roam has an annoying refresh bug to wait to pass
+    await page.waitForTimeout(10000); // Roam has an annoying refresh bug to wait to pass
     expect(page.url(), `page.url()`).toEqual(
       "https://roamresearch.com/#/signin"
     );
