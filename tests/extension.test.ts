@@ -6,7 +6,6 @@ import createTestSamePageClient, {
   ResponseSchema,
 } from "samepage/testing/createTestSamePageClient";
 import type { PullBlock } from "roamjs-components/types/native";
-import { Schema } from "samepage/internal/types";
 
 declare global {
   interface Window {
@@ -267,13 +266,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       );
   });
 
-  const readIpfs = () =>
-    clientSend({ type: "ipfs", notebookPageId: pageName }).then(
-      (r: Schema) => ({
-        content: r.content.toString(),
-        annotations: r.annotations,
-      })
-    );
+  const readIpfs = () => clientSend({ type: "ipfs", notebookPageId: pageName });
   await test.step("Edit some content in Roam", async () => {
     await page
       .locator(".bp3-overlay-backdrop")
@@ -603,15 +596,5 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         },
       ],
     });
-  });
-
-  await test.step("Receiving updates before local updates should not result in double blocks", async () => {
-    if (skip) return;
-    // This is the double annotation bug - need a way to reproduce
-    // Test client makes a change C0 at T0
-    // Roam Client makes a change C1 at T1
-    // Roam and test Client exchange changes at T2
-    // Roam begins to apply C0. There's nothing to delete, bc C1 deleted everything. Both C0 and C1 are additive
-    // Resulting state is made up of both block trees
   });
 });

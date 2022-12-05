@@ -54,10 +54,8 @@ test("`applyState` handles a tree with multiple indentation", async () => {
         type: "block" as const,
       },
     ],
-    content: new Automerge.Text(
-      "Business\nGoals for this week\nSetting up emails\nPublish to Stores\nWrite Content\nShalom t\n"
-    ),
-    contentType: "application/vnd.atjson+samepage; version=2022-08-17" as const,
+    content:
+      "Business\nGoals for this week\nSetting up emails\nPublish to Stores\nWrite Content\nShalom t\n",
   };
   await applyState(notebookPageId, state);
   const tree = getBasicTreeByParentUid(pageUid);

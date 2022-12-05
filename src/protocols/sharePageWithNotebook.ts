@@ -1,4 +1,4 @@
-import type { Schema, InitialSchema } from "samepage/internal/types";
+import type { InitialSchema } from "samepage/internal/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
 import atJsonParser from "samepage/utils/atJsonParser";
 import type {
@@ -17,12 +17,12 @@ import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
-import Automerge from "automerge";
 import blockGrammar from "../utils/blockGrammar";
 import getPageViewType from "roamjs-components/queries/getPageViewType";
 import nanoid from "nanoid";
 import atJsonToRoam from "../utils/atJsonToRoam";
 import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBlockUid";
+import { has as isShared } from "samepage/utils/localAutomergeDb";
 
 const isPage = (notebookPageId: string) =>
   !!window.roamAlphaAPI.pull("[:db/id]", [":node/title", notebookPageId]);
@@ -51,7 +51,7 @@ const toAtJson = ({
           };
       const content = `${_content || String.fromCharCode(0)}\n`;
       const end = content.length + index;
-      const blockAnnotation: Schema["annotations"] = [
+      const blockAnnotation: InitialSchema["annotations"] = [
         {
           start: index,
           end,
@@ -92,7 +92,7 @@ const toAtJson = ({
       },
       {
         content: "",
-        annotations: [] as Schema["annotations"],
+        annotations: [] as InitialSchema["annotations"],
       }
     );
 };
@@ -141,11 +141,14 @@ type SamepageNode = {
   annotation: {
     start: number;
     end: number;
-    annotations: Schema["annotations"];
+    annotations: InitialSchema["annotations"];
   };
 };
 
-export const applyState = async (notebookPageId: string, state: Schema) => {
+export const applyState = async (
+  notebookPageId: string,
+  state: InitialSchema
+) => {
   const rootPageUid = isPage(notebookPageId)
     ? getPageUidByPageTitle(notebookPageId)
     : notebookPageId;
@@ -153,10 +156,7 @@ export const applyState = async (notebookPageId: string, state: Schema) => {
   state.annotations.forEach((anno) => {
     if (anno.type === "block") {
       const currentBlock: SamepageNode = {
-        text: state.content
-          .slice(anno.start, anno.end)
-          .join("")
-          .replace(/\n$/, ""),
+        text: state.content.slice(anno.start, anno.end).replace(/\n$/, ""),
         level: anno.attributes.level,
         viewType: anno.attributes.viewType,
         annotation: {
@@ -281,7 +281,7 @@ export const applyState = async (notebookPageId: string, state: Schema) => {
 };
 
 const setupSharePageWithNotebook = () => {
-  const { unload, updatePage, isShared } = loadSharePageWithNotebook({
+  const { unload, refreshContent } = loadSharePageWithNotebook({
     getCurrentNotebookPageId: () =>
       window.roamAlphaAPI.ui.mainWindow
         .getOpenPageOrBlockUid()
@@ -389,19 +389,7 @@ const setupSharePageWithNotebook = () => {
       `[:block/uid "${blockUid}"]`,
       async () => {
         clearRefreshRef();
-        const doc = await calculateState(notebookPageId);
-        updatePage({
-          notebookPageId,
-          label,
-          callback: (oldDoc) => {
-            oldDoc.content.deleteAt?.(0, oldDoc.content.length);
-            oldDoc.content.insertAt?.(0, ...new Automerge.Text(doc.content));
-            if (!oldDoc.annotations) oldDoc.annotations = [];
-            oldDoc.annotations.splice(0, oldDoc.annotations.length);
-            doc.annotations.forEach((a) => oldDoc.annotations.push(a));
-          },
-        });
-        // refreshContent();
+        refreshContent({ notebookPageId, label });
       },
     ];
     window.roamAlphaAPI.data.addPullWatch(...refreshRef);
