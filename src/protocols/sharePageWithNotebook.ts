@@ -318,26 +318,42 @@ const setupSharePageWithNotebook = () => {
         linkNewPage: (_, title) => createPage({ title }),
       },
       sharedPageStatusProps: {
-        getHtmlElement: async (notebookPageId) => {
-          return isPage(notebookPageId)
-            ? Array.from(
-                document.querySelectorAll<HTMLHeadingElement>(
-                  "h1.rm-title-display"
+        getPaths: (notebookPageId) => {
+          return (
+            isPage(notebookPageId)
+              ? Array.from(
+                  document.querySelectorAll<HTMLHeadingElement>(
+                    "h1.rm-title-display"
+                  )
+                ).filter(
+                  (h) => getPageTitleValueByHtmlElement(h) === notebookPageId
                 )
-              ).find(
-                (h) => getPageTitleValueByHtmlElement(h) === notebookPageId
-              )
-            : Array.from(
-                document.querySelectorAll<HTMLDivElement | HTMLTextAreaElement>(
-                  `div[id*="${notebookPageId}"],textarea[id*="${notebookPageId}"]`
+              : Array.from(
+                  document.querySelectorAll<
+                    HTMLDivElement | HTMLTextAreaElement
+                  >(
+                    `div[id*="${notebookPageId}"],textarea[id*="${notebookPageId}"]`
+                  )
                 )
-              )
-                .map((e) =>
-                  e
-                    .closest(".roam-article")
-                    ?.querySelector<HTMLDivElement>(".zoom-path-view")
-                )
-                .find((e) => !!e);
+                  .map((e) =>
+                    e
+                      .closest(".roam-article")
+                      ?.querySelector<HTMLDivElement>(".zoom-path-view")
+                  )
+                  .filter((e) => !!e)
+          ).map((el) => {
+            if (el.nodeName === "H1") {
+              const parent = el?.parentElement?.parentElement;
+              const sel = nanoid();
+              parent.setAttribute("data-samepage-shared", sel);
+              return `div[data-samepage-shared="${sel}"]::before(1)`;
+            } else {
+              const parent = el.parentElement;
+              const sel = nanoid();
+              parent.setAttribute("data-samepage-shared", sel);
+              return `div[data-samepage-shared="${sel}"]::before(1)`;
+            }
+          });
         },
         selector: "h1.rm-title-display, div.roam-article div.zoom-path-view",
         getNotebookPageId: async (el) =>
@@ -348,19 +364,6 @@ const setupSharePageWithNotebook = () => {
                   "div.roam-block, textarea.rm-block-input"
                 )
               ).blockUid,
-        getPath: (el) => {
-          if (el.nodeName === "H1") {
-            const parent = el?.parentElement?.parentElement;
-            const sel = nanoid();
-            parent.setAttribute("data-samepage-shared", sel);
-            return `div[data-samepage-shared="${sel}"]::before(1)`;
-          } else {
-            const parent = el.parentElement;
-            const sel = nanoid();
-            parent.setAttribute("data-samepage-shared", sel);
-            return `div[data-samepage-shared="${sel}"]::before(1)`;
-          }
-        },
       },
     },
   });
