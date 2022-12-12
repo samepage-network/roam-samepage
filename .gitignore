@@ -12,3 +12,4 @@ extension.js
 /playwright/.cache/
 extension.css
 roam.zip
+coverage

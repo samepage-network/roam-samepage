@@ -11,21 +11,23 @@ declare var openDoubleUnder: any;
 declare var boldUnder: any;
 declare var openDoubleStar: any;
 declare var boldStar: any;
-declare var leftBracket: any;
-declare var rightBracket: any;
-declare var leftParen: any;
-declare var url: any;
-declare var rightParen: any;
-declare var exclamationMark: any;
+declare var asset: any;
 declare var blockReference: any;
 declare var hash: any;
+declare var leftBracket: any;
+declare var rightBracket: any;
 declare var hashtag: any;
 declare var button: any;
+declare var alias: any;
 declare var text: any;
 declare var star: any;
 declare var carot: any;
 declare var tilde: any;
 declare var under: any;
+declare var leftParen: any;
+declare var rightParen: any;
+declare var exclamationMark: any;
+declare var url: any;
 
 import { 
    compileLexer, 
@@ -36,7 +38,6 @@ import {
    createStrikethroughToken,
    createTextToken,
    createImageToken,
-   createLinkToken,
 } from "samepage/utils/atJsonTokens";
 import lexer, {
    disambiguateTokens,
@@ -45,6 +46,8 @@ import lexer, {
    createHashtagToken,
    createButtonToken,
    createNull,
+   createAliasToken,
+   createAssetToken,
 } from "./blockLexer";
 
 interface NearleyToken {
@@ -195,16 +198,14 @@ const grammar: Grammar = {
     {"name": "token$subexpression$8", "symbols": [(lexer.has("boldStar") ? {type: "boldStar"} : boldStar)]},
     {"name": "token$subexpression$8", "symbols": [(lexer.has("openDoubleStar") ? {type: "openDoubleStar"} : openDoubleStar)]},
     {"name": "token", "symbols": [(lexer.has("openDoubleStar") ? {type: "openDoubleStar"} : openDoubleStar), "token$subexpression$7", "token$subexpression$8"], "postprocess": createBoldToken},
-    {"name": "token", "symbols": [(lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "tokens", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createLinkToken},
-    {"name": "token$subexpression$9", "symbols": ["tokens"], "postprocess": id},
-    {"name": "token$subexpression$9", "symbols": [], "postprocess": id},
-    {"name": "token", "symbols": [(lexer.has("exclamationMark") ? {type: "exclamationMark"} : exclamationMark), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "token$subexpression$9", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("leftParen") ? {type: "leftParen"} : leftParen), (lexer.has("url") ? {type: "url"} : url), (lexer.has("rightParen") ? {type: "rightParen"} : rightParen)], "postprocess": createImageToken},
+    {"name": "token", "symbols": [(lexer.has("asset") ? {type: "asset"} : asset)], "postprocess": createAssetToken},
     {"name": "token", "symbols": [(lexer.has("blockReference") ? {type: "blockReference"} : blockReference)], "postprocess": createReferenceToken},
     {"name": "token$ebnf$1", "symbols": [(lexer.has("hash") ? {type: "hash"} : hash)], "postprocess": id},
     {"name": "token$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "token", "symbols": ["token$ebnf$1", (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), (lexer.has("leftBracket") ? {type: "leftBracket"} : leftBracket), "tokens", (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket), (lexer.has("rightBracket") ? {type: "rightBracket"} : rightBracket)], "postprocess": createWikilinkToken},
     {"name": "token", "symbols": [(lexer.has("hashtag") ? {type: "hashtag"} : hashtag)], "postprocess": createHashtagToken},
     {"name": "token", "symbols": [(lexer.has("button") ? {type: "button"} : button)], "postprocess": createButtonToken},
+    {"name": "token", "symbols": [(lexer.has("alias") ? {type: "alias"} : alias)], "postprocess": createAliasToken},
     {"name": "token", "symbols": [(lexer.has("text") ? {type: "text"} : text)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("star") ? {type: "star"} : star)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("carot") ? {type: "carot"} : carot)], "postprocess": createTextToken},

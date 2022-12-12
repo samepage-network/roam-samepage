@@ -9,6 +9,8 @@ import {
 import atJsonToRoam from "./atJsonToRoam";
 
 const REGEXES = {
+  alias: /\[[^\]]*\]\([^\)]*\)/,
+  asset: /!\[[^\]]*\]\([^\)]*\)/,
   url: DEFAULT_TOKENS.url,
   blockReference: /\(\([^)]*\)\)/,
   hashtag: /#[a-zA-Z0-9_.-]+/,
@@ -202,6 +204,58 @@ export const createHashtagToken: Processor<InitialSchema> = (_data) => {
           },
         },
       } as Annotation,
+    ],
+  };
+};
+
+export const createAliasToken: Processor<InitialSchema> = (data) => {
+  const { value } = (data as [moo.Token])[0];
+  const arr = /\[([^\]]*)\]\(([^\)]*)\)/.exec(value);
+  if (!arr) {
+    return {
+      content: "",
+      annotations: [],
+    };
+  }
+  const [_, _content, href] = arr;
+  const content = _content || String.fromCharCode(0);
+  return {
+    content,
+    annotations: [
+      {
+        start: 0,
+        end: content.length,
+        type: "link",
+        attributes: {
+          href,
+        },
+      },
+    ],
+  };
+};
+
+export const createAssetToken: Processor<InitialSchema> = (data) => {
+  const { value } = (data as [moo.Token])[0];
+  const arr = /!\[([^\]]*)\]\(([^\)]*)\)/.exec(value);
+  if (!arr) {
+    return {
+      content: "",
+      annotations: [],
+    };
+  }
+  const [_, _content, src] = arr;
+  const content = _content || String.fromCharCode(0);
+  return {
+    content,
+    annotations: [
+      {
+        start: 0,
+        end: content.length,
+        type: "image",
+        attributes: {
+          src,
+        },
+      },
     ],
   };
 };

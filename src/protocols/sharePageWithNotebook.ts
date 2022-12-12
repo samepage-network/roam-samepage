@@ -4,7 +4,6 @@ import atJsonParser from "samepage/utils/atJsonParser";
 import type {
   ViewType,
   TreeNode,
-  OnloadArgs,
 } from "roamjs-components/types/native";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
@@ -23,6 +22,10 @@ import nanoid from "nanoid";
 import atJsonToRoam from "../utils/atJsonToRoam";
 import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBlockUid";
 import { has as isShared } from "samepage/utils/localAutomergeDb";
+import sha256 from "crypto-js/sha256";
+
+const hashes: Record<number, string> = {};
+const hashFn = (s: string) => sha256(s).toString();
 
 const isPage = (notebookPageId: string) =>
   !!window.roamAlphaAPI.pull("[:db/id]", [":node/title", notebookPageId]);
