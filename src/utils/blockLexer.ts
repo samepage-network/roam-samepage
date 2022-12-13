@@ -15,6 +15,10 @@ const REGEXES = {
   blockReference: /\(\([^)]*\)\)/,
   hashtag: /#[a-zA-Z0-9_.-]+/,
   hash: /#/,
+  codeBlock: {
+    match: /```[\w ]*\n(?:[^`]|`(?!``)|``(?!`))*```/,
+    lineBreaks: true,
+  },
   openDoubleUnder: { match: /__(?=(?:[^_]|_[^_])*__)/, lineBreaks: true },
   openDoubleStar: { match: /\*\*(?=(?:[^*]|\*[^*])*\*\*)/, lineBreaks: true },
   openDoubleTilde: { match: /~~(?=(?:[^~]|~[^~])*~~)/, lineBreaks: true },
@@ -254,6 +258,29 @@ export const createAssetToken: Processor<InitialSchema> = (data) => {
         type: "image",
         attributes: {
           src,
+        },
+      },
+    ],
+  };
+};
+
+export const createCodeBlockToken: Processor<InitialSchema> = (data) => {
+  const { value } = (data as [moo.Token])[0];
+  const languageParsed = /^```([\w ]*)\n/.exec(value)?.[1]?.trim?.();
+  const language = languageParsed || "javascript";
+  const content = value.replace(/^```[\w ]*\n/, "").replace(/```$/, "");
+  return {
+    content,
+    annotations: [
+      {
+        start: 0,
+        end: content.length,
+        type: "code",
+        attributes: {
+          language,
+        },
+        appAttributes: {
+          roam: { defaulted: `${!languageParsed}` },
         },
       },
     ],

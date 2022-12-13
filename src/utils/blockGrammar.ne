@@ -22,6 +22,7 @@ import lexer, {
    createNull,
    createAliasToken,
    createAssetToken,
+   createCodeBlockToken,
 } from "./blockLexer";
 %}
 
@@ -41,6 +42,7 @@ token -> %openDoubleCarot (tokens {% id %} | null {% createNull %}) (%highlight 
    | %hashtag {% createHashtagToken %}
    | %button {% createButtonToken %}
    | %alias {% createAliasToken %}
+   | %codeBlock {% createCodeBlockToken %}
    | %text {% createTextToken %}
    | %star  {% createTextToken %}
    | %carot  {% createTextToken %}

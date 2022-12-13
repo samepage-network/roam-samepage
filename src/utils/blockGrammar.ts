@@ -19,6 +19,7 @@ declare var rightBracket: any;
 declare var hashtag: any;
 declare var button: any;
 declare var alias: any;
+declare var codeBlock: any;
 declare var text: any;
 declare var star: any;
 declare var carot: any;
@@ -48,6 +49,7 @@ import lexer, {
    createNull,
    createAliasToken,
    createAssetToken,
+   createCodeBlockToken,
 } from "./blockLexer";
 
 interface NearleyToken {
@@ -206,6 +208,7 @@ const grammar: Grammar = {
     {"name": "token", "symbols": [(lexer.has("hashtag") ? {type: "hashtag"} : hashtag)], "postprocess": createHashtagToken},
     {"name": "token", "symbols": [(lexer.has("button") ? {type: "button"} : button)], "postprocess": createButtonToken},
     {"name": "token", "symbols": [(lexer.has("alias") ? {type: "alias"} : alias)], "postprocess": createAliasToken},
+    {"name": "token", "symbols": [(lexer.has("codeBlock") ? {type: "codeBlock"} : codeBlock)], "postprocess": createCodeBlockToken},
     {"name": "token", "symbols": [(lexer.has("text") ? {type: "text"} : text)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("star") ? {type: "star"} : star)], "postprocess": createTextToken},
     {"name": "token", "symbols": [(lexer.has("carot") ? {type: "carot"} : carot)], "postprocess": createTextToken},

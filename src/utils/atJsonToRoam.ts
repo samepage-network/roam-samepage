@@ -71,6 +71,14 @@ const atJsonToRoam = (state: InitialSchema) => {
           suffix: `{{samepage-reference:${notebookUuid}:${notebookPageId}}}`,
         };
       },
+      code: ({ attributes: { language }, appAttributes }) => {
+        return {
+          prefix: `\`\`\`${
+            appAttributes.defaulted === "true" ? "" : language
+          }\n`,
+          suffix: "```",
+        };
+      },
     },
   });
 };
