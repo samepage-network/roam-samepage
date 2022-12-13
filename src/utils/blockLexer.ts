@@ -26,8 +26,8 @@ const REGEXES = {
   button: { match: /{{(?:[^}]|}(?!}))+}}/, lineBreaks: true },
   text: {
     match:
-      // (plain text | alone left curl | alone right curl | alone under | alone asterisk | alone carot | alone tilde)
-      /(?:[^^~_*#[\]()!{]|{(?!{(?:[^}]|}(?!}))+}})|_(?=[^_]+$)|\*(?=[^*]+$)|\^(?=[^^]+$)|~(?=[^~]+$))+/,
+      // (plain text | alone left curl | alone right curl | alone under | alone asterisk | alone carot | alone tilde | backtick not followed by two more | two backticks not followed by one more)
+      /(?:[^^~_*#[\]()!{`]|{(?!{(?:[^}]|}(?!}))+}})|_(?=[^_]+$)|\*(?=[^*]+$)|\^(?=[^^]+$)|~(?=[^~]+$)|`(?!``)|``(?!`))+/,
     lineBreaks: true,
   },
 };

@@ -552,3 +552,30 @@ console.log("Hello");
     }
   )
 );
+
+test(
+  "Code Blocks midblock",
+  runTest(
+    `Check out: \`\`\`javascript
+console.log("Hello");
+\`\`\``,
+    {
+      content: 'Check out: console.log("Hello");\n',
+      annotations: [
+        {
+          type: "code",
+          start: 11,
+          end: 33,
+          attributes: {
+            language: "javascript",
+          },
+          appAttributes: {
+            roam: {
+              defaulted: "false",
+            },
+          },
+        },
+      ],
+    }
+  )
+);
