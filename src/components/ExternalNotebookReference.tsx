@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { Classes, Dialog } from "@blueprintjs/core";
 import type { InitialSchema } from "samepage/internal/types";
 import apiClient from "samepage/internal/apiClient";
 import atJsonToRoam from "../utils/atJsonToRoam";
+import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+import getBlockUidFromTarget from "roamjs-components/dom/getBlockUidFromTarget";
 
 export const references: Record<string, Record<string, InitialSchema>> = {};
 
@@ -59,23 +62,47 @@ const ExternalNotebookReference = ({
         queryResponseListener
       );
   }, [setReferenceData, notebookUuid, notebookPageId]);
-  return <span className="roamjs-connected-ref">{atJsonToRoam(data)}</span>;
+  const [showData, setShowData] = useState(false);
+  return (
+    <>
+      <span
+        className="roamjs-connected-ref cursor-pointer"
+        onClick={() => setShowData(true)}
+      >
+        [[{notebookPageId}]]
+      </span>
+      <Dialog
+        title={notebookPageId}
+        onClose={() => setShowData(false)}
+        isOpen={showData}
+      >
+        <div className={Classes.DIALOG_BODY}>{atJsonToRoam(data)}</div>
+      </Dialog>
+    </>
+  );
 };
 
-export const render = (s: HTMLSpanElement) => {
-  const text = s.getAttribute("data-paren-str");
-  if (text) {
-    const [notebookUuid, notebookPageId] = text.split(":");
+const referenceRegex =
+  /{{samepage-reference:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):((?:[^}]|}(?!}))+)}}/g;
+
+export const render = (s: HTMLButtonElement) => {
+  const index = Array.from(
+    s.parentElement.querySelectorAll(
+      "button.rm-xparser-default-samepage-reference"
+    )
+  ).indexOf(s);
+  const blockText = getTextByBlockUid(getBlockUidFromTarget(s));
+  const match = Array.from(blockText.matchAll(referenceRegex))[index];
+  if (match) {
+    const [_, notebookUuid, notebookPageId] = match;
     if (notebookPageId) {
-      s.classList.remove("rm-paren");
-      s.classList.remove("rm-paren--closed");
-      s.classList.add("rm-block-ref");
+      s.parentElement.classList.add("rm-block-ref");
       ReactDOM.render(
         <ExternalNotebookReference
           notebookUuid={notebookUuid}
           notebookPageId={notebookPageId}
         />,
-        s
+        s.parentElement
       );
     }
   }
