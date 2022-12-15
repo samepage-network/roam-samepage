@@ -420,12 +420,6 @@ const setupSharePageWithNotebook = () => {
 
   const bodyKeydownListener = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
-    console.log(
-      e.key,
-      e.shiftKey,
-      e.metaKey,
-      /^Arrow/.test(e.key) && !(e.shiftKey && (e.metaKey || e.altKey))
-    );
     if (/^.$/.test(e.key) && e.metaKey) return;
     if (/^Arrow/.test(e.key) && !(e.shiftKey && (e.metaKey || e.altKey)))
       return;
