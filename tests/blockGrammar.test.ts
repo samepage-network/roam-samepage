@@ -579,3 +579,21 @@ console.log("Hello");
     }
   )
 );
+
+// test(
+//   "alias for internal reference",
+//   runTest(
+//     "Internal [alias]([[reference]])",
+//     {
+//       content: "Internal alias",
+//       annotations: [
+//         {
+//           attributes: { href: "[[r/Genre in Scientific Graphics]]" },
+//           end: 14,
+//           start: 9,
+//           type: "link",
+//         },
+//       ],
+//     }
+//   )
+// );
