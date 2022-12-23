@@ -6,6 +6,7 @@
   "scripts": {
     "prebuild:roam": "npm install",
     "build:roam": "roamjs-scripts build --labs --dry",
+    "postinstall": "patch-package --patch-dir node_modules/samepage/patches",
     "start": "roamjs-scripts dev --labs",
     "pretest": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
     "test": "roamjs-scripts test --env WEB_SOCKET_URL"
@@ -21,6 +22,6 @@
   },
   "dependencies": {
     "roamjs-components": "^0.74.25",
-    "samepage": "^0.39.5"
+    "samepage": "^0.39.7"
   }
 }
