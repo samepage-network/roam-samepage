@@ -32,3 +32,5 @@ jobs:
         run: npx playwright install
       - name: test
         run: npm t
+      - name: Upload Integration Test Coverage to Codecov
+        uses: codecov/codecov-action@v3

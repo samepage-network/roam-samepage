@@ -6,6 +6,9 @@ import createTestSamePageClient, {
   ResponseSchema,
 } from "samepage/testing/createTestSamePageClient";
 import type { PullBlock } from "roamjs-components/types/native";
+import { JSDOM } from "jsdom";
+import nodeurl from "url";
+import path from "path";
 
 declare global {
   interface Window {
@@ -35,9 +38,33 @@ const enterCommandPaletteCommand = (page: Page, command: string) =>
     await page.keyboard.press("Enter");
   });
 
+test.beforeEach(async ({ page }) => {
+  await page.coverage.startJSCoverage();
+});
 let unload: () => Promise<unknown>;
-test.afterEach(async () => {
+test.afterEach(async ({ page }) => {
   await unload?.();
+  const rootPath = path.normalize(`${__dirname}/..`);
+  const coverage = await page.coverage.stopJSCoverage().then(
+    (fils) => fils.find((f) => f.url.startsWith("blob:"))
+    // .filter((it) => /\.js$/.test(it.url))
+    // .map((it) => {
+    //   console.log("before replace", it.url);
+    //   const fileName = new nodeurl.URL(it.url).pathname;
+    //   const url = `file:///${rootPath}${fileName}`;
+    //   console.log("after replace", url)
+    //   return { ...it, url };
+    // })
+  );
+  const covPath = "./coverage/tmp";
+
+  console.log("rootpath", rootPath);
+  fs.mkdirSync(covPath, { recursive: true });
+  fs.writeFileSync(
+    `${covPath}/coverage-${Date.now()}-69.json`,
+    JSON.stringify({ result: [{...coverage, url: `file://${rootPath}/dist/extension.js`}], timestamp: [] })
+  );
+  console.log("dir", fs.readdirSync(covPath));
 });
 test("Should share a page with the SamePage test app", async ({ page }) => {
   test.setTimeout(60000);
@@ -247,7 +274,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
   const testClientRead = () =>
     clientSend({ type: "read", notebookPageId: pageName }).then(
-      (r) => (r as { html: string }).html
+      (r) => new JSDOM((r as { html: string }).html).window.document
     );
 
   await test.step("Accept Shared Page from Roam", async () => {
@@ -260,10 +287,10 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     });
     await expect.poll(() => acceptResponse).toEqual({ success: true });
     await expect
-      .poll(testClientRead)
-      .toEqual(
-        `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case</li>`
-      );
+      .poll(() =>
+        testClientRead().then((d) => d.querySelector("li")?.textContent)
+      )
+      .toEqual(`This is an automated test case`);
   });
 
   const readIpfs = () => clientSend({ type: "ipfs", notebookPageId: pageName });
@@ -289,10 +316,15 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     ).toHaveCount(2);
     await page.locator("*:focus").type("And a new block");
     await expect
-      .poll(testClientRead)
-      .toEqual(
-        `<li style=\"margin-left:16px\" class=\"my-2\">This is an automated test case and we're adding edits.</li><li style=\"margin-left:16px\" class=\"my-2\">And a new block</li>`
-      );
+      .poll(() =>
+        testClientRead().then((d) =>
+          Array.from(d.querySelectorAll("li")).map((l) => l?.textContent)
+        )
+      )
+      .toEqual([
+        `This is an automated test case and we're adding edits.`,
+        `And a new block`,
+      ]);
     await expect.poll(readIpfs).toEqual({
       content:
         "This is an automated test case and we're adding edits.\nAnd a new block\n",
@@ -597,4 +629,6 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       ],
     });
   });
+
+  console.log = oldLog;
 });
