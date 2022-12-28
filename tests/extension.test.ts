@@ -7,7 +7,6 @@ import createTestSamePageClient, {
 } from "samepage/testing/createTestSamePageClient";
 import type { PullBlock } from "roamjs-components/types/native";
 import { JSDOM } from "jsdom";
-import nodeurl from "url";
 import path from "path";
 
 declare global {
@@ -44,27 +43,24 @@ test.beforeEach(async ({ page }) => {
 let unload: () => Promise<unknown>;
 test.afterEach(async ({ page }) => {
   await unload?.();
-  const rootPath = path.normalize(`${__dirname}/..`);
-  const coverage = await page.coverage.stopJSCoverage().then(
-    (fils) => fils.find((f) => f.url.startsWith("blob:"))
-    // .filter((it) => /\.js$/.test(it.url))
-    // .map((it) => {
-    //   console.log("before replace", it.url);
-    //   const fileName = new nodeurl.URL(it.url).pathname;
-    //   const url = `file:///${rootPath}${fileName}`;
-    //   console.log("after replace", url)
-    //   return { ...it, url };
-    // })
-  );
-  const covPath = "./coverage/tmp";
+  const coverage = await page.coverage
+    .stopJSCoverage()
+    .then((fils) => fils.find((f) => f.url.startsWith("blob:")));
 
-  console.log("rootpath", rootPath);
-  fs.mkdirSync(covPath, { recursive: true });
-  fs.writeFileSync(
-    `${covPath}/coverage-${Date.now()}-69.json`,
-    JSON.stringify({ result: [{...coverage, url: `file://${rootPath}/dist/extension.js`}], timestamp: [] })
-  );
-  console.log("dir", fs.readdirSync(covPath));
+  if (coverage) {
+    const rootPath = path.normalize(`${__dirname}/..`);
+    const covPath = "./coverage/tmp";
+    fs.mkdirSync(covPath, { recursive: true });
+    fs.writeFileSync(
+      `${covPath}/coverage-${Date.now()}-0.json`,
+      JSON.stringify({
+        result: [{ ...coverage, url: `file://${rootPath}/dist/extension.js` }],
+        timestamp: [],
+      })
+    );
+  } else {
+    console.log("No coverage files found");
+  }
 });
 test("Should share a page with the SamePage test app", async ({ page }) => {
   test.setTimeout(60000);

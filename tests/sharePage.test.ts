@@ -10,6 +10,11 @@ test.beforeAll(() => {
   mockRoamEnvironment();
 });
 
+test.afterAll(() => {
+  delete global.window;
+  delete global.document;
+});
+
 test("`applyState` handles a tree with multiple indentation", async () => {
   const notebookPageId = v4();
   const pageUid = await createPage({

@@ -35,6 +35,11 @@ test.beforeAll(() => {
   mockRoamEnvironment();
 });
 
+test.afterAll(() => {
+  delete global.window;
+  delete global.document;
+});
+
 test(
   "Highlighted Text",
   runTest("A ^^highlighted^^ text", {
