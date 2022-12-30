@@ -1,10 +1,7 @@
 import type { InitialSchema } from "samepage/internal/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
 import atJsonParser from "samepage/utils/atJsonParser";
-import type {
-  ViewType,
-  TreeNode,
-} from "roamjs-components/types/native";
+import type { ViewType, TreeNode } from "roamjs-components/types/native";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
 import updateBlock from "roamjs-components/writes/updateBlock";
@@ -225,7 +222,9 @@ export const applyState = async (
         const actualNode = actualTree[index];
         const blockUid = actualNode.uid;
         return updateBlock({ uid: blockUid, text: expectedNode.text })
-          .catch((e) => Promise.reject(`Failed to update block: ${e.message}`))
+          .catch((e) =>
+            Promise.reject(new Error(`Failed to update block: ${e.message}`))
+          )
           .then(async () => {
             if ((actualNode.level || 0) !== expectedNode.level) {
               const { parentUid, order } = getLocation();
@@ -240,7 +239,9 @@ export const applyState = async (
                     actualNode.order = order;
                   })
                   .catch((e) =>
-                    Promise.reject(`Failed to move block: ${e.message}`)
+                    Promise.reject(
+                      new Error(`Failed to move block: ${e.message}`)
+                    )
                   );
               }
             }
@@ -266,7 +267,13 @@ export const applyState = async (
               children: [],
             });
           })
-          .catch((e) => Promise.reject(`Failed to append block: ${e.message}`));
+          .catch((e) =>
+            Promise.reject(
+              new Error(
+                `Failed to append block: ${e.message}\nParentUid: ${parentUid}\nNotebookPageId:${notebookPageId}`
+              )
+            )
+          );
       }
     })
     .concat(
@@ -275,7 +282,7 @@ export const applyState = async (
           deleteBlock(a.uid)
             .then(() => Promise.resolve())
             .catch((e) =>
-              Promise.reject(`Failed to remove block: ${e.message}`)
+              Promise.reject(new Error(`Failed to remove block: ${e.message}`))
             )
       )
     );
