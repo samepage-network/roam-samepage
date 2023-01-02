@@ -41,27 +41,31 @@ test.beforeEach(async ({ page }) => {
   await page.coverage.startJSCoverage();
 });
 let unload: () => Promise<unknown>;
-test.afterEach(async ({ page }) => {
+test.afterEach(async (/** { page } */) => {
   await unload?.();
-  const coverage = await page.coverage
-    .stopJSCoverage()
-    .then((fils) => fils.find((f) => f.url.startsWith("blob:")));
 
-  if (coverage) {
-    const rootPath = path.normalize(`${__dirname}/..`);
-    const covPath = "./coverage/tmp";
-    fs.mkdirSync(covPath, { recursive: true });
-    fs.writeFileSync(
-      `${covPath}/coverage-${Date.now()}-0.json`,
-      JSON.stringify({
-        result: [{ ...coverage, url: `file://${rootPath}/dist/extension.js` }],
-        timestamp: [],
-      })
-    );
-  } else {
-    console.log("No coverage files found");
-  }
+  // Test coverage from here is over reporting - need a minimal repro repo
+  //
+  // const coverage = await page.coverage
+  //   .stopJSCoverage()
+  //   .then((fils) => fils.find((f) => f.url.startsWith("blob:")));
+
+  // if (coverage) {
+  //   const rootPath = path.normalize(`${__dirname}/..`);
+  //   const covPath = "./coverage/tmp";
+  //   fs.mkdirSync(covPath, { recursive: true });
+  //   fs.writeFileSync(
+  //     `${covPath}/coverage-${Date.now()}-0.json`,
+  //     JSON.stringify({
+  //       result: [{ ...coverage, url: `file://${rootPath}/dist/extension.js` }],
+  //       timestamp: [],
+  //     })
+  //   );
+  // } else {
+  //   console.log("No coverage files found");
+  // }
 });
+
 test("Should share a page with the SamePage test app", async ({ page }) => {
   test.setTimeout(60000);
   const oldLog = console.log;
