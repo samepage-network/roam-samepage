@@ -602,3 +602,27 @@ console.log("Hello");
 //     }
 //   )
 // );
+
+// test(
+//   "book ending references",
+//   runTest(
+//     "[[First]] reference and [[second]]",
+//     {
+//       content: `${String.fromCharCode(0)} reference and ${String.fromCharCode(0)}`,
+//       annotations: [
+//         {
+//           attributes: { notebookUuid, notebookPageId: "First" },
+//           end: 1,
+//           start: 0,
+//           type: "reference",
+//         },
+//         {
+//           attributes: { notebookUuid, notebookPageId: "second" },
+//           end: 17,
+//           start: 16,
+//           type: "reference",
+//         },
+//       ],
+//     }
+//   )
+// );
