@@ -215,7 +215,9 @@ export const applyState = async (
         return {
           order,
           parentUid:
-            parentIndex < 0 ? rootPageUid : actualTree[parentIndex]?.uid || "",
+            parentIndex < 0
+              ? rootPageUid
+              : actualTree[parentIndex]?.uid || rootPageUid,
         };
       };
       if (actualTree.length > index) {
