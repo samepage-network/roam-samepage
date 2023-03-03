@@ -1,12 +1,76 @@
+diff --git a/node_modules/samepage/internal/registry.js b/node_modules/samepage/internal/registry.js
+index aeb88e1..fa29fec 100644
+--- a/node_modules/samepage/internal/registry.js
++++ b/node_modules/samepage/internal/registry.js
+@@ -58,8 +58,10 @@ exports.workspace = "Main";
+ exports.getSetting = defaultGetSetting_1.default;
+ exports.setSetting = defaultSetSetting_1.default;
+ const setupRegistry = ({ app: _app, workspace: _workspace, addCommand: _addCommand, removeCommand: _removeCommand, renderOverlay: _renderOverlay, appRoot: _appRoot, getSetting: _getSetting, setSetting: _setSetting, }) => {
+-    if (_app)
++    if (_app) {
+         exports.app = _app;
++        console.log("setting the app!", _app);
++    }
+     if (_workspace)
+         exports.workspace = _workspace;
+     if (_addCommand)
+diff --git a/node_modules/samepage/internal/setupWsFeatures.js b/node_modules/samepage/internal/setupWsFeatures.js
+index 9faacdf..9ba1853 100644
+--- a/node_modules/samepage/internal/setupWsFeatures.js
++++ b/node_modules/samepage/internal/setupWsFeatures.js
+@@ -173,13 +173,16 @@ const onboard = () => typeof window !== "undefined"
+     })
+     : (0, dispatchAppEvent_1.default)({
+         type: "prompt-account-info",
+-        respond: ({ email, password, create }) => (0, apiClient_1.default)({
++        respond: ({ email, password, create }) =>{ 
++    console.log("Logging app before add-notebook", registry_1.app);
++            return (0, apiClient_1.default)({
+             method: create ? "create-notebook" : "add-notebook",
+             email,
+             password,
+             app: registry_1.app,
+             workspace: registry_1.workspace,
+-        }).then(onSuccessOnboarding),
++        }).then(onSuccessOnboarding)
++    },
+     });
+ const setupWsFeatures = ({ notificationContainerPath, }) => {
+     const unloads = {};
 diff --git a/node_modules/samepage/testing/createTestSamePageClient.js b/node_modules/samepage/testing/createTestSamePageClient.js
-index 288484a..95c1c29 100644
+index 288484a..9c0438a 100644
 --- a/node_modules/samepage/testing/createTestSamePageClient.js
 +++ b/node_modules/samepage/testing/createTestSamePageClient.js
-@@ -196,6 +196,7 @@ const createTestSamePageClient = async ({ workspace, initOptions, onMessage, })
+@@ -24,6 +24,7 @@ const binaryToBase64_1 = tslib_1.__importDefault(require("../internal/binaryToBa
+ const uuid_1 = require("uuid");
+ const changeAutomergeDoc_1 = tslib_1.__importDefault(require("../utils/changeAutomergeDoc"));
+ const unwrapSchema_1 = tslib_1.__importDefault(require("../utils/unwrapSchema"));
++const registry_1 = require("../internal/registry");
+ const SUPPORTED_TAGS = ["SPAN", "DIV", "A", "LI"];
+ const TAG_SET = new Set(SUPPORTED_TAGS);
+ const processMessageSchema = zod_1.z.discriminatedUnion("type", [
+@@ -190,13 +191,16 @@ const createTestSamePageClient = async ({ workspace, initOptions, onMessage, })
+             e.respond(initOptions).then(resolve);
+         });
+     });
++    console.log("Logging app before setup", registry_1.app);
+     const { unload, addNotebookRequestListener, sendNotebookRequest } = (0, setupSamePageClient_1.default)({
+         getSetting: (s) => settings[s],
+         setSetting: (s, v) => (settings[s] = v),
          addCommand: ({ label, callback }) => (commands[label] = callback),
          removeCommand: ({ label }) => delete commands[label],
          workspace,
 +        app: "SamePage",
      });
++    console.log("Logging app after setup", registry_1.app);
      const { unload: unloadSharePage, refreshContent, isShared, } = (0, sharePageWithNotebook_1.default)({
          getCurrentNotebookPageId: async () => currentNotebookPageId,
+         createPage: async (notebookPageId) => (appClientState[notebookPageId] = new jsdom_1.JSDOM()),
+@@ -225,6 +229,7 @@ const createTestSamePageClient = async ({ workspace, initOptions, onMessage, })
+         data: `Error: 3 arguments required for --forked (workspace, email, password)\nFound: ${process.argv}`,
+     }));
+     await awaitLog("samepage-success");
++    console.log("Logging once ready", registry_1.app);
+     onMessage({ type: "ready", uuid: settings.uuid });
+     const updatesToSend = {};
+     const responsesToSend = {};
