@@ -1,21 +1,16 @@
 diff --git a/node_modules/samepage/internal/registry.js b/node_modules/samepage/internal/registry.js
-index aeb88e1..4e7ef09 100644
+index aeb88e1..63ba6d4 100644
 --- a/node_modules/samepage/internal/registry.js
 +++ b/node_modules/samepage/internal/registry.js
-@@ -58,8 +58,12 @@ exports.workspace = "Main";
+@@ -58,7 +58,7 @@ exports.workspace = "Main";
  exports.getSetting = defaultGetSetting_1.default;
  exports.setSetting = defaultSetSetting_1.default;
  const setupRegistry = ({ app: _app, workspace: _workspace, addCommand: _addCommand, removeCommand: _removeCommand, renderOverlay: _renderOverlay, appRoot: _appRoot, getSetting: _getSetting, setSetting: _setSetting, }) => {
 -    if (_app)
-+    if (_app) {
++    if (typeof _app !== "undefined")
          exports.app = _app;
-+        if (_app === 1) {
-+            throw new Error("Should not be setting this to 1!")
-+        }
-+    }
      if (_workspace)
          exports.workspace = _workspace;
-     if (_addCommand)
 diff --git a/node_modules/samepage/testing/createTestSamePageClient.js b/node_modules/samepage/testing/createTestSamePageClient.js
 index 288484a..95c1c29 100644
 --- a/node_modules/samepage/testing/createTestSamePageClient.js
