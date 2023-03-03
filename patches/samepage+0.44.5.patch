@@ -1,0 +1,12 @@
+diff --git a/node_modules/samepage/testing/createTestSamePageClient.js b/node_modules/samepage/testing/createTestSamePageClient.js
+index 288484a..95c1c29 100644
+--- a/node_modules/samepage/testing/createTestSamePageClient.js
++++ b/node_modules/samepage/testing/createTestSamePageClient.js
+@@ -196,6 +196,7 @@ const createTestSamePageClient = async ({ workspace, initOptions, onMessage, })
+         addCommand: ({ label, callback }) => (commands[label] = callback),
+         removeCommand: ({ label }) => delete commands[label],
+         workspace,
++        app: "SamePage",
+     });
+     const { unload: unloadSharePage, refreshContent, isShared, } = (0, sharePageWithNotebook_1.default)({
+         getCurrentNotebookPageId: async () => currentNotebookPageId,

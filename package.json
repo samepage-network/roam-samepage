@@ -6,7 +6,7 @@
   "scripts": {
     "prebuild:roam": "npm install",
     "build:roam": "roamjs-scripts build --labs --dry",
-    "postinstall": "patch-package --patch-dir node_modules/samepage/patches",
+    "postinstall": "patch-package --patch-dir node_modules/samepage/patches && patch-package",
     "start": "roamjs-scripts dev --labs",
     "pretest": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
     "test": "roamjs-scripts test --env WEB_SOCKET_URL"
