@@ -1,4 +1,3 @@
-@builtin "number.ne"
 @builtin "whitespace.ne"
 @preprocessor typescript
 

@@ -15,3 +15,4 @@ extension.js.map
 extension.css.map
 roam.zip
 coverage
+src/utils/blockGrammar.ts
