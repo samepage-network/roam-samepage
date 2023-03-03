@@ -87,7 +87,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     const samePageClientCallbacks: {
       [k in ResponseSchema as k["type"]]: (data: k) => void;
     } = {
-      log: ({ data }) => process.env.DEBUG && oldLog(`SamePage Client:`, data),
+      log: ({ data }) => !process.env.DEBUG && oldLog(`SamePage Client:`, data),
       error: (message) => {
         throw new Error(
           typeof message === "string" ? message : JSON.stringify(message)
