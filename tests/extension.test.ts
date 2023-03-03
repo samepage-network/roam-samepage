@@ -5,6 +5,7 @@ import createTestSamePageClient, {
   MessageSchema,
   ResponseSchema,
 } from "samepage/testing/createTestSamePageClient";
+// import runOnboardingStep from "samepage/testing/runOnboardingStep";
 import type { PullBlock } from "roamjs-components/types/native";
 import { JSDOM } from "jsdom";
 import path from "path";
@@ -41,35 +42,44 @@ test.beforeEach(async ({ page }) => {
   await page.coverage.startJSCoverage();
 });
 let unload: () => Promise<unknown>;
-test.afterEach(async (/** { page } */) => {
+test.afterEach(async ({ page }) => {
   await unload?.();
 
-  // Test coverage from here is over reporting - need a minimal repro repo
-  //
-  // const coverage = await page.coverage
-  //   .stopJSCoverage()
-  //   .then((fils) => fils.find((f) => f.url.startsWith("blob:")));
+  const coverageFiles = await page.coverage.stopJSCoverage();
+  const coverage = coverageFiles.find((f) => f.url.startsWith("blob:"));
 
-  // if (coverage) {
-  //   const rootPath = path.normalize(`${__dirname}/..`);
-  //   const covPath = "./coverage/tmp";
-  //   fs.mkdirSync(covPath, { recursive: true });
-  //   fs.writeFileSync(
-  //     `${covPath}/coverage-${Date.now()}-0.json`,
-  //     JSON.stringify({
-  //       result: [{ ...coverage, url: `file://${rootPath}/dist/extension.js` }],
-  //       timestamp: [],
-  //     })
-  //   );
-  // } else {
-  //   console.log("No coverage files found");
-  // }
+  if (coverage) {
+    const sourceMap = JSON.parse(
+      fs.readFileSync("./dist/extension.js.map").toString()
+    );
+    sourceMap.sources = sourceMap.sources.map((s: string) =>
+      s.replace(/^\.\.\//, `${process.cwd()}/`)
+    );
+    fs.writeFileSync(
+      "./dist/extension.js.map",
+      JSON.stringify(sourceMap, null, 2)
+    );
+
+    const rootPath = path.normalize(`${__dirname}/..`);
+    const covPath = "./coverage/tmp";
+    fs.mkdirSync(covPath, { recursive: true });
+    fs.writeFileSync(
+      `${covPath}/coverage-0-${Date.now()}-0.json`,
+      JSON.stringify({
+        result: [{ ...coverage, url: `${rootPath}/dist/extension.js` }],
+        timestamp: [],
+      })
+    );
+  } else {
+    console.log("No coverage files found");
+  }
 });
 
 test("Should share a page with the SamePage test app", async ({ page }) => {
   test.setTimeout(60000);
   const oldLog = console.log;
   const clientReady = new Promise<{
+    notebookUuid: string;
     testClient: Awaited<ReturnType<typeof createTestSamePageClient>>;
     clientSend: (m: MessageSchema) => Promise<unknown>;
   }>((resolve) => {
@@ -83,9 +93,10 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
           typeof message === "string" ? message : JSON.stringify(message)
         );
       },
-      ready: async () => {
+      ready: async ({ uuid: notebookUuid }) => {
         const testClient = await client;
         resolve({
+          notebookUuid,
           testClient,
           clientSend: (m) => {
             const uuid = v4();
@@ -108,8 +119,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         // @ts-ignore same problem I always have about discriminated unions...
         samePageClientCallbacks[type]?.(data),
       initOptions: {
-        uuid: process.env.SAMEPAGE_TEST_UUID,
-        token: process.env.SAMEPAGE_TEST_TOKEN,
+        email: "test@samepage.network",
+        password: process.env.SAMEPAGE_TEST_PASSWORD,
       },
     });
   });
@@ -156,8 +167,8 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
     expect(page.url(), `page.url()`).toEqual(
       "https://roamresearch.com/#/signin"
     );
-    await page.locator("[name=email]").fill(process.env.ROAM_USERNAME);
-    await page.locator("[name=password]").fill(process.env.ROAM_PASSWORD);
+    await page.locator("[name=email]").fill("test@samepage.network");
+    await page.locator("[name=password]").fill(process.env.ROAM_TEST_PASSWORD);
     await page.locator(".bp3-button").first().click();
     await expect(page.locator(".my-graphs")).toHaveCount(2);
   });
@@ -195,17 +206,16 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
   });
 
   let notebookUuid = "";
+  // await runOnboardingStep({ test, page, expect });
   await test.step("Onboard Notebook Onboarding Flow", async () => {
     await page.locator('div[role=dialog] >> text="Get Started"').click();
     await page
-      .locator('div[role=dialog] >> text="Use Existing Notebook"')
+      .locator('div[role=dialog] >> text="Add Another Notebook"')
       .click();
+    await page.locator("text=Email >> input").fill("test@samepage.network");
     await page
-      .locator("text=Notebook Universal ID >> input")
-      .fill(process.env.SAMEPAGE_TEST_UUID);
-    await page
-      .locator("text=Token >> input")
-      .fill(process.env.SAMEPAGE_TEST_TOKEN);
+      .locator("text=Password >> input")
+      .fill(process.env.SAMEPAGE_TEST_PASSWORD);
     await page.locator("text=I have read and agree").click();
     await page.locator('div[role=dialog] >> text="Connect"').click();
     await page.locator('div[role=dialog] >> button >> text="All Done"').click();
@@ -235,7 +245,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .click();
     await expect(page.locator("h1")).toHaveText(pageName);
   });
-  const { clientSend } = await clientReady;
+  const { clientSend, notebookUuid: clientUuid } = await clientReady;
   unload = () => clientSend({ type: "unload" });
 
   await test.step("Enter content", async () => {
@@ -262,7 +272,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       "Share Page on SamePage"
     );
     await page
-      .locator('input[placeholder="Enter notebook..."]')
+      .locator('input[placeholder="Enter notebook or email..."]')
       .fill("SamePage test");
     await page.locator('li >> text="test"').click();
     await page.locator(".bp3-icon-plus").click();
@@ -408,7 +418,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
             type: "reference",
             attributes: {
               notebookPageId: "abcde1234",
-              notebookUuid: process.env.SAMEPAGE_TEST_UUID,
+              notebookUuid: clientUuid,
             },
           },
         ],
@@ -429,7 +439,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         )
       )
       .toEqual(
-        `This is an automated test with my ref: [[asdfghjkl]] and your ref: {{samepage-reference:${process.env.SAMEPAGE_TEST_UUID}:abcde1234}}`
+        `This is an automated test with my ref: [[asdfghjkl]] and your ref: {{samepage-reference:${clientUuid}:abcde1234}}`
       );
   });
 
@@ -614,7 +624,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
           type: "reference",
           attributes: {
             notebookPageId: "abcde1234",
-            notebookUuid: process.env.SAMEPAGE_TEST_UUID,
+            notebookUuid: clientUuid,
           },
         },
         {

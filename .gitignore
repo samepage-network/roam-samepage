@@ -11,5 +11,7 @@ extension.js
 /playwright-report/
 /playwright/.cache/
 extension.css
+extension.js.map
+extension.css.map
 roam.zip
 coverage

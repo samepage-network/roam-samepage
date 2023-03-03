@@ -18,10 +18,10 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "roamjs-scripts": "^0.26.27"
+    "roamjs-scripts": "^0.26.29"
   },
   "dependencies": {
     "roamjs-components": "^0.75.1",
-    "samepage": "^0.43.6"
+    "samepage": "^0.44.3"
   }
 }
