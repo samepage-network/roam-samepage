@@ -4,8 +4,6 @@ import runExtension from "roamjs-components/util/runExtension";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import setupSharePageWithNotebook from "./protocols/sharePageWithNotebook";
-import loadSendPageToGraph from "./protocols/sendPageToGraph";
-import loadCopyBlockToGraph from "./protocols/copyBlockToGraph";
 import loadCrossGraphBlockReference from "./protocols/notebookQuerying";
 import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
@@ -116,14 +114,10 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
 
 const setupProtocols = (args: OnloadArgs, api: typeof window.samepage) => {
   const unloadSharePageWithNotebook = setupSharePageWithNotebook();
-  const unloadCopyBlockToGraph = loadCopyBlockToGraph(api);
   const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(args);
-  const unloadSendPageToGraph = loadSendPageToGraph(api);
   return () => {
     unloadSharePageWithNotebook();
-    unloadCopyBlockToGraph();
     unloadCrossGraphBlockReference();
-    unloadSendPageToGraph();
   };
 };
 
