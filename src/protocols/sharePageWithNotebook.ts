@@ -1,6 +1,5 @@
 import type { InitialSchema } from "samepage/internal/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
-import atJsonParser from "samepage/utils/atJsonParser";
 import type { ViewType, TreeNode } from "roamjs-components/types/native";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
@@ -10,13 +9,12 @@ import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
 import getPageTitleByPageUid from "roamjs-components/queries/getPageTitleByPageUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
-//@ts-ignore Fix later, already compiles
-import blockGrammar from "../utils/blockGrammar.ne";
 import nanoid from "nanoid";
 import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBlockUid";
 import { has as isShared } from "samepage/utils/localAutomergeDb";
 import applyState from "../utils/applyState";
 import isPage from "../utils/isPage";
+import blockParser from "../utils/blockParser";
 // import sha256 from "crypto-js/sha256";
 
 // const hashes: Record<number, string> = {};
@@ -39,7 +37,7 @@ const toAtJson = ({
   return nodes
     .map((n) => (index: number) => {
       const { content: _content, annotations } = n.text
-        ? atJsonParser(blockGrammar, n.text)
+        ? blockParser(n.text)
         : {
             content: String.fromCharCode(0),
             annotations: [],

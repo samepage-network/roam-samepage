@@ -1,6 +1,4 @@
-import blockGrammar from "../src/utils/blockGrammar";
 import type { InitialSchema } from "samepage/internal/types";
-import atJsonParser from "samepage/utils/atJsonParser";
 import { test, expect } from "@playwright/test";
 import { v4 } from "uuid";
 import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
@@ -8,6 +6,7 @@ import atJsonToRoam from "../src/utils/atJsonToRoam";
 import createBlock from "roamjs-components/writes/createBlock";
 import createPage from "roamjs-components/writes/createPage";
 import registry from "samepage/internal/registry";
+import blockParser from "../src/utils/blockParser";
 
 const notebookUuid = v4();
 // @ts-ignore
@@ -16,16 +15,15 @@ global.localStorage = {
 };
 
 const runTest =
-  (md: string, expected: InitialSchema, opts: { skipInverse?: true } = {}) =>
+  (
+    md: string,
+    expected: InitialSchema,
+    opts: { skipInverse?: true; debug?: true } = {}
+  ) =>
   () => {
-    const output = atJsonParser(blockGrammar, md);
+    const output = blockParser(md, opts);
     expect(output).toBeTruthy();
-    expect(output.content).toEqual(expected.content);
-    expected.annotations.forEach((e, i) => {
-      expect(output.annotations[i]).toEqual(e);
-    });
-    expect(output.annotations[expected.annotations.length]).toBeUndefined();
-    expect(expected.annotations[output.annotations.length]).toBeUndefined();
+    expect(output).toEqual(expected);
     const backToMd = atJsonToRoam(output);
     if (!opts.skipInverse) expect(backToMd).toBe(md);
   };
@@ -44,7 +42,14 @@ test(
   "Highlighted Text",
   runTest("A ^^highlighted^^ text", {
     content: "A highlighted text",
-    annotations: [{ type: "highlighting", start: 2, end: 13 }],
+    annotations: [
+      {
+        type: "highlighting",
+        start: 2,
+        end: 13,
+        attributes: { delimiter: "^^" },
+      },
+    ],
   })
 );
 
@@ -52,7 +57,14 @@ test(
   "Strikethrough Text",
   runTest("A ~~strikethrough~~ text", {
     content: "A strikethrough text",
-    annotations: [{ type: "strikethrough", start: 2, end: 15 }],
+    annotations: [
+      {
+        type: "strikethrough",
+        start: 2,
+        end: 15,
+        attributes: { delimiter: "~~" },
+      },
+    ],
   })
 );
 
@@ -76,7 +88,9 @@ test(
   "Italics text",
   runTest("An __italics__ text", {
     content: "An italics text",
-    annotations: [{ type: "italics", start: 3, end: 10 }],
+    annotations: [
+      { type: "italics", start: 3, end: 10, attributes: { delimiter: "__" } },
+    ],
   })
 );
 
@@ -84,7 +98,9 @@ test(
   "Bold text",
   runTest("A **bold** text", {
     content: "A bold text",
-    annotations: [{ type: "bold", start: 2, end: 6 }],
+    annotations: [
+      { type: "bold", start: 2, end: 6, attributes: { delimiter: "**" } },
+    ],
   })
 );
 
@@ -321,8 +337,8 @@ test(
   runTest("Deal __with__ two __sets__ of italics", {
     content: "Deal with two sets of italics",
     annotations: [
-      { start: 5, end: 9, type: "italics" },
-      { start: 14, end: 18, type: "italics" },
+      { start: 5, end: 9, type: "italics", attributes: { delimiter: "__" } },
+      { start: 14, end: 18, type: "italics", attributes: { delimiter: "__" } },
     ],
   })
 );
@@ -393,8 +409,8 @@ test(
   runTest("A ****Bold**** text", {
     content: `A ${String.fromCharCode(0)}Bold${String.fromCharCode(0)} text`,
     annotations: [
-      { end: 3, start: 2, type: "bold" },
-      { end: 8, start: 7, type: "bold" },
+      { end: 3, start: 2, type: "bold", attributes: { delimiter: "**" } },
+      { end: 8, start: 7, type: "bold", attributes: { delimiter: "**" } },
     ],
   })
 );
@@ -404,8 +420,8 @@ test(
   runTest("A ____slanted____ text", {
     content: `A ${String.fromCharCode(0)}slanted${String.fromCharCode(0)} text`,
     annotations: [
-      { end: 3, start: 2, type: "italics" },
-      { end: 11, start: 10, type: "italics" },
+      { end: 3, start: 2, type: "italics", attributes: { delimiter: "__" } },
+      { end: 11, start: 10, type: "italics", attributes: { delimiter: "__" } },
     ],
   })
 );
@@ -417,8 +433,18 @@ test(
       0
     )} text`,
     annotations: [
-      { end: 3, start: 2, type: "highlighting" },
-      { end: 13, start: 12, type: "highlighting" },
+      {
+        end: 3,
+        start: 2,
+        type: "highlighting",
+        attributes: { delimiter: "^^" },
+      },
+      {
+        end: 13,
+        start: 12,
+        type: "highlighting",
+        attributes: { delimiter: "^^" },
+      },
     ],
   })
 );
@@ -428,8 +454,18 @@ test(
   runTest("A ~~~~struck~~~~ text", {
     content: `A ${String.fromCharCode(0)}struck${String.fromCharCode(0)} text`,
     annotations: [
-      { end: 3, start: 2, type: "strikethrough" },
-      { end: 10, start: 9, type: "strikethrough" },
+      {
+        end: 3,
+        start: 2,
+        type: "strikethrough",
+        attributes: { delimiter: "~~" },
+      },
+      {
+        end: 10,
+        start: 9,
+        type: "strikethrough",
+        attributes: { delimiter: "~~" },
+      },
     ],
   })
 );
@@ -438,7 +474,9 @@ test(
   "Odd number double underscores",
   runTest("Deal __with__ odd __underscores", {
     content: `Deal with odd __underscores`,
-    annotations: [{ start: 5, end: 9, type: "italics" }],
+    annotations: [
+      { start: 5, end: 9, type: "italics", attributes: { delimiter: "__" } },
+    ],
   })
 );
 
@@ -446,7 +484,9 @@ test(
   "Odd number double asterisks",
   runTest("Deal **with** odd **asterisks", {
     content: `Deal with odd **asterisks`,
-    annotations: [{ start: 5, end: 9, type: "bold" }],
+    annotations: [
+      { start: 5, end: 9, type: "bold", attributes: { delimiter: "**" } },
+    ],
   })
 );
 
@@ -454,7 +494,14 @@ test(
   "Odd number double tilde",
   runTest("Deal ~~with~~ odd ~~tildes", {
     content: `Deal with odd ~~tildes`,
-    annotations: [{ start: 5, end: 9, type: "strikethrough" }],
+    annotations: [
+      {
+        start: 5,
+        end: 9,
+        type: "strikethrough",
+        attributes: { delimiter: "~~" },
+      },
+    ],
   })
 );
 
@@ -462,7 +509,14 @@ test(
   "Odd number double carot",
   runTest("Deal ^^with^^ odd ^^carots", {
     content: `Deal with odd ^^carots`,
-    annotations: [{ start: 5, end: 9, type: "highlighting" }],
+    annotations: [
+      {
+        start: 5,
+        end: 9,
+        type: "highlighting",
+        attributes: { delimiter: "^^" },
+      },
+    ],
   })
 );
 

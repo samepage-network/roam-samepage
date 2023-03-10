@@ -8,7 +8,6 @@
     "build:roam": "roamjs-scripts build --labs --dry",
     "postinstall": "patch-package --patch-dir node_modules/samepage/patches",
     "start": "roamjs-scripts dev --labs",
-    "pretest": "npx nearleyc src/utils/blockGrammar.ne -o src/utils/blockGrammar.ts",
     "test": "roamjs-scripts test --env WEB_SOCKET_URL"
   },
   "author": {
@@ -18,10 +17,10 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "roamjs-scripts": "^0.26.29"
+    "roamjs-scripts": "^0.26.30"
   },
   "dependencies": {
     "roamjs-components": "^0.75.1",
-    "samepage": "^0.44.10"
+    "samepage": "^0.45.2"
   }
 }

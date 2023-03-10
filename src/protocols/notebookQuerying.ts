@@ -2,9 +2,7 @@ import createButtonObserver from "roamjs-components/dom/createButtonObserver";
 import { render as referenceRender } from "../components/ExternalNotebookReference";
 import { OnloadArgs } from "roamjs-components/types/native";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
-import atJsonParser from "samepage/utils/atJsonParser";
-// @ts-ignore for now until we fix types
-import blockGrammar from "../utils/blockGrammar.ne";
+import blockParser from "../utils/blockParser";
 import setupNotebookQuerying from "samepage/protocols/notebookQuerying";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 
@@ -13,7 +11,7 @@ const load = (onloadArgs: OnloadArgs) => {
     onQuery: async (notebookPageId: string) => {
       if (getPageUidByPageTitle(notebookPageId))
         return { content: notebookPageId, annotations: [] };
-      return atJsonParser(blockGrammar, getTextByBlockUid(notebookPageId));
+      return blockParser(getTextByBlockUid(notebookPageId));
     },
     onQueryResponse: async ({ data, request }) => {
       document.body.dispatchEvent(
