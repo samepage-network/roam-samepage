@@ -6,6 +6,7 @@ import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
 import updateBlock from "roamjs-components/writes/updateBlock";
 import { InitialSchema } from "samepage/internal/types";
+import { HandlerError } from "samepage/internal/setupMessageHandlers";
 import atJsonToRoam from "./atJsonToRoam";
 import isPage from "./isPage";
 
@@ -169,8 +170,21 @@ const applyState = async (notebookPageId: string, state: InitialSchema) => {
           })
           .catch((e) =>
             Promise.reject(
-              new Error(
-                `Failed to append block: ${e.message}\nParentUid: ${parentUid}\nNotebookPageId:${notebookPageId}`
+              new HandlerError(
+                `Failed to append block. An error report has been sent to support@samepage.network`,
+                {
+                  message: e.message,
+                  parentUid,
+                  notebookPageId,
+                  pullDataAsTitle: window.roamAlphaAPI.pull("[:db/id]", [
+                    ":node/title",
+                    notebookPageId,
+                  ]),
+                  pullDataAsBlock: window.roamAlphaAPI.pull("[:db/id]", [
+                    ":block/uid",
+                    notebookPageId,
+                  ]),
+                }
               )
             )
           );
