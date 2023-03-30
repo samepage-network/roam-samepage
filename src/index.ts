@@ -4,9 +4,12 @@ import runExtension from "roamjs-components/util/runExtension";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import setupSharePageWithNotebook from "./protocols/sharePageWithNotebook";
-import loadCrossGraphBlockReference from "./protocols/notebookQuerying";
 import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
+import loadCrossNotebookRequests from "./protocols/crossNotebookRequests";
+// @deprecated
+import loadCrossNotebookQuerying from "./protocols/notebookQuerying";
+import { SamePageAPI } from "samepage/internal/types";
 
 const cacheSetting = ({
   extension,
@@ -112,12 +115,14 @@ const setupClient = ({ extensionAPI, extension }: OnloadArgs) =>
     notificationContainerPath: `.rm-topbar::before(.rm-find-or-create-wrapper)`,
   });
 
-const setupProtocols = (args: OnloadArgs, api: typeof window.samepage) => {
+const setupProtocols = (args: OnloadArgs, api: SamePageAPI) => {
   const unloadSharePageWithNotebook = setupSharePageWithNotebook();
-  const unloadCrossGraphBlockReference = loadCrossGraphBlockReference(args);
+  const unloadCrossNotebookQuerying = loadCrossNotebookQuerying(args);
+  const unloadCrossNotebookRequests = loadCrossNotebookRequests(api);
   return () => {
     unloadSharePageWithNotebook();
-    unloadCrossGraphBlockReference();
+    unloadCrossNotebookRequests();
+    unloadCrossNotebookQuerying();
   };
 };
 
