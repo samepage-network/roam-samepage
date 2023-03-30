@@ -303,7 +303,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       .toEqual(`This is an automated test case`);
   });
 
-  const readIpfs = () => clientSend({ type: "ipfs", notebookPageId: pageName });
+  const readSharedPage = () => clientSend({ type: "getSharedPage", notebookPageId: pageName });
   await test.step("Edit some content in Roam", async () => {
     await page
       .locator(".bp3-overlay-backdrop")
@@ -335,7 +335,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         `This is an automated test case and we're adding edits.`,
         `And a new block`,
       ]);
-    await expect.poll(readIpfs).toEqual({
+    await expect.poll(readSharedPage).toEqual({
       content:
         "This is an automated test case and we're adding edits.\nAnd a new block\n",
       annotations: [
@@ -468,7 +468,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       "TEXTAREA"
     );
     await page.keyboard.press("Meta+Shift+ArrowDown");
-    await expect.poll(readIpfs).toEqual({
+    await expect.poll(readSharedPage).toEqual({
       content: "Bottom Block\nTop Block\n",
       annotations: [
         {
@@ -492,7 +492,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       ],
     });
     await page.keyboard.press("Meta+Shift+ArrowUp");
-    await expect.poll(readIpfs).toEqual({
+    await expect.poll(readSharedPage).toEqual({
       content: "Top Block\nBottom Block\n",
       annotations: [
         {
@@ -536,7 +536,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
         targetPosition: { x: 0, y: 25 },
       });
     // await page.pause();
-    await expect.poll(readIpfs).toEqual({
+    await expect.poll(readSharedPage).toEqual({
       content: "Bottom BlockTopBlock\n",
       annotations: [
         {
@@ -593,7 +593,7 @@ test("Should share a page with the SamePage test app", async ({ page }) => {
       "Offline edit".length
     );
     await page.locator("*:focus").type(" and online edits");
-    await expect.poll(readIpfs).toEqual({
+    await expect.poll(readSharedPage).toEqual({
       content: `This is an automated test with my ref: ${String.fromCharCode(
         0
       )} and your ref: ${String.fromCharCode(

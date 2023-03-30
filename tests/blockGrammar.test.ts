@@ -639,44 +639,50 @@ console.log("Hello");
   )
 );
 
-// test(
-//   "alias for internal reference",
-//   runTest(
-//     "Internal [alias]([[reference]])",
-//     {
-//       content: "Internal alias",
-//       annotations: [
-//         {
-//           attributes: { href: "[[r/Genre in Scientific Graphics]]" },
-//           end: 14,
-//           start: 9,
-//           type: "link",
-//         },
-//       ],
-//     }
-//   )
-// );
+test(
+  "book ending references",
+  runTest("[[First]] reference and [[second]]", {
+    content: `${String.fromCharCode(0)} reference and ${String.fromCharCode(
+      0
+    )}`,
+    annotations: [
+      {
+        attributes: { notebookUuid, notebookPageId: "First" },
+        end: 1,
+        start: 0,
+        type: "reference",
+        appAttributes: {
+          roam: {
+            kind: "wikilink",
+          },
+        },
+      },
+      {
+        attributes: { notebookUuid, notebookPageId: "second" },
+        end: 17,
+        start: 16,
+        type: "reference",
+        appAttributes: {
+          roam: {
+            kind: "wikilink",
+          },
+        },
+      },
+    ],
+  })
+);
 
-// test(
-//   "book ending references",
-//   runTest(
-//     "[[First]] reference and [[second]]",
-//     {
-//       content: `${String.fromCharCode(0)} reference and ${String.fromCharCode(0)}`,
-//       annotations: [
-//         {
-//           attributes: { notebookUuid, notebookPageId: "First" },
-//           end: 1,
-//           start: 0,
-//           type: "reference",
-//         },
-//         {
-//           attributes: { notebookUuid, notebookPageId: "second" },
-//           end: 17,
-//           start: 16,
-//           type: "reference",
-//         },
-//       ],
-//     }
-//   )
-// );
+test(
+  "alias for internal reference",
+  runTest("Internal [alias]([[reference]])", {
+    content: "Internal alias",
+    annotations: [
+      {
+        attributes: { href: "[[reference]]" },
+        end: 14,
+        start: 9,
+        type: "link",
+      },
+    ],
+  })
+);
