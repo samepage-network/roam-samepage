@@ -5,7 +5,9 @@ import type { InitialSchema } from "samepage/internal/types";
 import apiClient from "samepage/internal/apiClient";
 import atJsonToRoam from "../utils/atJsonToRoam";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
-import getBlockUidFromTarget from "roamjs-components/dom/getBlockUidFromTarget";
+import getUids from "roamjs-components/dom/getUids";
+import getNthChildUidByBlockUid from "roamjs-components/queries/getNthChildUidByBlockUid";
+import getReferenceBlockUid from "roamjs-components/dom/getReferenceBlockUid";
 
 export const references: Record<string, Record<string, InitialSchema>> = {};
 
@@ -66,7 +68,7 @@ const ExternalNotebookReference = ({
   return (
     <>
       <span
-        className="roamjs-connected-ref cursor-pointer"
+        className="roamjs-connected-ref cursor-pointer rm-xparser-default-samepage-reference"
         onClick={() => setShowData(true)}
       >
         [[{notebookPageId}]]
@@ -85,13 +87,59 @@ const ExternalNotebookReference = ({
 const referenceRegex =
   /{{samepage-reference:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):((?:[^}]|}(?!}))+)}}/g;
 
+// adapted from roamjs-components/dom/getBlockUidFromTarget
+const getBlockFromTarget = (
+  target: HTMLElement
+): { el: HTMLElement; uid: () => string } => {
+  const ref = target.closest(".rm-block-ref") as HTMLSpanElement;
+  if (ref) {
+    return { el: ref, uid: () => ref.getAttribute("data-uid") || "" };
+  }
+
+  const customView = target.closest(".roamjs-block-view") as HTMLDivElement;
+  if (customView) {
+    return { el: customView, uid: () => getUids(customView).blockUid };
+  }
+
+  const aliasTooltip = target.closest(".rm-alias-tooltip__content");
+  if (aliasTooltip) {
+    const aliasRef = document.querySelector(
+      ".bp3-popover-open .rm-alias--block"
+    ) as HTMLAnchorElement;
+    return {
+      el: aliasRef,
+      uid: () => getReferenceBlockUid(aliasRef, "rm-alias--block"),
+    };
+  }
+
+  const el = target.closest(".roam-block") as HTMLDivElement;
+  const { blockUid } = getUids(el);
+  const kanbanTitle = target.closest(".kanban-title");
+  if (kanbanTitle) {
+    const container = kanbanTitle.closest<HTMLDivElement>(
+      ".kanban-column-container"
+    );
+    if (container) {
+      const column = kanbanTitle.closest(".kanban-column");
+      const order = Array.from(container.children).findIndex(
+        (d) => d === column
+      );
+      return {
+        el: container,
+        uid: () => getNthChildUidByBlockUid({ blockUid, order }),
+      };
+    }
+  }
+  if (el) return { el, uid: () => blockUid };
+  return { el: target, uid: () => "" };
+};
+
 export const render = (s: HTMLButtonElement) => {
+  const { el, uid: getUid } = getBlockFromTarget(s);
   const index = Array.from(
-    s.parentElement.querySelectorAll(
-      "button.rm-xparser-default-samepage-reference"
-    )
+    el.querySelectorAll(".rm-xparser-default-samepage-reference")
   ).indexOf(s);
-  const blockText = getTextByBlockUid(getBlockUidFromTarget(s));
+  const blockText = getTextByBlockUid(getUid());
   const match = Array.from(blockText.matchAll(referenceRegex))[index];
   if (match) {
     const [_, notebookUuid, notebookPageId] = match;
