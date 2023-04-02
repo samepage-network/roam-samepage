@@ -9,7 +9,9 @@ import React from "react";
 import loadCrossNotebookRequests from "./protocols/crossNotebookRequests";
 // @deprecated
 import loadCrossNotebookQuerying from "./protocols/notebookQuerying";
-import { SamePageAPI } from "samepage/internal/types";
+import type { SamePageAPI } from "samepage/internal/types";
+import apiClient from "samepage/internal/apiClient";
+import { prompt } from "roamjs-components/components/FormDialog";
 
 const cacheSetting = ({
   extension,
@@ -119,6 +121,36 @@ const setupProtocols = (args: OnloadArgs, api: SamePageAPI) => {
   const unloadSharePageWithNotebook = setupSharePageWithNotebook();
   const unloadCrossNotebookQuerying = loadCrossNotebookQuerying(args);
   const unloadCrossNotebookRequests = loadCrossNotebookRequests(api);
+  args.extensionAPI.ui.commandPalette.addCommand({
+    label: "Save Roam Graph Token to SamePage",
+    callback: () =>
+      prompt({
+        title: "Save Roam Graph Token to SamePage",
+        question:
+          "You could find your Roam Graph Token by navigating to the `Graph` tab of the settings panel.",
+        defaultAnswer: "",
+      })
+        .then((accessToken) =>
+          apiClient({
+            method: "save-access-token",
+            accessToken,
+          })
+        )
+        .then(() =>
+          renderToast({
+            content: "Saved!",
+            id: "save-access-token",
+            intent: "success",
+          })
+        )
+        .catch((e) =>
+          renderToast({
+            content: e.message,
+            id: "save-access-token-error",
+            intent: "danger",
+          })
+        ),
+  });
   return () => {
     unloadSharePageWithNotebook();
     unloadCrossNotebookRequests();
