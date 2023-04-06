@@ -5,10 +5,10 @@
   "main": "./build/main.js",
   "scripts": {
     "prebuild:roam": "npm install",
-    "build:roam": "roamjs-scripts build --labs --dry",
+    "build:roam": "samepage build --dry",
     "postinstall": "patch-package --patch-dir node_modules/samepage/patches",
-    "start": "roamjs-scripts dev --labs",
-    "test": "roamjs-scripts test --env WEB_SOCKET_URL"
+    "start": "samepage dev",
+    "test": "samepage test"
   },
   "author": {
     "name": "SamePage",
@@ -17,11 +17,39 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/ws": "^8.5.4",
-    "roamjs-scripts": "^0.26.34"
+    "@types/ws": "^8.5.4"
   },
   "dependencies": {
     "roamjs-components": "^0.76.0",
-    "samepage": "^0.54.3"
+    "samepage": "^0.56.6"
+  },
+  "samepage": {
+    "external": [
+      "react-dom/client",
+      "@blueprintjs/core=window.Blueprint.Core",
+      "@blueprintjs/datetime=window.Blueprint.DateTime",
+      "@blueprintjs/select=window.Blueprint.Select",
+      "chrono-node=window.ChronoNode",
+      "crypto-js=window.CryptoJS",
+      "cytoscape=window.RoamLazy.Cytoscape",
+      "file-saver=window.FileSaver",
+      "jszip=window.RoamLazy.JSZip",
+      "idb=window.idb",
+      "insect=window.RoamLazy.Insect",
+      "marked=window.RoamLazy.Marked",
+      "marked-react=window.RoamLazy.MarkedReact",
+      "nanoid=window.Nanoid",
+      "react=window.React",
+      "react-dom=window.ReactDOM",
+      "react-youtube=window.ReactYoutube",
+      "tslib=window.TSLib"
+    ],
+    "include": [
+      "package.json",
+      "README.md"
+    ],
+    "out": "extension",
+    "mirror": ".",
+    "format": "esm"
   }
 }
