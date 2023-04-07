@@ -1,24 +1,25 @@
 import { PullBlock } from "roamjs-components/types/native";
 import createAPIGatewayProxyHandler from "samepage/backend/createAPIGatewayProxyHandler";
 import getAccessToken from "samepage/backend/getAccessToken";
-import apiClient from "samepage/internal/apiClient";
 import getDatalogQuery, {
-  DatalogArgs,
-  datalogArgsSchema,
+  SamePageQueryArgs,
+  samePageQueryArgsSchema,
 } from "../../src/utils/getDatalogQuery";
 import backendCrossNotebookRequest from "../../src/utils/backendCrossNotebookRequest";
+import compileDatalog from "src/utils/compileDatalog";
 
 const queryRoam = async ({
   authorization,
   body,
 }: {
   authorization: string;
-  body: DatalogArgs;
+  body: SamePageQueryArgs;
 }) => {
   const { accessToken: token, workspace: graph } = await getAccessToken(
     authorization
   );
-  const query = getDatalogQuery(body);
+  const datalogQuery = getDatalogQuery(body);
+  const query = compileDatalog(datalogQuery);
   const Authorization = `Bearer ${token.replace(/^Bearer /, "")}`;
   return fetch(`https://api.roamresearch.com/api/graph/${graph}/q`, {
     body: JSON.stringify({ query }),
@@ -41,7 +42,7 @@ const logic = async ({
   authorization,
   requestId,
   ...body
-}: DatalogArgs & { authorization: string; requestId: string }) => {
+}: SamePageQueryArgs & { authorization: string; requestId: string }) => {
   const targetConditions = body.conditions.filter(
     (c) => c.relation === "is in notebook"
   );
@@ -70,6 +71,6 @@ const logic = async ({
 
 export default createAPIGatewayProxyHandler({
   logic,
-  bodySchema: datalogArgsSchema,
+  bodySchema: samePageQueryArgsSchema,
   allowedOrigins: [/roamresearch\.com/],
 });

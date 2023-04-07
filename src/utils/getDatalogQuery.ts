@@ -6,6 +6,7 @@ import endOfDay from "date-fns/endOfDay";
 import normalizePageTitle from "roamjs-components/queries/normalizePageTitle";
 import { DAILY_NOTE_PAGE_TITLE_REGEX } from "roamjs-components/date/constants";
 import compileDatalog from "roamjs-components/queries/compileDatalog";
+import { DatalogFindSpec, DatalogQuery } from "./datalogTypes";
 
 const zCondition = z.object({
   source: z.string(),
@@ -15,13 +16,58 @@ const zCondition = z.object({
 
 type Condition = z.infer<typeof zCondition>;
 
-export const datalogArgsSchema = z.object({
+export const samePageQueryArgsSchema = z.object({
   conditions: zCondition.array(),
   returnNode: z.string(),
   selections: z.unknown().array().optional().default([]),
 });
 
-export type DatalogArgs = z.infer<typeof datalogArgsSchema>;
+export type SamePageQueryArgs = z.infer<typeof samePageQueryArgsSchema>;
+
+const getFindSpec = ({
+  returnNode,
+  selections: _,
+}: Omit<SamePageQueryArgs, "conditions">): DatalogFindSpec => {
+  return {
+    type: "find-tuple",
+    elements: [
+      {
+        type: "pull-expression",
+        variable: {
+          type: "variable",
+          value: returnNode,
+        },
+        pattern: {
+          type: "pattern-data-literal",
+          attrSpecs: [
+            {
+              type: "attr-expr",
+              name: { type: "attr-name", value: "" },
+              options: [
+                {
+                  type: "as-expr",
+                  name: { type: "attr-name", value: ":block/uid" },
+                  value: "uid",
+                },
+                {
+                  type: "as-expr",
+                  name: { type: "attr-name", value: ":node/title" },
+                  value: "title",
+                },
+                {
+                  type: "as-expr",
+                  name: { type: "attr-name", value: ":block/string" },
+                  value: "text",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+};
+
 type Translator = {
   callback: (args: Condition) => DatalogClause[];
   targetOptions?: string[] | ((source: string) => string[]);
@@ -600,7 +646,7 @@ const conditionToDatalog = (con: Condition): DatalogClause[] => {
 const getWhereClauses = ({
   conditions,
   returnNode,
-}: Omit<DatalogArgs, "selections">) => {
+}: Omit<SamePageQueryArgs, "selections">) => {
   return conditions.length
     ? conditions.flatMap(conditionToDatalog)
     : conditionToDatalog({
@@ -731,24 +777,40 @@ const optimizeQuery = (
   return orderedClauses;
 };
 
-const getDatalogQuery = ({ conditions, returnNode }: DatalogArgs) => {
+const getDatalogQuery = ({
+  conditions,
+  returnNode,
+  selections,
+}: SamePageQueryArgs): DatalogQuery => {
+  const findSpec = getFindSpec({ selections, returnNode });
   const where = optimizeQuery(
     getWhereClauses({ conditions, returnNode }),
     new Set([])
   ) as DatalogClause[];
-  const query = `[:find
-    (pull ?${returnNode} [
-      [:block/uid :as "uid"]
-      [:node/title :as "title"]
-      [:block/string :as "text"]
-    ])
-  :where
-  ${
+  const initialWhereClauses: DatalogClause[] =
     where.length === 1 && where[0].type === "not-clause"
-      ? `[?${returnNode} :block/uid _]`
-      : ""
-  }  ${where.map((c) => compileDatalog(c, 0)).join("\n  ")}\n]`;
-  return query;
+      ? [
+          {
+            type: "data-pattern" as const,
+            arguments: [
+              { type: "variable", value: returnNode },
+              { type: "constant", value: "block/uid" },
+              { type: "underscore", value: "_" },
+            ],
+          },
+        ]
+      : [];
+  const whereClauses = initialWhereClauses.concat(where);
+  `(pull ?${returnNode} [
+    [:block/uid :as "uid"]
+    [:node/title :as "title"]
+    [:block/string :as "text"]
+  ])`;
+  return {
+    type: "query",
+    findSpec,
+    whereClauses,
+  };
 };
 
 export default getDatalogQuery;

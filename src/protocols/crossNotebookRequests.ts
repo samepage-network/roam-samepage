@@ -9,7 +9,6 @@ const crossNotebookRequests = (api: SamePageAPI) => {
     async ({ request, sendResponse }) => {
       if (Array.isArray(request.conditions)) {
         const query = getDatalogQuery(datalogArgsSchema.parse(request));
-        console.log("query", query);
         const results = (
           window.roamAlphaAPI.data.fast.q(query) as [json][]
         ).map((r) => r[0]);
