@@ -121,7 +121,10 @@ const setupProtocols = (args: OnloadArgs, api: SamePageAPI) => {
   const unloadSharePageWithNotebook = setupSharePageWithNotebook();
   const unloadCrossNotebookQuerying = loadCrossNotebookQuerying(args);
   const unloadCrossNotebookRequests = loadCrossNotebookRequests(api);
-  args.extensionAPI.ui.commandPalette.addCommand({
+  const addCommand =
+    args.extensionAPI.ui?.commandPalette?.addCommand ||
+    window.roamAlphaAPI.ui.commandPalette.addCommand;
+  addCommand({
     label: "Save Roam Graph Token to SamePage",
     callback: () =>
       prompt({

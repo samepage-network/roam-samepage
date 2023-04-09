@@ -15,9 +15,9 @@ const queryRoam = async ({
   authorization: string;
   body: SamePageQueryArgs;
 }) => {
-  const { accessToken: token, workspace: graph } = await getAccessToken(
-    authorization
-  );
+  const { accessToken: token, workspace: graph } = await getAccessToken({
+    authorization,
+  });
   const datalogQuery = getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
   const Authorization = `Bearer ${token.replace(/^Bearer /, "")}`;

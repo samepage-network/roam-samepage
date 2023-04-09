@@ -150,9 +150,7 @@ const setupSharePageWithNotebook = () => {
       i === 0 ? getPageTitleByPageUid(u) : u
     );
     notebookPageIds.forEach((n) => {
-      if (isShared(n)) {
-        callback(n);
-      }
+      isShared(n).then((s) => s && callback(n));
     });
   };
 
