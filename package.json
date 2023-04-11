@@ -50,6 +50,22 @@
     ],
     "out": "extension",
     "mirror": ".",
-    "format": "esm"
+    "format": "esm",
+    "install": {
+      "steps": [
+        {
+          "title": "Open Roam Depot",
+          "children": "image"
+        },
+        {
+          "title": "Search SamePage",
+          "children": "image"
+        },
+        {
+          "title": "Install!",
+          "children": "image"
+        }
+      ]
+    }
   }
 }
