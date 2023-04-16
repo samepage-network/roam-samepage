@@ -141,7 +141,14 @@ const applyState = async (notebookPageId: string, state: InitialSchema) => {
                   })
                   .catch((e) =>
                     Promise.reject(
-                      new Error(`Failed to move block: ${e.message}`)
+                      new HandlerError(`Failed to move block`, {
+                        message: e.message,
+                        notebookPageId,
+                        actualNode,
+                        expectedNode,
+                        parentUid,
+                        order,
+                      })
                     )
                   );
               }

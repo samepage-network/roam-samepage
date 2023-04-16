@@ -29,7 +29,7 @@ const runTest =
   };
 
 test.beforeAll(() => {
-  registry({ app: 1 });
+  registry({ app: "roam" });
   mockRoamEnvironment();
 });
 

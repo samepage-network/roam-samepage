@@ -1,9 +1,6 @@
-import type { InitialSchema } from "samepage/internal/types";
 import loadSharePageWithNotebook from "samepage/protocols/sharePageWithNotebook";
-import type { ViewType, TreeNode } from "roamjs-components/types/native";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
-import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import elToTitle from "roamjs-components/dom/elToTitle";
 import getUids from "roamjs-components/dom/getUids";
 import createPage from "roamjs-components/writes/createPage";
@@ -15,7 +12,6 @@ import { has as isShared } from "samepage/utils/localAutomergeDb";
 import applyState from "../utils/applyState";
 import isPage from "../utils/isPage";
 import calculateState from "../utils/calculateState";
-import isBlock from "../utils/isBlock";
 // import sha256 from "crypto-js/sha256";
 
 // const hashes: Record<number, string> = {};
@@ -40,8 +36,13 @@ const setupSharePageWithNotebook = () => {
       window.roamAlphaAPI.deletePage({
         page: { title },
       }),
-    doesPageExist: async (notebookPageId) =>
-      isPage(notebookPageId) || isBlock(notebookPageId),
+    getNotebookPageIdByTitle: async (title) =>
+      window.roamAlphaAPI.pull("[:block/uid]", [":node/title", title])?.[
+        ":block/uid"
+      ] ||
+      window.roamAlphaAPI.pull("[:block/uid]", [":block/uid", title])?.[
+        ":block/uid"
+      ],
     applyState,
     calculateState,
     overlayProps: {
