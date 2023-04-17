@@ -1,6 +1,8 @@
 import {
   DatalogArgument,
+  DatalogBinding,
   DatalogClause,
+  DatalogSrcVar,
   DatalogVariable,
 } from "roamjs-components/types/native";
 
@@ -9,7 +11,7 @@ export type DatalogQuery = {
   type: "query";
   findSpec: DatalogFindSpec;
   returnMapSpec?: DatalogReturnMapSpec;
-  withClauses?: DatalogWithClause;
+  withClauses?: DatalogVariable[];
   inputs?: DatalogInput[];
   whereClauses: DatalogClause[];
 };
@@ -49,11 +51,6 @@ export type DatalogPullExpression = {
   type: "pull-expression";
   variable: DatalogVariable;
   pattern: DatalogPattern;
-};
-
-export type DatalogReturnStrs = {
-  type: "return-strs";
-  symbols: DatalogSymbol[];
 };
 
 export type DatalogSymbol = {
@@ -136,10 +133,33 @@ export type DatalogAggregate = {
   args: DatalogArgument[];
 };
 
-// TODO - CONTINUE HERE
+export type DatalogInput =
+  | DatalogBinding
+  | DatalogSrcVar
+  | DatalogPattern
+  | DatalogRulesVar;
 
-export type DatalogReturnMapSpec = {};
+export type DatalogRulesVar = {
+  type: "rules-var";
+  value: "%";
+};
 
-export type DatalogWithClause = {};
+export type DatalogReturnMapSpec =
+  | DatalogReturnKeys
+  | DatalogReturnSyms
+  | DatalogReturnStrs;
 
-export type DatalogInput = {};
+export type DatalogReturnKeys = {
+  type: "return-keys";
+  symbols: DatalogSymbol[];
+};
+
+export type DatalogReturnSyms = {
+  type: "return-syms";
+  symbols: DatalogSymbol[];
+};
+
+export type DatalogReturnStrs = {
+  type: "return-strs";
+  symbols: DatalogSymbol[];
+};

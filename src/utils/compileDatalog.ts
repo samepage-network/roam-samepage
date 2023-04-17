@@ -6,7 +6,9 @@ import type {
 import {
   DatalogAttrSpec,
   DatalogFindElement,
+  DatalogInput,
   DatalogQuery,
+  DatalogRecursionLimit,
 } from "./datalogTypes";
 
 const indent = (n: number) => "".padStart(n * 2, " ");
@@ -21,7 +23,9 @@ const compileDatalog = (
     | DatalogAttrSpec
     | DatalogClause
     | DatalogArgument
-    | DatalogBinding,
+    | DatalogBinding
+    | DatalogInput
+    | DatalogRecursionLimit,
   level = 0
 ): string => {
   switch (d.type) {
@@ -43,12 +47,28 @@ const compileDatalog = (
           : `${compileDatalog(d.findSpec.element, level + 2)} '.'`
       }`;
 
+      const returnMap = d.returnMapSpec
+        ? `:${d.returnMapSpec.type.replace(
+            "return-",
+            ""
+          )} ${d.returnMapSpec.symbols.map((s) => toVar(s.value)).join(" ")}`
+        : "";
+
+      const withClause = d.withClauses
+        ? `:with ${d.withClauses.map((c) => compileDatalog(c)).join(" ")}`
+        : "";
+
+      const inputs = d.inputs
+        ? `:in ${d.inputs.map((d) => compileDatalog(d)).join(" ")}`
+        : "";
+
       const where = `:where
      ${d.whereClauses
        .map((c) => `${indent(level + 2)}${compileDatalog(c, level + 2)}`)
        .join(`\n`)}`;
 
-      return `[${[find, where]
+      return `[${[find, returnMap, withClause, inputs, where]
+        .filter(Boolean)
         .map((s) => `${indent(level + 1)}${s}`)
         .join("\n")}]`;
     case "pull-expression":
@@ -59,6 +79,18 @@ const compileDatalog = (
               .map((attr) => compileDatalog(attr, level + 2))
               .join("\n")
       }`;
+    case "aggregate":
+      return `[${d.name} ${d.args.map((a) => compileDatalog(a)).join(" ")}]`;
+    case "attr-name":
+      return toVar(d.value);
+    case "wildcard":
+      return "*";
+    case "map-spec":
+      return `{ ${d.entries
+        .map((e) => `(${compileDatalog(e.key)} ${compileDatalog(e.value)})`)
+        .join(" ")}}`;
+    case "recursion-limit":
+      return d.value.toString();
     case "attr-expr":
       return d.options
         .map((opt) =>
@@ -133,6 +165,7 @@ const compileDatalog = (
       if (!d.variable) return "";
       return compileDatalog(d.variable, level);
     default:
+      console.error(`Unknown datalog type: ${d.type}`);
       return "";
   }
 };
