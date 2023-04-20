@@ -11,40 +11,63 @@ import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBl
 import { has as isShared } from "samepage/utils/localAutomergeDb";
 import applyState from "../utils/applyState";
 import isPage from "../utils/isPage";
-import calculateState from "../utils/calculateState";
+import encodeState from "../utils/encodeState";
+import atJsonToRoam from "../utils/atJsonToRoam";
+import isBlock from "src/utils/isBlock";
+import isPageUid from "src/utils/isPageUid";
+import createHTMLObserver from "samepage/utils/createHTMLObserver";
+
 // import sha256 from "crypto-js/sha256";
 
 // const hashes: Record<number, string> = {};
 // const hashFn = (s: string) => sha256(s).toString();
 
+// Roam notebookPageId could be either:
+// - a page title
+// - a page uid
+// - a block uid
 const setupSharePageWithNotebook = () => {
   const { unload, refreshContent } = loadSharePageWithNotebook({
     getCurrentNotebookPageId: () =>
       window.roamAlphaAPI.ui.mainWindow
         .getOpenPageOrBlockUid()
-        .then((uid) =>
-          uid
-            ? getPageTitleByPageUid(uid) || uid
-            : window.roamAlphaAPI.util.dateToPageTitle(new Date())
+        .then(
+          (uid) => uid || window.roamAlphaAPI.util.dateToPageUid(new Date())
         ),
-    createPage: (title) => createPage({ title }),
-    openPage: (title) =>
-      window.roamAlphaAPI.ui.mainWindow.openPage({
-        page: { title },
-      }),
+    ensurePageByTitle: async (title) => {
+      const pageTitle = atJsonToRoam(title);
+      const existingNotebookPageId = window.roamAlphaAPI.pull("[:block/uid]", [
+        ":node/title",
+        pageTitle,
+      ])?.[":block/uid"];
+      if (existingNotebookPageId) {
+        return { notebookPageId: existingNotebookPageId, preExisting: true };
+      }
+      // TODO - support for giving the user the option to confirm equivalent block as title
+      // TODO - support for creating either a page or a block
+      return createPage({ title: pageTitle });
+    },
+    openPage: async (notebookPageId) => {
+      if (isPage(notebookPageId))
+        await window.roamAlphaAPI.ui.mainWindow.openPage({
+          page: { title: notebookPageId },
+        });
+      else if (isPageUid(notebookPageId))
+        await window.roamAlphaAPI.ui.mainWindow.openPage({
+          page: { uid: notebookPageId },
+        });
+      else if (isBlock(notebookPageId))
+        await window.roamAlphaAPI.ui.mainWindow.openBlock({
+          block: { uid: notebookPageId },
+        });
+      return notebookPageId;
+    },
     deletePage: (title) =>
       window.roamAlphaAPI.deletePage({
         page: { title },
       }),
-    getNotebookPageIdByTitle: async (title) =>
-      window.roamAlphaAPI.pull("[:block/uid]", [":node/title", title])?.[
-        ":block/uid"
-      ] ||
-      window.roamAlphaAPI.pull("[:block/uid]", [":block/uid", title])?.[
-        ":block/uid"
-      ],
-    applyState,
-    calculateState,
+    decodeState: (id, state) => applyState(id, state.$body),
+    encodeState,
     overlayProps: {
       viewSharedPageProps: {
         onLinkClick: (notebookPageId, e) => {
@@ -61,15 +84,18 @@ const setupSharePageWithNotebook = () => {
       },
       sharedPageStatusProps: {
         getPaths: (notebookPageId) => {
+          const pageTitle = isPage(notebookPageId)
+            ? notebookPageId
+            : isPageUid(notebookPageId)
+            ? getPageTitleByPageUid(notebookPageId)
+            : null;
           return (
-            isPage(notebookPageId)
+            pageTitle
               ? Array.from(
                   document.querySelectorAll<HTMLHeadingElement>(
                     "h1.rm-title-display"
                   )
-                ).filter(
-                  (h) => getPageTitleValueByHtmlElement(h) === notebookPageId
-                )
+                ).filter((h) => getPageTitleValueByHtmlElement(h) === pageTitle)
               : Array.from(
                   document.querySelectorAll<
                     HTMLDivElement | HTMLTextAreaElement
@@ -97,7 +123,41 @@ const setupSharePageWithNotebook = () => {
             }
           });
         },
-        selector: "h1.rm-title-display, div.roam-article div.zoom-path-view",
+        observer: ({ onload, onunload }) => {
+          const observer = createHTMLObserver({
+            selector:
+              "h1.rm-title-display, div.roam-article div.zoom-path-view",
+            callback: (el) => {
+              if (el.nodeName === "H1") {
+                const title = elToTitle(el as Element);
+                onload(getPageUidByPageTitle(title));
+                onload(title);
+              } else if (el.nodeName === "DIV") {
+                const blockUid = getUids(
+                  el.parentElement.querySelector(
+                    "div.roam-block, textarea.rm-block-input"
+                  )
+                )?.blockUid;
+                onload(blockUid);
+              }
+            },
+            onRemove: (el) => {
+              if (el.nodeName === "H1") {
+                const title = elToTitle(el as Element);
+                onunload(getPageUidByPageTitle(title));
+                onunload(title);
+              } else if (el.nodeName === "DIV") {
+                const blockUid = getUids(
+                  el.parentElement.querySelector(
+                    "div.roam-block, textarea.rm-block-input"
+                  )
+                )?.blockUid;
+                onunload(blockUid);
+              }
+            },
+          });
+          return () => observer.disconnect();
+        },
         getNotebookPageId: async (el) =>
           el.nodeName === "H1"
             ? elToTitle(el as Element)

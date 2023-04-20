@@ -1,8 +1,8 @@
 import { getSetting } from "samepage/internal/registry";
-import { InitialSchema } from "samepage/internal/types";
+import { SamePageSchema } from "samepage/internal/types";
 import renderAtJson from "samepage/utils/renderAtJson";
 
-const atJsonToRoam = (state: InitialSchema) => {
+const atJsonToRoam = (state: SamePageSchema) => {
   return renderAtJson({
     state,
     applyAnnotation: {

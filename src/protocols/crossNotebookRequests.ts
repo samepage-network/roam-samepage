@@ -4,7 +4,7 @@ import type { json, SamePageAPI } from "samepage/internal/types";
 import getDatalogQuery, {
   samePageQueryArgsSchema,
 } from "../utils/getDatalogQuery";
-import calculateState from "../utils/calculateState";
+import calculateState from "../utils/encodeState";
 import compileDatalog from "../utils/compileDatalog";
 
 const crossNotebookRequests = (api: SamePageAPI) => {

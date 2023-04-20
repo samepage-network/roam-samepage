@@ -1,7 +1,7 @@
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import { TreeNode, ViewType } from "roamjs-components/types";
-import { InitialSchema } from "samepage/internal/types";
+import { SamePageSchema } from "samepage/internal/types";
 import blockParser from "./blockParser";
 import isBlock from "./isBlock";
 
@@ -15,7 +15,7 @@ const toAtJson = ({
   level?: number;
   startIndex?: number;
   viewType?: ViewType;
-}): InitialSchema => {
+}): SamePageSchema => {
   return nodes
     .map((n) => (index: number) => {
       const { content: _content, annotations } = n.text
@@ -26,7 +26,7 @@ const toAtJson = ({
           };
       const content = `${_content || String.fromCharCode(0)}\n`;
       const end = content.length + index;
-      const blockAnnotation: InitialSchema["annotations"] = [
+      const blockAnnotation: SamePageSchema["annotations"] = [
         {
           start: index,
           end,
@@ -67,7 +67,7 @@ const toAtJson = ({
       },
       {
         content: "",
-        annotations: [] as InitialSchema["annotations"],
+        annotations: [] as SamePageSchema["annotations"],
       }
     );
 };
@@ -77,10 +77,13 @@ const calculateState = async (notebookPageId: string) => {
     ? notebookPageId
     : getPageUidByPageTitle(notebookPageId);
   const node = getFullTreeByParentUid(pageUid);
-  return toAtJson({
-    nodes: node.children,
-    viewType: node.viewType || "bullet",
-  });
+  return {
+    $title: blockParser(node.text),
+    $body: toAtJson({
+      nodes: node.children,
+      viewType: node.viewType || "bullet",
+    }),
+  };
 };
 
 export default calculateState;
