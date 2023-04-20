@@ -207,12 +207,12 @@ const setupSharePageWithNotebook = () => {
     blockUid: string;
     callback: (notebookPageId: string) => void;
   }) => {
-    const notebookPageIds = getParentUidsOfBlockUid(blockUid).map((u, i) =>
-      i === 0 ? getPageTitleByPageUid(u) : u
-    );
-    notebookPageIds.forEach((n) => {
-      isShared(n).then((s) => s && callback(n));
-    });
+    const notebookPageIds = getParentUidsOfBlockUid(blockUid);
+    notebookPageIds
+      .concat(getPageTitleByPageUid(notebookPageIds[0]))
+      .forEach((n) => {
+        isShared(n).then((s) => s && callback(n));
+      });
   };
 
   const bodyKeydownListener = (e: KeyboardEvent) => {
