@@ -102,7 +102,7 @@ const compileDatalog = (
         )
         .join("\n");
     case "data-pattern":
-      return `[${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}${(
+      return `${indent(level)}[${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}${(
         d.arguments || []
       )
         .map((a) => compileDatalog(a, level))
@@ -136,7 +136,7 @@ const compileDatalog = (
         .map((a) => compileDatalog(a, level + 1))
         .join(" ")})`;
     case "or-clause":
-      return `(${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}or ${(
+      return `${indent(level)}(${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}or ${(
         d.clauses || []
       )
         .map((a) => compileDatalog(a, level + 1))
@@ -154,7 +154,7 @@ const compileDatalog = (
         .map((a) => compileDatalog(a, level + 1))
         .join(" ")})`;
     case "or-join-clause":
-      return `(${
+      return `${indent(level)}(${
         d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""
       }or-join [${(d.variables || [])
         .map((v) => compileDatalog(v, level))
