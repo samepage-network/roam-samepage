@@ -168,127 +168,135 @@ const setupSharePageWithNotebook = () => {
               ).blockUid,
       },
     },
-  });
-  let refreshRef:
-    | Parameters<typeof window.roamAlphaAPI.data.addPullWatch>
-    | undefined;
-  const clearRefreshRef = () => {
-    if (refreshRef) {
-      window.roamAlphaAPI.data.removePullWatch(...refreshRef);
-      refreshRef = undefined;
-    }
-  };
-  const refreshState = ({
-    label,
-    blockUid,
-    notebookPageId,
-    pull = "[*]",
-  }: {
-    label: string;
-    blockUid: string;
-    notebookPageId: string;
-    pull?: string;
-  }) => {
-    refreshRef = [
-      pull,
-      `[:block/uid "${blockUid}"]`,
-      async () => {
-        clearRefreshRef();
-        refreshContent({ notebookPageId, label });
-      },
-    ];
-    window.roamAlphaAPI.data.addPullWatch(...refreshRef);
-  };
-
-  const forEachNotebookPageId = ({
-    blockUid,
-    callback,
-  }: {
-    blockUid: string;
-    callback: (notebookPageId: string) => void;
-  }) => {
-    const notebookPageIds = getParentUidsOfBlockUid(blockUid);
-    notebookPageIds
-      .concat(getPageTitleByPageUid(notebookPageIds[0]))
-      .forEach((n) => {
-        isShared(n).then((s) => s && callback(n));
-      });
-  };
-
-  const bodyKeydownListener = (e: KeyboardEvent) => {
-    const el = e.target as HTMLElement;
-    if (/^.$/.test(e.key) && e.metaKey) return;
-    if (/^Arrow/.test(e.key) && !(e.shiftKey && (e.metaKey || e.altKey)))
-      return;
-    if (/^Shift/.test(e.key)) return;
-    if (/^Alt/.test(e.key)) return;
-    if (/^Escape/.test(e.key)) return;
-    if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
-      const { blockUid } = getUids(el as HTMLTextAreaElement);
-      forEachNotebookPageId({
+    onConnect: () => {
+      let refreshRef:
+        | Parameters<typeof window.roamAlphaAPI.data.addPullWatch>
+        | undefined;
+      const clearRefreshRef = () => {
+        if (refreshRef) {
+          window.roamAlphaAPI.data.removePullWatch(...refreshRef);
+          refreshRef = undefined;
+        }
+      };
+      const refreshState = ({
+        label,
         blockUid,
-        callback(notebookPageId) {
-          clearRefreshRef();
-          refreshState({
-            label: `Key Presses - ${e.key}`,
-            blockUid,
-            notebookPageId,
-            pull: "[:block/string :block/parents :block/order]",
-          });
-        },
-      });
-    }
-  };
-  document.body.addEventListener("keydown", bodyKeydownListener);
-
-  const bodyPasteListener = (e: ClipboardEvent) => {
-    const el = e.target as HTMLElement;
-    if (el.tagName === "TEXTAREA" && el.classList.contains("rm-block-input")) {
-      const { blockUid } = getUids(el as HTMLTextAreaElement);
-      forEachNotebookPageId({
-        blockUid,
-        callback(notebookPageId) {
-          clearRefreshRef();
-          refreshState({
-            blockUid,
-            notebookPageId,
-            pull: "[:block/string]",
-            label: "Paste",
-          });
-        },
-      });
-    }
-  };
-  document.body.addEventListener("paste", bodyPasteListener);
-
-  const dragEndListener = (e: DragEvent) => {
-    const el = e.target as HTMLElement;
-    if (el.tagName === "SPAN" && el.classList.contains("rm-bullet")) {
-      const { blockUid } = getUids(
-        el
-          .closest(".rm-block-main")
-          .querySelector(".roam-block, .rm-block-text")
-      );
-      if (blockUid) {
-        forEachNotebookPageId({
-          blockUid,
-          callback(notebookPageId) {
+        notebookPageId,
+        pull = "[*]",
+      }: {
+        label: string;
+        blockUid: string;
+        notebookPageId: string;
+        pull?: string;
+      }) => {
+        refreshRef = [
+          pull,
+          `[:block/uid "${blockUid}"]`,
+          async () => {
             clearRefreshRef();
-            refreshState({ blockUid, notebookPageId, label: "Drag Block" });
+            refreshContent({ notebookPageId, label });
           },
-        });
-      }
-    }
-  };
-  document.body.addEventListener("dragend", dragEndListener);
+        ];
+        window.roamAlphaAPI.data.addPullWatch(...refreshRef);
+      };
 
-  return () => {
-    clearRefreshRef();
-    document.body.removeEventListener("keydown", bodyKeydownListener);
-    document.body.removeEventListener("paste", bodyPasteListener);
-    document.body.removeEventListener("dragend", dragEndListener);
-    unload();
-  };
+      const forEachNotebookPageId = ({
+        blockUid,
+        callback,
+      }: {
+        blockUid: string;
+        callback: (notebookPageId: string) => void;
+      }) => {
+        const notebookPageIds = getParentUidsOfBlockUid(blockUid);
+        notebookPageIds
+          .concat(getPageTitleByPageUid(notebookPageIds[0]))
+          .forEach((n) => {
+            isShared(n).then((s) => s && callback(n));
+          });
+      };
+
+      const bodyKeydownListener = (e: KeyboardEvent) => {
+        const el = e.target as HTMLElement;
+        if (/^.$/.test(e.key) && e.metaKey) return;
+        if (/^Arrow/.test(e.key) && !(e.shiftKey && (e.metaKey || e.altKey)))
+          return;
+        if (/^Shift/.test(e.key)) return;
+        if (/^Alt/.test(e.key)) return;
+        if (/^Escape/.test(e.key)) return;
+        if (
+          el.tagName === "TEXTAREA" &&
+          el.classList.contains("rm-block-input")
+        ) {
+          const { blockUid } = getUids(el as HTMLTextAreaElement);
+          forEachNotebookPageId({
+            blockUid,
+            callback(notebookPageId) {
+              clearRefreshRef();
+              refreshState({
+                label: `Key Presses - ${e.key}`,
+                blockUid,
+                notebookPageId,
+                pull: "[:block/string :block/parents :block/order]",
+              });
+            },
+          });
+        }
+      };
+      document.body.addEventListener("keydown", bodyKeydownListener);
+
+      const bodyPasteListener = (e: ClipboardEvent) => {
+        const el = e.target as HTMLElement;
+        if (
+          el.tagName === "TEXTAREA" &&
+          el.classList.contains("rm-block-input")
+        ) {
+          const { blockUid } = getUids(el as HTMLTextAreaElement);
+          forEachNotebookPageId({
+            blockUid,
+            callback(notebookPageId) {
+              clearRefreshRef();
+              refreshState({
+                blockUid,
+                notebookPageId,
+                pull: "[:block/string]",
+                label: "Paste",
+              });
+            },
+          });
+        }
+      };
+      document.body.addEventListener("paste", bodyPasteListener);
+
+      const dragEndListener = (e: DragEvent) => {
+        const el = e.target as HTMLElement;
+        if (el.tagName === "SPAN" && el.classList.contains("rm-bullet")) {
+          const { blockUid } = getUids(
+            el
+              .closest(".rm-block-main")
+              .querySelector(".roam-block, .rm-block-text")
+          );
+          if (blockUid) {
+            forEachNotebookPageId({
+              blockUid,
+              callback(notebookPageId) {
+                clearRefreshRef();
+                refreshState({ blockUid, notebookPageId, label: "Drag Block" });
+              },
+            });
+          }
+        }
+      };
+      document.body.addEventListener("dragend", dragEndListener);
+      return () => {
+        clearRefreshRef();
+        document.body.removeEventListener("keydown", bodyKeydownListener);
+        document.body.removeEventListener("paste", bodyPasteListener);
+        document.body.removeEventListener("dragend", dragEndListener);
+      };
+    },
+  });
+
+  return unload;
 };
 
 export default setupSharePageWithNotebook;

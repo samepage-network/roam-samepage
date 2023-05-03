@@ -7,6 +7,7 @@ import getDatalogQuery, {
 } from "../../src/utils/getDatalogQuery";
 import backendCrossNotebookRequest from "../../src/utils/backendCrossNotebookRequest";
 import compileDatalog from "src/utils/compileDatalog";
+import { BackendRequest } from "samepage/internal/types";
 
 const queryRoam = async ({
   authorization,
@@ -42,7 +43,7 @@ const logic = async ({
   authorization,
   requestId,
   ...body
-}: SamePageQueryArgs & { authorization: string; requestId: string }) => {
+}: BackendRequest<typeof samePageQueryArgsSchema>) => {
   const targetConditions = body.conditions.filter(
     (c) => c.relation === "is in notebook"
   );

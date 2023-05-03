@@ -17,8 +17,8 @@ const zCondition = z.object({
 type Condition = z.infer<typeof zCondition>;
 
 const zSelection = z.object({
-  as: z.string(),
-  select: z.string(),
+  label: z.string(),
+  text: z.string(),
 });
 
 export const samePageQueryArgsSchema = z.object({
