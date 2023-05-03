@@ -16,10 +16,15 @@ const zCondition = z.object({
 
 type Condition = z.infer<typeof zCondition>;
 
+const zSelection = z.object({
+  as: z.string(),
+  select: z.string(),
+});
+
 export const samePageQueryArgsSchema = z.object({
   conditions: zCondition.array(),
   returnNode: z.string(),
-  selections: z.unknown().array().optional().default([]),
+  selections: zSelection.array().optional().default([]),
 });
 
 export type SamePageQueryArgs = z.infer<typeof samePageQueryArgsSchema>;

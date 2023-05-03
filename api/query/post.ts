@@ -52,6 +52,7 @@ const logic = async ({
       body,
     });
   }
+  // To handle multiple targets, split the request body and send a request for each target
   return backendCrossNotebookRequest<{ result: PullBlock[][] }>({
     authorization,
     request: {
@@ -61,16 +62,22 @@ const logic = async ({
       ),
     },
     label: "datalog", // TODO - use alias
-    targets: targetConditions.map((c) => c.target),
-  }).then((response) => ({
-    results: Object.values(response).flatMap((r) =>
-      !r || typeof r === "string" ? [] : r.result
-    ),
-  }));
+    target: targetConditions[0]?.target || "",
+  }).then((response) =>
+    typeof response === "string"
+      ? { results: [] }
+      : {
+          results:
+            "results" in response && Array.isArray(response.results)
+              ? response.results
+              : [],
+        }
+  );
 };
 
 export default createAPIGatewayProxyHandler({
   logic,
+  // @ts-ignore
   bodySchema: samePageQueryArgsSchema,
   allowedOrigins: [/roamresearch\.com/],
 });
