@@ -1,6 +1,6 @@
 {
   "name": "roam-samepage",
-  "version": "2.9.3",
+  "version": "2.9.4",
   "description": "Official Roam client into the intra tool-for-thought protocol",
   "main": "./build/main.js",
   "scripts": {
