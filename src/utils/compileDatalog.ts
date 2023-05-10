@@ -102,11 +102,9 @@ const compileDatalog = (
         )
         .join("\n");
     case "data-pattern":
-      return `${indent(level)}[${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}${(
-        d.arguments || []
-      )
-        .map((a) => compileDatalog(a, level))
-        .join(" ")}]`;
+      return `${indent(level)}[${
+        d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""
+      }${(d.arguments || []).map((a) => compileDatalog(a, level)).join(" ")}]`;
     case "src-var":
       return `$${toVar(d.value)}`;
     case "constant":
@@ -116,15 +114,15 @@ const compileDatalog = (
       return `?${toVar(d.value)}`;
     case "fn-expr":
       if (!d.binding) return "";
-      return `[(${d.fn} ${(d.arguments || [])
+      return `${indent(level)}[(${d.fn} ${(d.arguments || [])
         .map((a) => compileDatalog(a, level))
         .join(" ")}) ${compileDatalog(d.binding, level)}]`;
     case "pred-expr":
-      return `[(${d.pred} ${(d.arguments || [])
+      return `${indent(level)}[(${d.pred} ${(d.arguments || [])
         .map((a) => compileDatalog(a, level))
         .join(" ")})]`;
     case "rule-expr":
-      return `[${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}${(
+      return `${indent(level)}[${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}${(
         d.arguments || []
       )
         .map((a) => compileDatalog(a, level))
@@ -136,9 +134,9 @@ const compileDatalog = (
         .map((a) => compileDatalog(a, level + 1))
         .join(" ")})`;
     case "or-clause":
-      return `${indent(level)}(${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}or ${(
-        d.clauses || []
-      )
+      return `${indent(level)}(${
+        d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""
+      }or ${(d.clauses || [])
         .map((a) => compileDatalog(a, level + 1))
         .join("\n")})`;
     case "and-clause":
@@ -164,6 +162,8 @@ const compileDatalog = (
     case "bind-scalar":
       if (!d.variable) return "";
       return compileDatalog(d.variable, level);
+    case "bind-rel":
+      return `[[${d.args.map((a) => compileDatalog(a, level)).join(" ")}]]`;
     default:
       console.error(`Unknown datalog type: ${d.type}`);
       return "";
