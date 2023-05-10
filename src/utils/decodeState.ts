@@ -5,7 +5,7 @@ import { TreeNode, ViewType } from "roamjs-components/types/native";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
 import updateBlock from "roamjs-components/writes/updateBlock";
-import { InitialSchema, SamePageSchema, json } from "samepage/internal/types";
+import { SamePageSchema, json, Annotation } from "samepage/internal/types";
 import { HandlerError } from "samepage/internal/setupMessageHandlers";
 import atJsonToRoam from "./atJsonToRoam";
 import isPage from "./isPage";
@@ -17,7 +17,7 @@ type SamepageNode = {
   annotation: {
     start: number;
     end: number;
-    annotations: InitialSchema["annotations"];
+    annotations: Annotation[];
   };
 };
 

@@ -7,6 +7,7 @@ import setupSharePageWithNotebook from "./protocols/sharePageWithNotebook";
 import { OnloadArgs, Action } from "roamjs-components/types/native";
 import React from "react";
 import loadCrossNotebookRequests from "./protocols/crossNotebookRequests";
+import loadCrossNotebookWorkflows from "./protocols/crossNotebookWorkflows";
 // @deprecated
 import loadCrossNotebookQuerying from "./protocols/notebookQuerying";
 import type { SamePageAPI } from "samepage/internal/types";
@@ -121,6 +122,7 @@ const setupProtocols = (args: OnloadArgs, api: SamePageAPI) => {
   const unloadSharePageWithNotebook = setupSharePageWithNotebook();
   const unloadCrossNotebookQuerying = loadCrossNotebookQuerying(args);
   const unloadCrossNotebookRequests = loadCrossNotebookRequests(api);
+  const unloadCrossNotebookWorkflows = loadCrossNotebookWorkflows(api, args);
   const addCommand =
     args.extensionAPI.ui?.commandPalette?.addCommand ||
     window.roamAlphaAPI.ui.commandPalette.addCommand;
@@ -158,6 +160,7 @@ const setupProtocols = (args: OnloadArgs, api: SamePageAPI) => {
     unloadSharePageWithNotebook();
     unloadCrossNotebookRequests();
     unloadCrossNotebookQuerying();
+    unloadCrossNotebookWorkflows();
   };
 };
 

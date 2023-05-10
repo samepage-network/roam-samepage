@@ -1,7 +1,7 @@
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import { TreeNode, ViewType } from "roamjs-components/types";
-import { SamePageSchema } from "samepage/internal/types";
+import { SamePageSchema, SamePageState } from "samepage/internal/types";
 import blockParser from "./blockParser";
 import isBlock from "./isBlock";
 
@@ -72,17 +72,29 @@ const toAtJson = ({
     );
 };
 
-const encodeState = async (notebookPageId: string) => {
+const ATTRIBUTE_REGEX = /^([^:]+)::(.*)/;
+const encodeState = async (notebookPageId: string): Promise<SamePageState> => {
   const pageUid = isBlock(notebookPageId)
     ? notebookPageId
     : getPageUidByPageTitle(notebookPageId);
   const node = getFullTreeByParentUid(pageUid);
+
+  const nodes = node.children.filter((n) => !ATTRIBUTE_REGEX.test(n.text));
+  const properties = Object.fromEntries(
+    node.children
+      .filter((c) => ATTRIBUTE_REGEX.test(c.text))
+      .map((c) => {
+        const match = c.text.match(ATTRIBUTE_REGEX);
+        return [match[1], blockParser(match[2])] as const;
+      })
+  );
   return {
     $title: blockParser(node.text),
     $body: toAtJson({
-      nodes: node.children,
+      nodes,
       viewType: node.viewType || "bullet",
     }),
+    ...properties,
   };
 };
 
