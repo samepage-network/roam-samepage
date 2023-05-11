@@ -5,29 +5,14 @@ import startOfDay from "date-fns/startOfDay";
 import endOfDay from "date-fns/endOfDay";
 import normalizePageTitle from "roamjs-components/queries/normalizePageTitle";
 import { DAILY_NOTE_PAGE_TITLE_REGEX } from "roamjs-components/date/constants";
-import compileDatalog from "roamjs-components/queries/compileDatalog";
 import { DatalogFindSpec, DatalogQuery } from "./datalogTypes";
+import { notebookRequestNodeQuerySchema } from "samepage/internal/types";
 
-const zCondition = z.object({
-  source: z.string(),
-  target: z.string(),
-  relation: z.string(),
-});
-
-type Condition = z.infer<typeof zCondition>;
-
-const zSelection = z.object({
-  label: z.string(),
-  text: z.string(),
-});
-
-export const samePageQueryArgsSchema = z.object({
-  conditions: zCondition.array(),
-  returnNode: z.string(),
-  selections: zSelection.array().optional().default([]),
-});
-
-export type SamePageQueryArgs = z.infer<typeof samePageQueryArgsSchema>;
+export type SamePageQueryArgs = Omit<
+  z.infer<typeof notebookRequestNodeQuerySchema>,
+  "schema"
+>;
+type Condition = SamePageQueryArgs["conditions"][number];
 
 const getFindSpec = ({
   returnNode,
@@ -74,7 +59,7 @@ const getFindSpec = ({
 };
 
 type Translator = {
-  callback: (args: Condition) => DatalogClause[];
+  callback: (args: { source: string; target: string }) => DatalogClause[];
   targetOptions?: string[] | ((source: string) => string[]);
   placeholder?: string;
   isVariable?: true;

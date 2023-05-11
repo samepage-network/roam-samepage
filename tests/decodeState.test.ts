@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { v4 } from "uuid";
-import applyState from "../src/utils/applyState";
+import decodeState from "../src/utils/decodeState";
 import mockRoamEnvironment from "roamjs-components/testing/mockRoamEnvironment";
 import createPage from "roamjs-components/writes/createPage";
 import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
@@ -14,7 +14,7 @@ test.afterAll(() => {
   delete global.document;
 });
 
-test("`applyState` handles a tree with multiple indentation", async () => {
+test("`decodeState` handles a tree with multiple indentation", async () => {
   const notebookPageId = v4();
   const pageUid = await createPage({
     title: notebookPageId,
@@ -61,7 +61,7 @@ test("`applyState` handles a tree with multiple indentation", async () => {
     content:
       "Business\nGoals for this week\nSetting up emails\nPublish to Stores\nWrite Content\nShalom t\n",
   };
-  await applyState(notebookPageId, state);
+  await decodeState(notebookPageId, state);
   const tree = getBasicTreeByParentUid(pageUid);
   expect(tree[0].text).toEqual("Business");
   expect(tree[0].children).toHaveLength(3);

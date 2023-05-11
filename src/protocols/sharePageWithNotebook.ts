@@ -9,7 +9,7 @@ import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import nanoid from "nanoid";
 import getParentUidsOfBlockUid from "roamjs-components/queries/getParentUidsOfBlockUid";
 import { has as isShared } from "samepage/utils/localAutomergeDb";
-import applyState from "../utils/applyState";
+import decodeState from "../utils/decodeState";
 import isPage from "../utils/isPage";
 import encodeState from "../utils/encodeState";
 import atJsonToRoam from "../utils/atJsonToRoam";
@@ -66,7 +66,7 @@ const setupSharePageWithNotebook = () => {
       window.roamAlphaAPI.deletePage({
         page: { title },
       }),
-    decodeState: (id, state) => applyState(id, state.$body),
+    decodeState: (id, state) => decodeState(id, state.$body),
     encodeState,
     overlayProps: {
       viewSharedPageProps: {

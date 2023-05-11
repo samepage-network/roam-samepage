@@ -36,9 +36,9 @@ const compileDatalog = (
               .map((el) => compileDatalog(el, level + 1))
               .join("\n")
           : d.findSpec.type === "find-tuple"
-          ? `${indent(level + 1)}(\n${d.findSpec.elements
+          ? `${d.findSpec.elements
               .map((el) => compileDatalog(el, level + 2))
-              .join("\n")}\n${level + 1})`
+              .join("\n")}`
           : d.findSpec.type === "find-coll"
           ? `${indent(level + 1)}[\n${compileDatalog(
               d.findSpec.element,
@@ -62,23 +62,22 @@ const compileDatalog = (
         ? `:in ${d.inputs.map((d) => compileDatalog(d)).join(" ")}`
         : "";
 
-      const where = `:where
-     ${d.whereClauses
-       .map((c) => `${indent(level + 2)}${compileDatalog(c, level + 2)}`)
-       .join(`\n`)}`;
+      const where = `:where\n${d.whereClauses
+        .map((c) => compileDatalog(c, level + 2))
+        .join(`\n`)}`;
 
-      return `[${[find, returnMap, withClause, inputs, where]
+      return `[\n${[find, returnMap, withClause, inputs, where]
         .filter(Boolean)
         .map((s) => `${indent(level + 1)}${s}`)
-        .join("\n")}]`;
+        .join("\n")}\n]`;
     case "pull-expression":
-      return `[pull ${compileDatalog(d.variable)} ${
+      return `${indent(level)}[pull ${compileDatalog(d.variable)} [\n${
         d.pattern.type === "pattern-name"
           ? d.pattern.value
           : d.pattern.attrSpecs
-              .map((attr) => compileDatalog(attr, level + 2))
+              .map((attr) => compileDatalog(attr, level + 1))
               .join("\n")
-      }`;
+      }\n${indent(level)}]]`;
     case "aggregate":
       return `[${d.name} ${d.args.map((a) => compileDatalog(a)).join(" ")}]`;
     case "attr-name":
@@ -93,12 +92,15 @@ const compileDatalog = (
       return d.value.toString();
     case "attr-expr":
       return d.options
-        .map((opt) =>
-          opt.type === "as-expr"
-            ? `[${opt.name} :as "${opt.value}"]`
-            : opt.type === "limit-expr"
-            ? `[${opt.name} :limit "${opt.value}"]`
-            : `[${opt.name} :default "${opt.value}"]`
+        .map(
+          (opt) =>
+            `${indent(level)}${
+              opt.type === "as-expr"
+                ? `[${opt.name.value} :as "${opt.value}"]`
+                : opt.type === "limit-expr"
+                ? `[${opt.name.value} :limit "${opt.value}"]`
+                : `[${opt.name.value} :default "${opt.value}"]`
+            }`
         )
         .join("\n");
     case "data-pattern":
@@ -122,11 +124,9 @@ const compileDatalog = (
         .map((a) => compileDatalog(a, level))
         .join(" ")})]`;
     case "rule-expr":
-      return `${indent(level)}[${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}${(
-        d.arguments || []
-      )
-        .map((a) => compileDatalog(a, level))
-        .join(" ")}]`;
+      return `${indent(level)}[${
+        d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""
+      }${(d.arguments || []).map((a) => compileDatalog(a, level)).join(" ")}]`;
     case "not-clause":
       return `(${d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""}not ${(
         d.clauses || []

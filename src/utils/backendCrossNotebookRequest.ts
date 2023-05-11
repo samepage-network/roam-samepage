@@ -1,7 +1,7 @@
 import { JSONData } from "samepage/internal/types";
 import setupSamePageClient from "samepage/protocols/setupSamePageClient";
 import WebSocket from "ws";
-// @ts-ignore
+// @ts-ignore - TODO enable a lighter weight samepage client that doesn't require a websocket
 global.WebSocket = WebSocket;
 
 const backendCrossNotebookRequest = async <T>({

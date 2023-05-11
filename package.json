@@ -20,8 +20,8 @@
     "@types/ws": "^8.5.4"
   },
   "dependencies": {
-    "roamjs-components": "^0.77.17",
-    "samepage": "^0.65.4"
+    "roamjs-components": "^0.78.6",
+    "samepage": "^0.67.0"
   },
   "samepage": {
     "external": [

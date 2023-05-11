@@ -72,7 +72,7 @@ const toAtJson = ({
     );
 };
 
-const calculateState = async (notebookPageId: string) => {
+const encodeState = async (notebookPageId: string) => {
   const pageUid = isBlock(notebookPageId)
     ? notebookPageId
     : getPageUidByPageTitle(notebookPageId);
@@ -86,4 +86,4 @@ const calculateState = async (notebookPageId: string) => {
   };
 };
 
-export default calculateState;
+export default encodeState;

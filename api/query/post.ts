@@ -3,11 +3,14 @@ import createAPIGatewayProxyHandler from "samepage/backend/createAPIGatewayProxy
 import getAccessToken from "samepage/backend/getAccessToken";
 import getDatalogQuery, {
   SamePageQueryArgs,
-  samePageQueryArgsSchema,
 } from "../../src/utils/getDatalogQuery";
 import backendCrossNotebookRequest from "../../src/utils/backendCrossNotebookRequest";
 import compileDatalog from "src/utils/compileDatalog";
-import { BackendRequest } from "samepage/internal/types";
+import {
+  BackendRequest,
+  notebookRequestNodeQuerySchema,
+} from "samepage/internal/types";
+import apiQuery from "api/_utils/apiQuery";
 
 const queryRoam = async ({
   authorization,
@@ -21,29 +24,16 @@ const queryRoam = async ({
   });
   const datalogQuery = getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
-  const Authorization = `Bearer ${token.replace(/^Bearer /, "")}`;
-  return fetch(`https://api.roamresearch.com/api/graph/${graph}/q`, {
-    body: JSON.stringify({ query }),
-    headers: {
-      Authorization,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-    redirect: "follow",
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error(res.statusText);
-      return res.json() as Promise<{ result: PullBlock[][] }>;
-    })
-    .then(({ result }) => ({ results: result.map(([r]) => r) }));
+  return apiQuery({ token, query, graph }).then(({ result }) => ({
+    results: result.map(([r]) => r),
+  }));
 };
 
 const logic = async ({
   authorization,
   requestId,
   ...body
-}: BackendRequest<typeof samePageQueryArgsSchema>) => {
+}: BackendRequest<typeof notebookRequestNodeQuerySchema>) => {
   const targetConditions = body.conditions.filter(
     (c) => c.relation === "is in notebook"
   );
@@ -61,11 +51,12 @@ const logic = async ({
       conditions: body.conditions.filter(
         (c) => c.relation !== "is in notebook"
       ),
+      schema: "node-query",
     },
     label: "datalog", // TODO - use alias
     target: targetConditions[0]?.target || "",
   }).then((response) =>
-    typeof response === "string"
+    typeof response === "string" || response === null
       ? { results: [] }
       : {
           results:
@@ -78,7 +69,6 @@ const logic = async ({
 
 export default createAPIGatewayProxyHandler({
   logic,
-  // @ts-ignore
-  bodySchema: samePageQueryArgsSchema,
+  bodySchema: notebookRequestNodeQuerySchema.omit({ schema: true }),
   allowedOrigins: [/roamresearch\.com/],
 });

@@ -5,7 +5,7 @@ import { TreeNode, ViewType } from "roamjs-components/types/native";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
 import updateBlock from "roamjs-components/writes/updateBlock";
-import { InitialSchema } from "samepage/internal/types";
+import { InitialSchema, SamePageSchema, json } from "samepage/internal/types";
 import { HandlerError } from "samepage/internal/setupMessageHandlers";
 import atJsonToRoam from "./atJsonToRoam";
 import isPage from "./isPage";
@@ -47,7 +47,7 @@ const updateLevel = (t: TreeNodeWithLevel, level: number) => {
   );
 };
 
-const applyState = async (notebookPageId: string, state: InitialSchema) => {
+const decodeState = async (notebookPageId: string, state: SamePageSchema) => {
   const rootPageUid = isPage(notebookPageId)
     ? getPageUidByPageTitle(notebookPageId)
     : notebookPageId;
@@ -186,11 +186,11 @@ const applyState = async (notebookPageId: string, state: InitialSchema) => {
                   pullDataAsTitle: window.roamAlphaAPI.pull("[:db/id]", [
                     ":node/title",
                     notebookPageId,
-                  ]),
+                  ]) as json,
                   pullDataAsBlock: window.roamAlphaAPI.pull("[:db/id]", [
                     ":block/uid",
                     notebookPageId,
-                  ]),
+                  ]) as json,
                 }
               )
             )
@@ -211,4 +211,4 @@ const applyState = async (notebookPageId: string, state: InitialSchema) => {
   return promises.reduce((p, c) => p.then(c), Promise.resolve<unknown>(""));
 };
 
-export default applyState;
+export default decodeState;
