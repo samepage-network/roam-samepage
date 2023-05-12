@@ -51,6 +51,10 @@ const decodeState = async (notebookPageId: string, state: SamePageSchema) => {
   const rootPageUid = isPage(notebookPageId)
     ? getPageUidByPageTitle(notebookPageId)
     : notebookPageId;
+  const dbId =
+    window.roamAlphaAPI.pull("[:db/id]", [":block/uid", rootPageUid])?.[
+      ":db/id"
+    ] || 0;
   const expectedTree: SamepageNode[] = [];
   state.annotations.forEach((anno) => {
     if (anno.type === "block") {
@@ -169,9 +173,12 @@ const decodeState = async (notebookPageId: string, state: SamePageSchema) => {
         })
           .then((uid) => {
             const newActualNode = getFullTreeByParentUid(uid);
+            const parentIndex = newActualNode.parents.findIndex(
+              (p) => p === dbId
+            );
             actualTree.push({
               ...newActualNode,
-              level: newActualNode.parents.length,
+              level: newActualNode.parents.length - parentIndex,
               children: [],
             });
           })
