@@ -6,6 +6,7 @@ import {
   SamePageAPI,
   SamePageState,
   referenceAnnotation,
+  zSamePageSchema,
 } from "samepage/internal/types";
 import encodeState from "../utils/encodeState";
 import renderToast from "roamjs-components/components/Toast";
@@ -15,8 +16,8 @@ import { z } from "zod";
 import { NULL_TOKEN } from "samepage/utils/atJsonParser";
 import { getSetting } from "samepage/internal/registry";
 import atJsonToRoam from "src/utils/atJsonToRoam";
-import { json } from "samepage/internal/types";
 import { SamePageSchema } from "samepage/internal/types";
+import apiClient from "samepage/internal/apiClient";
 
 type ReferenceAnnotation = z.infer<typeof referenceAnnotation>;
 
@@ -85,18 +86,29 @@ const processAnnotations = async ({
         ...$args
       } = command;
       const text = atJsonToRoam($command).trim();
-      const cmdContext = atJsonToRoam($context).trim();
+      const commandContext = atJsonToRoam($context).trim();
       // const returns = atJsonToRoam($returns);
       const args = Object.fromEntries(
         Object.entries($args).map(([k, v]) => [k, atJsonToRoam(v).trim()])
       );
       const value =
-        cmdContext === "samepage"
+        commandContext === "samepage"
           ? !samePageCommands[text]
             ? { content: "", annotations: [] }
             : await samePageCommands[text].handler(args, context)
-          : // TODO - cross context commands
-            { content: "", annotations: [] };
+          : await apiClient({
+              // @ts-ignore TODO install deps
+              method: "call-workflow-command",
+              text,
+              commandContext,
+              args,
+              workflowContext: context,
+            })
+              .then((r) => zSamePageSchema.parseAsync(r.response))
+              .catch((e) => ({
+                content: `Failed to run ${text} from ${commandContext}: ${e.message}`,
+                annotations: [],
+              }));
       const offset = value.content.length - 1;
       return {
         content: `${prev.content.slice(0, a.start)}${
@@ -139,7 +151,7 @@ const listWorkflows = () =>
     notebookPageId: a[0]?.[":block/uid"],
   }));
 
-const crossNotebookWorkflows = (api: SamePageAPI, args: OnloadArgs) => {
+const crossNotebookWorkflows = (_api: SamePageAPI, args: OnloadArgs) => {
   args.extensionAPI.ui.commandPalette.addCommand({
     label: "Trigger SamePage Workflow",
     callback: async () => {
