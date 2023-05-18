@@ -61,7 +61,7 @@ test("`decodeState` handles a tree with multiple indentation", async () => {
     content:
       "Business\nGoals for this week\nSetting up emails\nPublish to Stores\nWrite Content\nShalom t\n",
   };
-  await decodeState(notebookPageId, state);
+  await decodeState(notebookPageId, { $body: state });
   const tree = getBasicTreeByParentUid(pageUid);
   expect(tree[0].text).toEqual("Business");
   expect(tree[0].children).toHaveLength(3);

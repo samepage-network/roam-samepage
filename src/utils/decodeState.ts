@@ -5,7 +5,13 @@ import { TreeNode, ViewType } from "roamjs-components/types/native";
 import createBlock from "roamjs-components/writes/createBlock";
 import deleteBlock from "roamjs-components/writes/deleteBlock";
 import updateBlock from "roamjs-components/writes/updateBlock";
-import { SamePageSchema, json, Annotation } from "samepage/internal/types";
+import {
+  SamePageSchema,
+  json,
+  Annotation,
+  SamePageState,
+  DecodeState,
+} from "samepage/internal/types";
 import { HandlerError } from "samepage/internal/setupMessageHandlers";
 import atJsonToRoam from "./atJsonToRoam";
 import isPage from "./isPage";
@@ -47,7 +53,7 @@ const updateLevel = (t: TreeNodeWithLevel, level: number) => {
   );
 };
 
-const decodeState = async (notebookPageId: string, state: SamePageSchema) => {
+const decodeState: DecodeState = async (notebookPageId, state) => {
   const rootPageUid = isPage(notebookPageId)
     ? getPageUidByPageTitle(notebookPageId)
     : notebookPageId;
@@ -56,10 +62,12 @@ const decodeState = async (notebookPageId: string, state: SamePageSchema) => {
       ":db/id"
     ] || 0;
   const expectedTree: SamepageNode[] = [];
-  state.annotations.forEach((anno) => {
+  state.$body.annotations.forEach((anno) => {
     if (anno.type === "block") {
       const currentBlock: SamepageNode = {
-        text: state.content.slice(anno.start, anno.end).replace(/\n$/, ""),
+        text: state.$body.content
+          .slice(anno.start, anno.end)
+          .replace(/\n$/, ""),
         level: anno.attributes.level,
         viewType: anno.attributes.viewType,
         annotation: {

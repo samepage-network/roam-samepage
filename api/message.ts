@@ -58,9 +58,7 @@ const mockRoamAlphaAPI = (args: { token: string; graph: string }) => {
 const message = createBackendClientHandler({
   getDecodeState: ({ accessToken, workspace }) => {
     mockRoamAlphaAPI({ token: accessToken, graph: workspace });
-    return (id, state) => {
-      return decodeState(id, state.$body);
-    };
+    return decodeState;
   },
   getNotebookRequestHandler: ({ accessToken, workspace }) => {
     mockRoamAlphaAPI({ token: accessToken, graph: workspace });

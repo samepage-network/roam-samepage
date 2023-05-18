@@ -66,7 +66,7 @@ const setupSharePageWithNotebook = () => {
       window.roamAlphaAPI.deletePage({
         page: { title },
       }),
-    decodeState: (id, state) => decodeState(id, state.$body),
+    decodeState,
     encodeState,
     overlayProps: {
       viewSharedPageProps: {
