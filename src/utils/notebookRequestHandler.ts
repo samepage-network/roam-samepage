@@ -19,11 +19,7 @@ const notebookRequestHandler: NotebookRequestHandler = async ({ request }) => {
       query
     ) as JSONData[][]);
     return {
-      results: results.map((a) =>
-        Object.fromEntries(
-          a.filter((e) => e !== null).flatMap((e) => Object.entries(e))
-        )
-      ),
+      results: datalogQuery.transformResults(results),
     };
   } else if (typeof request.notebookPageId === "string") {
     const pageData = await encodeState(request.notebookPageId);

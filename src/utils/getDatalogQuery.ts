@@ -10,7 +10,12 @@ import {
   DatalogFindSpec,
   DatalogQuery,
 } from "./datalogTypes";
-import { notebookRequestNodeQuerySchema } from "samepage/internal/types";
+import {
+  JSONData,
+  notebookRequestNodeQuerySchema,
+  zOldSelection,
+  zSelection,
+} from "samepage/internal/types";
 
 export type SamePageQueryArgs = Omit<
   z.infer<typeof notebookRequestNodeQuerySchema>,
@@ -18,15 +23,8 @@ export type SamePageQueryArgs = Omit<
 >;
 type Condition = SamePageQueryArgs["conditions"][number];
 type Selection = SamePageQueryArgs["selections"][number];
-
-type SelectionV2 = {
-  node?: string;
-  label: string;
-  fields: {
-    suffix?: string;
-    attr: string;
-  }[];
-};
+type NewSelection = z.infer<typeof zSelection>;
+type OldSelection = z.infer<typeof zOldSelection>;
 
 // TODO
 const ALIAS_TEST = /^node$/i;
@@ -40,8 +38,9 @@ const ADD_TEST = /^add\(([^,)]+),([^,)]+)\)$/i;
 const NODE_TEST = /^node:(\s*[^:]+\s*)(:.*)?$/i;
 const ACTION_TEST = /^action:\s*([^:]+)\s*(?::(.*))?$/i;
 const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
-const upgradeSelection = (s: Selection, returnNode: string): SelectionV2 => {
-  const selection: Partial<SelectionV2> = {
+const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
+  if (!("text" in s)) return s;
+  const selection: Partial<NewSelection> = {
     label: s.label,
     fields: [],
   };
@@ -62,7 +61,7 @@ const upgradeSelection = (s: Selection, returnNode: string): SelectionV2 => {
       { attr: ":entity/attrs", suffix: "-uid" }
     );
   }
-  return selection as SelectionV2;
+  return selection as NewSelection;
 };
 
 const getFindSpec = ({
@@ -70,16 +69,19 @@ const getFindSpec = ({
   selections,
 }: {
   returnNode: string;
-  selections: (Selection | SelectionV2)[];
+  selections: NewSelection[];
 }): DatalogFindSpec => {
   return {
     type: "find-tuple",
     elements: selections
-      .map((_s) => ("text" in _s ? upgradeSelection(_s, returnNode) : _s))
       .concat([
-        { label: "text", fields: [{ attr: ":block/string" }] },
-        { label: "text", fields: [{ attr: ":node/title" }] },
-        { label: "uid", fields: [{ attr: ":block/uid" }] },
+        {
+          label: "text",
+          fields: [{ attr: ":block/string" }],
+          node: returnNode,
+        },
+        { label: "text", fields: [{ attr: ":node/title" }], node: returnNode },
+        { label: "uid", fields: [{ attr: ":block/uid" }], node: returnNode },
       ])
       .map((s) => {
         return {
@@ -813,8 +815,11 @@ const optimizeQuery = (
 const getDatalogQuery = ({
   conditions,
   returnNode,
-  selections,
-}: SamePageQueryArgs): DatalogQuery => {
+  selections: _sels,
+}: SamePageQueryArgs): DatalogQuery & {
+  transformResults: (results: JSONData[][]) => JSONData[];
+} => {
+  const selections = _sels.map((s) => upgradeSelection(s, returnNode));
   const findSpec = getFindSpec({ selections, returnNode });
   const where = optimizeQuery(
     getWhereClauses({ conditions, returnNode }),
@@ -838,6 +843,17 @@ const getDatalogQuery = ({
     type: "query",
     findSpec,
     whereClauses,
+    transformResults: (results: JSONData[][]) => {
+      return results.map((a) => {
+        const output = Object.fromEntries(
+          a.filter((e) => e !== null).flatMap((e) => Object.entries(e))
+        );
+        // TODO - perform transformations
+        return selections.reduce((prev, _curr) => {
+          return prev;
+        }, output);
+      });
+    },
   };
 };
 

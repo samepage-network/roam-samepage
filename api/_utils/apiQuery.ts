@@ -1,3 +1,5 @@
+import { JSONData } from "samepage/internal/types";
+
 const apiQuery = ({
   token,
   query,
@@ -19,7 +21,7 @@ const apiQuery = ({
     redirect: "follow",
   }).then((res) => {
     if (!res.ok) throw new Error(res.statusText);
-    return res.json() as Promise<{ result: unknown[][] }>;
+    return res.json() as Promise<{ result: JSONData[][] }>;
   });
 };
 
