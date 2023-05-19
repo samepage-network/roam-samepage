@@ -25,7 +25,9 @@ const queryRoam = async ({
   const datalogQuery = getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
   return apiQuery({ token, query, graph }).then(({ result }) => ({
-    results: result.map(([r]) => r),
+    results: result.map((a) =>
+      Object.fromEntries(a.flatMap((e) => Object.entries(e)))
+    ),
   }));
 };
 

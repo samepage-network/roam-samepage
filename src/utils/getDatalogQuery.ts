@@ -5,7 +5,11 @@ import startOfDay from "date-fns/startOfDay";
 import endOfDay from "date-fns/endOfDay";
 import normalizePageTitle from "roamjs-components/queries/normalizePageTitle";
 import { DAILY_NOTE_PAGE_TITLE_REGEX } from "roamjs-components/date/constants";
-import { DatalogFindSpec, DatalogQuery } from "./datalogTypes";
+import {
+  DatalogFindElement,
+  DatalogFindSpec,
+  DatalogQuery,
+} from "./datalogTypes";
 import { notebookRequestNodeQuerySchema } from "samepage/internal/types";
 
 export type SamePageQueryArgs = Omit<
@@ -13,48 +17,87 @@ export type SamePageQueryArgs = Omit<
   "schema"
 >;
 type Condition = SamePageQueryArgs["conditions"][number];
+type Selection = SamePageQueryArgs["selections"][number];
+
+type SelectionV2 = {
+  node?: string;
+  label: string;
+  fields: {
+    suffix?: string;
+    attr: string;
+  }[];
+};
+
+// TODO
+const ALIAS_TEST = /^node$/i;
+const REGEX_TEST = /\/([^}]*)\//;
+const CREATE_DATE_TEST = /^\s*created?\s*(date|time|since)\s*$/i;
+const EDIT_DATE_TEST = /^\s*edit(?:ed)?\s*(date|time|since)\s*$/i;
+const CREATE_BY_TEST = /^\s*(author|create(d)?\s*by)\s*$/i;
+const EDIT_BY_TEST = /^\s*(last\s*)?edit(ed)?\s*by\s*$/i;
+const SUBTRACT_TEST = /^subtract\(([^,)]+),([^,)]+)\)$/i;
+const ADD_TEST = /^add\(([^,)]+),([^,)]+)\)$/i;
+const NODE_TEST = /^node:(\s*[^:]+\s*)(:.*)?$/i;
+const ACTION_TEST = /^action:\s*([^:]+)\s*(?::(.*))?$/i;
+const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+const upgradeSelection = (s: Selection, returnNode: string): SelectionV2 => {
+  const selection: Partial<SelectionV2> = {
+    label: s.label,
+    fields: [],
+  };
+  if (NODE_TEST.test(s.text)) {
+    const match = s.text.match(NODE_TEST);
+    selection.node = (match?.[1] || returnNode)?.trim();
+    selection.fields.push(
+      { attr: ":block/uid", suffix: "-uid" },
+      { attr: ":block/string" },
+      { attr: ":node/title" }
+    );
+    // TODO - rest of NODE_TEST
+  } else if (CREATE_DATE_TEST.test(s.text)) {
+    selection.fields.push({ attr: ":create/time" });
+  } else {
+    selection.fields.push(
+      { attr: ":entity/attrs" },
+      { attr: ":entity/attrs", suffix: "-uid" }
+    );
+  }
+  return selection as SelectionV2;
+};
 
 const getFindSpec = ({
   returnNode,
-  selections: _,
-}: Omit<SamePageQueryArgs, "conditions">): DatalogFindSpec => {
+  selections,
+}: {
+  returnNode: string;
+  selections: (Selection | SelectionV2)[];
+}): DatalogFindSpec => {
   return {
     type: "find-tuple",
-    elements: [
-      {
-        type: "pull-expression",
-        variable: {
-          type: "variable",
-          value: returnNode,
-        },
-        pattern: {
-          type: "pattern-data-literal",
-          attrSpecs: [
-            {
-              type: "attr-expr",
-              name: { type: "attr-name", value: "" },
-              options: [
-                {
-                  type: "as-expr",
-                  name: { type: "attr-name", value: ":block/uid" },
-                  value: "uid",
-                },
-                {
-                  type: "as-expr",
-                  name: { type: "attr-name", value: ":node/title" },
-                  value: "title",
-                },
-                {
-                  type: "as-expr",
-                  name: { type: "attr-name", value: ":block/string" },
-                  value: "text",
-                },
-              ],
-            },
-          ],
-        },
-      },
-    ],
+    elements: selections
+      .map((_s) => ("text" in _s ? upgradeSelection(_s, returnNode) : _s))
+      .concat([
+        { label: "text", fields: [{ attr: ":block/string" }] },
+        { label: "text", fields: [{ attr: ":node/title" }] },
+        { label: "uid", fields: [{ attr: ":block/uid" }] },
+      ])
+      .map((s) => {
+        return {
+          type: "pull-expression",
+          variable: {
+            type: "variable",
+            value: s.node || returnNode,
+          },
+          pattern: {
+            type: "pattern-data-literal",
+            attrSpecs: s.fields.map((f) => ({
+              type: "as-expr",
+              name: { type: "attr-name", value: f.attr },
+              value: `${s.label}${f.suffix || ""}`,
+            })),
+          },
+        };
+      }),
   };
 };
 
@@ -791,11 +834,6 @@ const getDatalogQuery = ({
         ]
       : [];
   const whereClauses = initialWhereClauses.concat(where);
-  `(pull ?${returnNode} [
-    [:block/uid :as "uid"]
-    [:node/title :as "title"]
-    [:block/string :as "text"]
-  ])`;
   return {
     type: "query",
     findSpec,

@@ -90,19 +90,25 @@ const compileDatalog = (
         .join(" ")}}`;
     case "recursion-limit":
       return d.value.toString();
-    case "attr-expr":
-      return d.options
-        .map(
-          (opt) =>
-            `${indent(level)}${
-              opt.type === "as-expr"
-                ? `[${opt.name.value} :as "${opt.value}"]`
-                : opt.type === "limit-expr"
-                ? `[${opt.name.value} :limit "${opt.value}"]`
-                : `[${opt.name.value} :default "${opt.value}"]`
-            }`
-        )
-        .join("\n");
+    // case "attr-expr":
+    //   return d.options
+    //     .map(
+    //       (opt) =>
+    //         `${indent(level)}${
+    //           opt.type === "as-expr"
+    //             ? `[${opt.name.value} :as "${opt.value}"]`
+    //             : opt.type === "limit-expr"
+    //             ? `[${opt.name.value} :limit "${opt.value}"]`
+    //             : `[${opt.name.value} :default "${opt.value}"]`
+    //         }`
+    //     )
+    //     .join("\n");
+    case "as-expr":
+      return `${indent(level)}[${d.name.value} :as "${d.value}"]`;
+    case "limit-expr":
+      return `${indent(level)}[${d.name.value} :limit "${d.value}"]`;
+    case "default-expr":
+      return `${indent(level)}[${d.name.value} :default "${d.value}"]`;
     case "data-pattern":
       return `${indent(level)}[${
         d.srcVar ? `${compileDatalog(d.srcVar, level)} ` : ""
@@ -115,7 +121,6 @@ const compileDatalog = (
     case "variable":
       return `?${toVar(d.value)}`;
     case "fn-expr":
-      if (!d.binding) return "";
       return `${indent(level)}[(${d.fn} ${(d.arguments || [])
         .map((a) => compileDatalog(a, level))
         .join(" ")}) ${compileDatalog(d.binding, level)}]`;

@@ -50,7 +50,7 @@ export type DatalogFindElement =
 export type DatalogPullExpression = {
   type: "pull-expression";
   variable: DatalogVariable;
-  pattern: DatalogPattern;
+  pattern: DatalogPullPattern;
 };
 
 export type DatalogSymbol = {
@@ -58,14 +58,14 @@ export type DatalogSymbol = {
   value: string;
 };
 
-export type DatalogPattern = DatalogPatternName | DatalogPatternDataLiteral;
+export type DatalogPullPattern = DatalogPatternName | DatalogPullPatternDataLiteral;
 
 export type DatalogPatternName = {
   type: "pattern-name";
   value: string; // symbol that doesn't begin with "$" or "?"
 };
 
-export type DatalogPatternDataLiteral = {
+export type DatalogPullPatternDataLiteral = {
   type: "pattern-data-literal";
   attrSpecs: DatalogAttrSpec[];
 };
@@ -89,17 +89,25 @@ export type DatalogMapSpec = {
   type: "map-spec";
   entries: {
     key: DatalogAttrName | DatalogAttrExpr;
-    value: DatalogPattern | DatalogRecursionLimit;
+    value: DatalogPullPattern | DatalogRecursionLimit;
   }[];
 };
 
-export type DatalogAttrExpr = {
-  type: "attr-expr";
-  name: DatalogAttrName;
-  options: DatalogAttrExprOption[];
-};
+// This is what the datalog spec claims, but from examples, it seems like
+// this spec describes an unnecessary level of nesting.
+//
+// export type DatalogAttrExpr = {
+//   type: "attr-expr";
+//   name: DatalogAttrName;
+//   options: DatalogAttrExprOption[];
+// };
 
-export type DatalogAttrExprOption =
+// export type DatalogAttrExprOption =
+//   | DatalogAsExpr
+//   | DatalogLimitExpr
+//   | DatalogDefaultExpr;
+
+export type DatalogAttrExpr =
   | DatalogAsExpr
   | DatalogLimitExpr
   | DatalogDefaultExpr;
@@ -136,7 +144,7 @@ export type DatalogAggregate = {
 export type DatalogInput =
   | DatalogBinding
   | DatalogSrcVar
-  | DatalogPattern
+  | DatalogPullPattern
   | DatalogRulesVar;
 
 export type DatalogRulesVar = {

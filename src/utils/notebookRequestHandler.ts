@@ -15,11 +15,15 @@ const notebookRequestHandler: NotebookRequestHandler = async ({ request }) => {
     if (!result.success) return;
     const datalogQuery = getDatalogQuery(result.data);
     const query = compileDatalog(datalogQuery);
-    const results = await (window.roamAlphaAPI.data.fast.q(query) as [
-      JSONData
-    ][]);
+    const results = await (window.roamAlphaAPI.data.fast.q(
+      query
+    ) as JSONData[][]);
     return {
-      results: results.map((r) => r[0]),
+      results: results.map((a) =>
+        Object.fromEntries(
+          a.filter((e) => e !== null).flatMap((e) => Object.entries(e))
+        )
+      ),
     };
   } else if (typeof request.notebookPageId === "string") {
     const pageData = await encodeState(request.notebookPageId);
