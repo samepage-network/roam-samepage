@@ -70,14 +70,16 @@ const compileDatalog = (
         .filter(Boolean)
         .map((s) => `${indent(level + 1)}${s}`)
         .join("\n")}\n]`;
+    case "pattern-data-literal":
+      return `[\n${d.attrSpecs
+        .map((attr) => `${indent(level + 1)}${compileDatalog(attr, level + 1)}`)
+        .join("\n")}]`;
+    case "pattern-name":
+      return d.value;
     case "pull-expression":
-      return `${indent(level)}[pull ${compileDatalog(d.variable)} [\n${
-        d.pattern.type === "pattern-name"
-          ? d.pattern.value
-          : d.pattern.attrSpecs
-              .map((attr) => compileDatalog(attr, level + 1))
-              .join("\n")
-      }\n${indent(level)}]]`;
+      return `${indent(level)}[pull ${compileDatalog(
+        d.variable
+      )} ${compileDatalog(d.pattern)}\n${indent(level)}]`;
     case "aggregate":
       return `[${d.name} ${d.args.map((a) => compileDatalog(a)).join(" ")}]`;
     case "attr-name":
@@ -85,9 +87,9 @@ const compileDatalog = (
     case "wildcard":
       return "*";
     case "map-spec":
-      return `{ ${d.entries
-        .map((e) => `(${compileDatalog(e.key)} ${compileDatalog(e.value)})`)
-        .join(" ")}}`;
+      return `${indent(level)}${d.entries
+        .map((e) => `{${compileDatalog(e.key)} ${compileDatalog(e.value)}}`)
+        .join(" ")}`;
     case "recursion-limit":
       return d.value.toString();
     // case "attr-expr":

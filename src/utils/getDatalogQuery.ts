@@ -6,8 +6,11 @@ import endOfDay from "date-fns/endOfDay";
 import normalizePageTitle from "roamjs-components/queries/normalizePageTitle";
 import { DAILY_NOTE_PAGE_TITLE_REGEX } from "roamjs-components/date/constants";
 import {
+  DatalogAttrSpec,
   DatalogFindElement,
   DatalogFindSpec,
+  DatalogPullExpression,
+  DatalogPullPatternDataLiteral,
   DatalogQuery,
 } from "./datalogTypes";
 import {
@@ -15,6 +18,8 @@ import {
   notebookRequestNodeQuerySchema,
   zOldSelection,
   zSelection,
+  zSelectionField,
+  zSelectionTransform,
 } from "samepage/internal/types";
 
 export type SamePageQueryArgs = Omit<
@@ -43,6 +48,7 @@ const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
   const selection: Partial<NewSelection> = {
     label: s.label,
     fields: [],
+    transforms: [],
   };
   if (NODE_TEST.test(s.text)) {
     const match = s.text.match(NODE_TEST);
@@ -52,16 +58,100 @@ const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
       { attr: ":block/string" },
       { attr: ":node/title" }
     );
-    // TODO - rest of NODE_TEST
   } else if (CREATE_DATE_TEST.test(s.text)) {
-    selection.fields.push({ attr: ":create/time" });
+    selection.fields.push({ attr: ":create/time", suffix: "-value" });
+    selection.transforms.push({
+      method: "date",
+      set: s.label,
+      date: `${s.label}-value`,
+    });
+  } else if (EDIT_DATE_TEST.test(s.text)) {
+    selection.fields.push({ attr: ":edit/time", suffix: "-value" });
+    selection.transforms.push({
+      method: "date",
+      set: s.label,
+      date: `${s.label}-value`,
+    });
   } else {
     selection.fields.push(
-      { attr: ":entity/attrs" },
-      { attr: ":entity/attrs", suffix: "-uid" }
+      { attr: ":entity/attrs", suffix: "-attrs" },
+      {
+        attr: ":attrs/lookup",
+        suffix: "-lookup",
+        fields: [
+          { attr: ":block/uid", suffix: "-block" },
+          { attr: ":node/title", suffix: "-title" },
+        ],
+      }
+    );
+    selection.transforms.push(
+      {
+        method: "set",
+        set: `${s.label}-name`,
+        value: s.text,
+      },
+      {
+        method: "find",
+        find: `${s.label}-lookup`,
+        set: `${s.label}-find`,
+        key: `${s.label}-title`,
+        value: `${s.label}-name`,
+      },
+      {
+        method: "access",
+        access: `${s.label}-find`,
+        set: `${s.label}-access`,
+        key: `${s.label}-block`,
+      },
+      {
+        method: "find",
+        find: `${s.label}-attrs`,
+        set: `${s.label}-attr`,
+        key: "1.:value.1",
+        value: `${s.label}-access`,
+      },
+      {
+        method: "access",
+        access: `${s.label}-attr`,
+        set: s.label,
+        key: "2.:value",
+      }
     );
   }
   return selection as NewSelection;
+};
+
+const getPullPatternDataLiteral = ({
+  fields,
+  label,
+}: {
+  fields: z.infer<typeof zSelectionField>[];
+  label: string;
+}): DatalogPullPatternDataLiteral => {
+  return {
+    type: "pattern-data-literal",
+    attrSpecs: fields.map((f): DatalogAttrSpec => {
+      const attrName = label
+        ? {
+            type: "as-expr" as const,
+            name: { type: "attr-name" as const, value: f.attr },
+            value: `${label}${f.suffix || ""}`,
+          }
+        : { type: "attr-name" as const, value: f.attr };
+      if (f.fields) {
+        return {
+          type: "map-spec",
+          entries: [
+            {
+              key: attrName,
+              value: getPullPatternDataLiteral({ fields: f.fields, label }),
+            },
+          ],
+        };
+      }
+      return attrName;
+    }),
+  };
 };
 
 const getFindSpec = ({
@@ -83,21 +173,17 @@ const getFindSpec = ({
         { label: "text", fields: [{ attr: ":node/title" }], node: returnNode },
         { label: "uid", fields: [{ attr: ":block/uid" }], node: returnNode },
       ])
-      .map((s) => {
+      .map((s): DatalogPullExpression => {
         return {
           type: "pull-expression",
           variable: {
             type: "variable",
             value: s.node || returnNode,
           },
-          pattern: {
-            type: "pattern-data-literal",
-            attrSpecs: s.fields.map((f) => ({
-              type: "as-expr",
-              name: { type: "attr-name", value: f.attr },
-              value: `${s.label}${f.suffix || ""}`,
-            })),
-          },
+          pattern: getPullPatternDataLiteral({
+            fields: s.fields,
+            label: s.label,
+          }),
         };
       }),
   };
@@ -812,6 +898,51 @@ const optimizeQuery = (
   return orderedClauses;
 };
 
+const get = (obj: JSONData[string], path: string): JSONData[string] => {
+  const parts = path.split(".");
+  return parts.reduce(
+    (o, p) =>
+      Array.isArray(o) ? o[Number(p)] : typeof o === "object" ? o?.[p] : o,
+    obj
+  );
+};
+
+const transform = (
+  output: JSONData,
+  transform: z.infer<typeof zSelectionTransform>
+) => {
+  switch (transform.method) {
+    case "find": {
+      const { key, value, find, set } = transform;
+      const getVal = output[find];
+      if (!Array.isArray(getVal)) return output;
+      const valueVal = get(output, value);
+      output[set] = getVal.find(
+        (v) => typeof v === "object" && get(v, key) === valueVal
+      );
+      return output;
+    }
+    case "access": {
+      const { key, access, set } = transform;
+      output[set] = get(output, `${access}.${key}`);
+      return output;
+    }
+    case "set": {
+      const { value, set } = transform;
+      output[set] = value;
+      return output;
+    }
+    case "date": {
+      const { date, set } = transform;
+      const getVal = output[date];
+      if (typeof getVal !== "string" && typeof getVal !== "number")
+        return output;
+      output[set] = new Date(getVal).toJSON();
+      return output;
+    }
+  }
+};
+
 const getDatalogQuery = ({
   conditions,
   returnNode,
@@ -848,10 +979,9 @@ const getDatalogQuery = ({
         const output = Object.fromEntries(
           a.filter((e) => e !== null).flatMap((e) => Object.entries(e))
         );
-        // TODO - perform transformations
-        return selections.reduce((prev, _curr) => {
-          return prev;
-        }, output);
+        return selections
+          .flatMap((s) => s.transforms || [])
+          .reduce(transform, output);
       });
     },
   };
