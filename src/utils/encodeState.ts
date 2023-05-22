@@ -1,6 +1,6 @@
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
-import { TreeNode, ViewType } from "roamjs-components/types";
+import { PullBlock, TreeNode, ViewType } from "roamjs-components/types";
 import { SamePageSchema } from "samepage/internal/types";
 import blockParser from "./blockParser";
 import isBlock from "./isBlock";
@@ -72,17 +72,48 @@ const toAtJson = ({
     );
 };
 
+const get$Body = (pageUid: string): SamePageSchema => {
+  const node = getFullTreeByParentUid(pageUid);
+  return toAtJson({
+    nodes: node.children,
+    viewType: node.viewType || "bullet",
+  });
+};
+
 const encodeState = async (notebookPageId: string) => {
   const pageUid = isBlock(notebookPageId)
     ? notebookPageId
     : getPageUidByPageTitle(notebookPageId);
   const node = getFullTreeByParentUid(pageUid);
+
+  const { [":entity/attrs"]: attrs = [], [":attrs/lookup"]: lookup = [] } =
+    window.roamAlphaAPI.pull("[:entity/attrs :attrs/lookup]", [
+      ":block/uid",
+      pageUid,
+    ]) || {};
+  const attrLookup = Object.fromEntries(
+    lookup
+      .filter((l): l is PullBlock => ":block/uid" in l)
+      .map((l) => [
+        l[":block/uid"],
+        l[":node/title"] || l[":block/string"]?.trim(),
+      ])
+  );
+  const attributes = Object.fromEntries(
+    attrs.map((e) => {
+      const key = attrLookup[e[1][":value"][1]];
+      const rawValue = e[2][":value"];
+      const value =
+        typeof rawValue === "string"
+          ? blockParser(rawValue.trim())
+          : get$Body(rawValue[1]);
+      return [key, value];
+    })
+  );
   return {
     $title: blockParser(node.text),
-    $body: toAtJson({
-      nodes: node.children,
-      viewType: node.viewType || "bullet",
-    }),
+    $body: get$Body(pageUid),
+    ...attributes,
   };
 };
 
