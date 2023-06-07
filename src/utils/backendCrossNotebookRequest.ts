@@ -1,6 +1,6 @@
-import apiClient from "samepage/internal/apiClient";
+import listNotebooks from "samepage/utils/listNotebooks";
 import setupRegistry from "samepage/internal/registry";
-import { JSONData } from "samepage/internal/types";
+import type { JSONData } from "samepage/internal/types";
 import setupCrossNotebookRequests from "samepage/protocols/crossNotebookRequests";
 import WebSocket from "ws";
 // @ts-ignore - TODO enable a lighter weight samepage client that doesn't require a websocket
@@ -25,7 +25,7 @@ const backendCrossNotebookRequest = async <T>({
     .split(":");
 
   // START OF SETUP
-  // TODO - simplify this setup to import methods directly from package. 
+  // TODO - simplify this setup to import methods directly from package.
   // Don't need a full client with websocket
   const settings = {
     token,
@@ -36,9 +36,7 @@ const backendCrossNotebookRequest = async <T>({
     app: "roam",
   });
   const { sendNotebookRequest, unload } = setupCrossNotebookRequests();
-  const targetUuid = await apiClient<{
-    notebooks: { uuid: string; appName: string; workspace: string }[];
-  }>({ method: "list-recent-notebooks" }).then(({ notebooks }) => {
+  const targetUuid = await listNotebooks().then(({ notebooks }) => {
     const uuidsByName = Object.fromEntries(
       notebooks.map((n) => [`${n.appName} ${n.workspace}`, n.uuid])
     );
