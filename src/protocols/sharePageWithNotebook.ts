@@ -60,7 +60,7 @@ const setupSharePageWithNotebook = () => {
         await window.roamAlphaAPI.ui.mainWindow.openBlock({
           block: { uid: notebookPageId },
         });
-      return notebookPageId;
+      return { notebookPageId, url: notebookPageId };
     },
     deletePage: (title) =>
       window.roamAlphaAPI.deletePage({

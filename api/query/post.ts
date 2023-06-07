@@ -35,7 +35,7 @@ const logic = async ({
   ...body
 }: BackendRequest<typeof notebookRequestNodeQuerySchema>) => {
   const targetConditions = body.conditions.filter(
-    (c) => c.relation === "is in notebook"
+    (c) => "relation" in c && c.relation === "is in notebook"
   );
   if (targetConditions.length === 0) {
     return queryRoam({
@@ -43,18 +43,18 @@ const logic = async ({
       body,
     });
   }
-  // To handle multiple targets, split the request body and send a request for each target
+  // TODO - support multiple targets
   return backendCrossNotebookRequest<{ result: PullBlock[][] }>({
     authorization,
     request: {
       ...body,
       conditions: body.conditions.filter(
-        (c) => c.relation !== "is in notebook"
+        (c) => !("relation" in c) || c.relation !== "is in notebook"
       ),
       schema: "node-query",
     },
     label: "datalog", // TODO - use alias
-    target: targetConditions[0]?.target || "",
+    target: "target" in targetConditions[0] ? targetConditions[0].target : "",
   }).then((response) =>
     typeof response === "string" || response === null
       ? { results: [] }

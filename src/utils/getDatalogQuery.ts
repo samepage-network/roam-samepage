@@ -16,20 +16,21 @@ import {
 import {
   JSONData,
   notebookRequestNodeQuerySchema,
-  zOldSelection,
   zSelection,
   zSelectionField,
   zSelectionTransform,
+  zCondition,
 } from "samepage/internal/types";
 
 export type SamePageQueryArgs = Omit<
   z.infer<typeof notebookRequestNodeQuerySchema>,
   "schema"
 >;
+
 type Condition = SamePageQueryArgs["conditions"][number];
 type Selection = SamePageQueryArgs["selections"][number];
 type NewSelection = z.infer<typeof zSelection>;
-type OldSelection = z.infer<typeof zOldSelection>;
+type NewCondition = z.infer<typeof zCondition>;
 
 // TODO
 const ALIAS_TEST = /^node$/i;
@@ -119,6 +120,44 @@ const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
     );
   }
   return selection as NewSelection;
+};
+const upgradeCondition = (c: Condition): NewCondition => {
+  if (c.type === "clause") {
+    return {
+      type: "AND",
+      source: c.source,
+      relation: c.relation,
+      target: c.target,
+    };
+  } else if (c.type === "not") {
+    return {
+      type: "NOT",
+      conditions: [
+        {
+          type: "AND",
+          source: c.source,
+          relation: c.relation,
+          target: c.target,
+        },
+      ],
+    };
+  } else if (c.type === "or") {
+    return {
+      type: "OR",
+      conditions: c.conditions.map(upgradeCondition),
+    };
+  } else if (c.type === "not or") {
+    return {
+      type: "NOT",
+      conditions: [
+        {
+          type: "OR",
+          conditions: c.conditions.map(upgradeCondition),
+        },
+      ],
+    };
+  }
+  return c;
 };
 
 const getPullPatternDataLiteral = ({
@@ -757,20 +796,28 @@ const translator: Record<string, Translator> = {
   },
 };
 
-const conditionToDatalog = (con: Condition): DatalogClause[] => {
-  const { relation, ...condition } = con;
-  const datalogTranslator = translator[relation.toLowerCase()];
-  const datalog = datalogTranslator?.callback?.(condition) || [];
-  return datalog;
+const conditionToDatalog = (con: NewCondition): DatalogClause[] => {
+  if (con.type === "AND") {
+    const { relation, ...condition } = con;
+    const datalogTranslator = translator[relation.toLowerCase()];
+    const datalog = datalogTranslator?.callback?.(condition) || [];
+    return datalog;
+  }
+  const type = `${con.type.toLowerCase() as "or" | "not"}-clause` as const;
+  return [{ type, clauses: con.conditions.flatMap(conditionToDatalog) }];
 };
 
 const getWhereClauses = ({
   conditions,
   returnNode,
-}: Omit<SamePageQueryArgs, "selections">) => {
+}: {
+  conditions: NewCondition[];
+  returnNode: string;
+}) => {
   return conditions.length
     ? conditions.flatMap(conditionToDatalog)
     : conditionToDatalog({
+        type: "AND",
         relation: "self",
         source: returnNode,
         target: returnNode,
@@ -944,12 +991,13 @@ const transform = (
 };
 
 const getDatalogQuery = ({
-  conditions,
+  conditions: _cons,
   returnNode,
   selections: _sels,
 }: SamePageQueryArgs): DatalogQuery & {
   transformResults: (results: JSONData[][]) => JSONData[];
 } => {
+  const conditions = _cons.map(upgradeCondition);
   const selections = _sels.map((s) => upgradeSelection(s, returnNode));
   const findSpec = getFindSpec({ selections, returnNode });
   const where = optimizeQuery(
