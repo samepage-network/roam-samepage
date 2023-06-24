@@ -20,37 +20,11 @@
     "@types/ws": "^8.5.4"
   },
   "dependencies": {
-    "roamjs-components": "^0.78.11",
-    "samepage": "^0.69.9"
+    "roamjs-components": "^0.79.7",
+    "samepage": "^0.74.0"
   },
   "samepage": {
-    "external": [
-      "react-dom/client",
-      "@blueprintjs/core=window.Blueprint.Core",
-      "@blueprintjs/datetime=window.Blueprint.DateTime",
-      "@blueprintjs/select=window.Blueprint.Select",
-      "chrono-node=window.ChronoNode",
-      "crypto-js=window.CryptoJS",
-      "cytoscape=window.RoamLazy.Cytoscape",
-      "file-saver=window.FileSaver",
-      "jszip=window.RoamLazy.JSZip",
-      "idb=window.idb",
-      "insect=window.RoamLazy.Insect",
-      "marked=window.RoamLazy.Marked",
-      "marked-react=window.RoamLazy.MarkedReact",
-      "nanoid=window.Nanoid",
-      "react=window.React",
-      "react-dom=window.ReactDOM",
-      "react-youtube=window.ReactYoutube",
-      "tslib=window.TSLib"
-    ],
-    "include": [
-      "package.json",
-      "README.md"
-    ],
-    "out": "extension",
-    "mirror": ".",
-    "format": "esm",
+    "extends": "./node_modules/roamjs-components/package.json",
     "install": {
       "steps": [
         {

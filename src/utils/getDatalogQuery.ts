@@ -16,20 +16,22 @@ import {
 import {
   JSONData,
   notebookRequestNodeQuerySchema,
-  zOldSelection,
   zSelection,
   zSelectionField,
   zSelectionTransform,
+  zCondition,
 } from "samepage/internal/types";
+import datefnsFormat from "date-fns/format";
 
 export type SamePageQueryArgs = Omit<
   z.infer<typeof notebookRequestNodeQuerySchema>,
   "schema"
 >;
+
 type Condition = SamePageQueryArgs["conditions"][number];
 type Selection = SamePageQueryArgs["selections"][number];
 type NewSelection = z.infer<typeof zSelection>;
-type OldSelection = z.infer<typeof zOldSelection>;
+type NewCondition = z.infer<typeof zCondition>;
 
 // TODO
 const ALIAS_TEST = /^node$/i;
@@ -55,15 +57,21 @@ const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
     selection.node = (match?.[1] || returnNode)?.trim();
     selection.fields.push(
       { attr: ":block/uid", suffix: "-uid" },
-      { attr: ":block/string" },
-      { attr: ":node/title" }
+      { attr: ":block/string", suffix: "-string" },
+      { attr: ":node/title", suffix: "-title" }
     );
+    selection.transforms.push({
+      method: "or",
+      set: s.label,
+      or: [`${s.label}-string`, `${s.label}-title`],
+    });
   } else if (CREATE_DATE_TEST.test(s.text)) {
-    selection.fields.push({ attr: ":create/time", suffix: "-value" });
+    selection.fields.push({ attr: ":create/time" });
     selection.transforms.push({
       method: "date",
-      set: s.label,
-      date: `${s.label}-value`,
+      date: s.label,
+      set: `${s.label}-display`,
+      format: "MMMM do, yyyy",
     });
   } else if (EDIT_DATE_TEST.test(s.text)) {
     selection.fields.push({ attr: ":edit/time", suffix: "-value" });
@@ -99,7 +107,7 @@ const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
       },
       {
         method: "access",
-        access: `${s.label}-find`,
+        access: `${s.label}-find.${s.label}-block`,
         set: `${s.label}-access`,
         key: `${s.label}-block`,
       },
@@ -112,13 +120,56 @@ const upgradeSelection = (s: Selection, returnNode: string): NewSelection => {
       },
       {
         method: "access",
-        access: `${s.label}-attr`,
+        access: `${s.label}-attr.2.:value`,
         set: s.label,
         key: "2.:value",
+      },
+      {
+        method: "trim",
+        trim: s.label,
+        set: s.label,
       }
     );
   }
   return selection as NewSelection;
+};
+const upgradeCondition = (c: Condition): NewCondition => {
+  if (c.type === "clause") {
+    return {
+      type: "AND",
+      source: c.source,
+      relation: c.relation,
+      target: c.target,
+    };
+  } else if (c.type === "not") {
+    return {
+      type: "NOT",
+      conditions: [
+        {
+          type: "AND",
+          source: c.source,
+          relation: c.relation,
+          target: c.target,
+        },
+      ],
+    };
+  } else if (c.type === "or") {
+    return {
+      type: "OR",
+      conditions: c.conditions.map(upgradeCondition),
+    };
+  } else if (c.type === "not or") {
+    return {
+      type: "NOT",
+      conditions: [
+        {
+          type: "OR",
+          conditions: c.conditions.map(upgradeCondition),
+        },
+      ],
+    };
+  }
+  return c;
 };
 
 const getPullPatternDataLiteral = ({
@@ -757,20 +808,28 @@ const translator: Record<string, Translator> = {
   },
 };
 
-const conditionToDatalog = (con: Condition): DatalogClause[] => {
-  const { relation, ...condition } = con;
-  const datalogTranslator = translator[relation.toLowerCase()];
-  const datalog = datalogTranslator?.callback?.(condition) || [];
-  return datalog;
+const conditionToDatalog = (con: NewCondition): DatalogClause[] => {
+  if (con.type === "AND") {
+    const { relation, ...condition } = con;
+    const datalogTranslator = translator[relation.toLowerCase()];
+    const datalog = datalogTranslator?.callback?.(condition) || [];
+    return datalog;
+  }
+  const type = `${con.type.toLowerCase() as "or" | "not"}-clause` as const;
+  return [{ type, clauses: con.conditions.flatMap(conditionToDatalog) }];
 };
 
 const getWhereClauses = ({
   conditions,
   returnNode,
-}: Omit<SamePageQueryArgs, "selections">) => {
+}: {
+  conditions: NewCondition[];
+  returnNode: string;
+}) => {
   return conditions.length
     ? conditions.flatMap(conditionToDatalog)
     : conditionToDatalog({
+        type: "AND",
         relation: "self",
         source: returnNode,
         target: returnNode,
@@ -914,7 +973,7 @@ const transform = (
   switch (transform.method) {
     case "find": {
       const { key, value, find, set } = transform;
-      const getVal = output[find];
+      const getVal = get(output, find);
       if (!Array.isArray(getVal)) return output;
       const valueVal = get(output, value);
       output[set] = getVal.find(
@@ -923,8 +982,8 @@ const transform = (
       return output;
     }
     case "access": {
-      const { key, access, set } = transform;
-      output[set] = get(output, `${access}.${key}`);
+      const { access, set } = transform;
+      output[set] = get(output, access);
       return output;
     }
     case "set": {
@@ -933,23 +992,39 @@ const transform = (
       return output;
     }
     case "date": {
-      const { date, set } = transform;
-      const getVal = output[date];
+      const { date, set, format } = transform;
+      const getVal = get(output, date);
       if (typeof getVal !== "string" && typeof getVal !== "number")
         return output;
-      output[set] = new Date(getVal).toJSON();
+      const dateObj = new Date(getVal);
+      output[set] = format ? datefnsFormat(dateObj, format) : dateObj.toJSON();
+      return output;
+    }
+    case "or": {
+      const { or, set } = transform;
+      const findKey = or.find((key) => !!get(output, key));
+      if (!findKey) return output;
+      output[set] = output[findKey];
+      return output;
+    }
+    case "trim": {
+      const { trim, set } = transform;
+      const getVal = get(output, trim);
+      if (typeof getVal !== "string") output[set] = getVal;
+      else output[set] = getVal.trim();
       return output;
     }
   }
 };
 
 const getDatalogQuery = ({
-  conditions,
+  conditions: _cons,
   returnNode,
   selections: _sels,
 }: SamePageQueryArgs): DatalogQuery & {
   transformResults: (results: JSONData[][]) => JSONData[];
 } => {
+  const conditions = _cons.map(upgradeCondition);
   const selections = _sels.map((s) => upgradeSelection(s, returnNode));
   const findSpec = getFindSpec({ selections, returnNode });
   const where = optimizeQuery(
