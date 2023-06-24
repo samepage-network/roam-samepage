@@ -48,10 +48,6 @@ const message = createApiMessageHandler({
     mockRoamAlphaAPI({ token: accessToken, graph: workspace });
     return notebookRequestHandler;
   },
-  getNotebookResponseHandler: () => async (response) => {
-    // TODO
-    console.log("getNotebookResponseHandler", response);
-  },
 });
 
 export default message;
