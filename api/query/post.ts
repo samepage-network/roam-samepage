@@ -11,6 +11,7 @@ import {
   notebookRequestNodeQuerySchema,
 } from "samepage/internal/types";
 import apiQuery from "api/_utils/apiQuery";
+import setupBackendRoamAlphaAPI from "api/_utils/setupBackendRoamAlphaAPI";
 
 const queryRoam = async ({
   authorization,
@@ -22,7 +23,8 @@ const queryRoam = async ({
   const { accessToken: token, workspace: graph } = await getAccessToken({
     authorization,
   });
-  const datalogQuery = getDatalogQuery(body);
+  setupBackendRoamAlphaAPI({ token, graph });
+  const datalogQuery = await getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
   return apiQuery({ token, query, graph }).then(({ result }) => ({
     results: datalogQuery.transformResults(result),

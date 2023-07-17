@@ -13,7 +13,7 @@ const notebookRequestHandler: NotebookRequestHandler = async ({ request }) => {
   if (request.schema === "node-query") {
     const result = notebookRequestNodeQuerySchema.safeParse(request);
     if (!result.success) return;
-    const datalogQuery = getDatalogQuery(result.data);
+    const datalogQuery = await getDatalogQuery(result.data);
     const query = compileDatalog(datalogQuery);
     const results = await (window.roamAlphaAPI.data.fast.q(
       query

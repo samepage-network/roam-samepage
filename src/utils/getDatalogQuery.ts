@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DatalogClause } from "roamjs-components/types/native";
+import { DatalogClause, DatalogVariable } from "roamjs-components/types/native";
 import parseNlpDate from "roamjs-components/date/parseNlpDate";
 import startOfDay from "date-fns/startOfDay";
 import endOfDay from "date-fns/endOfDay";
@@ -22,6 +22,7 @@ import {
   zCondition,
 } from "samepage/internal/types";
 import datefnsFormat from "date-fns/format";
+import compileDatalog from "./compileDatalog";
 
 export type SamePageQueryArgs = Omit<
   z.infer<typeof notebookRequestNodeQuerySchema>,
@@ -32,6 +33,8 @@ type Condition = SamePageQueryArgs["conditions"][number];
 type Selection = SamePageQueryArgs["selections"][number];
 type NewSelection = z.infer<typeof zSelection>;
 type NewCondition = z.infer<typeof zCondition>;
+
+const WILDCARD_NODE_TYPES = ["*", "Any Discourse Node"]; // Backwards compatibility with Query Builder
 
 // TODO
 const ALIAS_TEST = /^node$/i;
@@ -156,7 +159,7 @@ const upgradeCondition = (c: Condition): NewCondition => {
   } else if (c.type === "or") {
     return {
       type: "OR",
-      conditions: c.conditions.map(upgradeCondition),
+      conditions: c.conditions.map(upgradeCondition).map((c) => [c]),
     };
   } else if (c.type === "not or") {
     return {
@@ -164,7 +167,7 @@ const upgradeCondition = (c: Condition): NewCondition => {
       conditions: [
         {
           type: "OR",
-          conditions: c.conditions.map(upgradeCondition),
+          conditions: c.conditions.map(upgradeCondition).map((c) => [c]),
         },
       ],
     };
@@ -240,8 +243,29 @@ const getFindSpec = ({
   };
 };
 
+type NodeType = {
+  text: string;
+  id: string;
+  backedBy: "default" | "user" | "relation";
+  specification: NewCondition[];
+};
+type RelationType = {
+  text: string;
+  id: string;
+  specification: NewCondition[];
+};
+
+type TranslatorContext = {
+  nodeTypes: NodeType[];
+  relationTypes: RelationType[];
+};
+
 type Translator = {
-  callback: (args: { source: string; target: string }) => DatalogClause[];
+  callback: (args: {
+    source: string;
+    target: string;
+    context: TranslatorContext;
+  }) => DatalogClause[];
   targetOptions?: string[] | ((source: string) => string[]);
   placeholder?: string;
   isVariable?: true;
@@ -351,6 +375,128 @@ const getTitleDatalog = ({
       ],
     },
   ];
+};
+
+const conditionToDatalog = ({
+  condition: con,
+  context,
+}: {
+  condition: NewCondition;
+  context: TranslatorContext;
+}): DatalogClause[] => {
+  if (con.type === "AND") {
+    const { relation, ...condition } = con;
+    const datalogTranslator = translator[relation.toLowerCase()];
+    const datalog =
+      datalogTranslator?.callback?.({
+        source: condition.source,
+        target: condition.target,
+        context,
+      }) || [];
+    return datalog;
+  }
+  const type = `${con.type.toLowerCase() as "or" | "not"}-clause` as const;
+  return [
+    {
+      type,
+      clauses: con.conditions.flatMap((c) =>
+        Array.isArray(c)
+          ? c.flatMap((condition) => conditionToDatalog({ condition, context }))
+          : conditionToDatalog({ condition: c, context })
+      ),
+    },
+  ];
+};
+
+const replaceDatalogVariables = (
+  replacements: (
+    | { from: string; to: string }
+    | { from: true; to: (v: string) => string }
+  )[] = [],
+  clauses: DatalogClause[]
+): DatalogClause[] => {
+  const replaceDatalogVariable = (a: DatalogVariable): DatalogVariable => {
+    const rep = replacements.find(
+      (rep) => a.value === rep.from || rep.from === true
+    );
+    if (!rep) {
+      return { ...a };
+    } else if (a.value === rep.from) {
+      a.value = rep.to;
+      return {
+        ...a,
+        value: rep.to,
+      };
+    } else if (rep.from === true) {
+      return {
+        ...a,
+        value: rep.to(a.value),
+      };
+    }
+    return a;
+  };
+  return clauses.map((c): DatalogClause => {
+    switch (c.type) {
+      case "data-pattern":
+      case "fn-expr":
+      case "pred-expr":
+      case "rule-expr":
+        return {
+          ...c,
+          arguments: c.arguments.map((a) => {
+            if (a.type !== "variable") {
+              return { ...a };
+            }
+            return replaceDatalogVariable(a);
+          }),
+          ...(c.type === "fn-expr"
+            ? {
+                binding:
+                  c.binding.type === "bind-scalar"
+                    ? {
+                        variable: replaceDatalogVariable(c.binding.variable),
+                        type: "bind-scalar",
+                      }
+                    : c.binding,
+              }
+            : {}),
+        };
+      case "not-join-clause":
+      case "or-join-clause":
+        return {
+          ...c,
+          variables: c.variables.map(replaceDatalogVariable),
+          clauses: replaceDatalogVariables(replacements, c.clauses),
+        };
+      case "not-clause":
+      case "or-clause":
+      case "and-clause":
+        return {
+          ...c,
+          clauses: replaceDatalogVariables(replacements, c.clauses),
+        };
+      default:
+        throw new Error(`Unknown clause type: ${c["type"]}`);
+    }
+  });
+};
+
+const getNodeTypeDatalog = ({
+  freeVar,
+  nodeType,
+  context,
+}: {
+  nodeType: NodeType;
+  freeVar: string;
+  context: TranslatorContext;
+}): DatalogClause[] => {
+  const clauses = nodeType.specification.flatMap((condition) =>
+    conditionToDatalog({ condition, context })
+  );
+  return replaceDatalogVariables(
+    [{ from: nodeType.text, to: freeVar }],
+    clauses
+  );
 };
 
 const translator: Record<string, Translator> = {
@@ -806,33 +952,360 @@ const translator: Record<string, Translator> = {
     ],
     placeholder: "Enter any natural language date value",
   },
+  "is a": {
+    callback: ({ source, target, context }) => {
+      const { nodeTypes } = context;
+      const nodeTypeByIdOrText = Object.fromEntries([
+        ...nodeTypes.map((n) => [n.id, n] as const),
+        ...nodeTypes.map((n) => [n.text, n] as const),
+      ]);
+      return WILDCARD_NODE_TYPES.includes(target)
+        ? [
+            {
+              type: "data-pattern" as const,
+              arguments: [
+                { type: "variable" as const, value: source },
+                { type: "constant" as const, value: ":block/uid" },
+                { type: "variable" as const, value: `${source}-uid` },
+              ],
+            },
+            {
+              type: "data-pattern" as const,
+              arguments: [
+                { type: "variable" as const, value: `${source}-any` },
+                { type: "constant" as const, value: ":block/uid" },
+                { type: "variable" as const, value: `${source}-uid` },
+              ],
+            },
+            {
+              type: "or-join-clause" as const,
+              variables: [
+                { type: "variable" as const, value: `${source}-any` },
+              ],
+              clauses: nodeTypes
+                .filter((dn) => dn.backedBy !== "default")
+                .map((dn) => ({
+                  type: "and-clause" as const,
+                  clauses: getNodeTypeDatalog({
+                    freeVar: `${source}-any`,
+                    nodeType: dn,
+                    context,
+                  }),
+                })),
+            },
+          ]
+        : nodeTypeByIdOrText[target]
+        ? getNodeTypeDatalog({
+            freeVar: `${source}-any`,
+            nodeType: nodeTypeByIdOrText[target],
+            context,
+          })
+        : [];
+    },
+    placeholder: "Enter a node type",
+  },
 };
 
-const conditionToDatalog = (con: NewCondition): DatalogClause[] => {
-  if (con.type === "AND") {
-    const { relation, ...condition } = con;
-    const datalogTranslator = translator[relation.toLowerCase()];
-    const datalog = datalogTranslator?.callback?.(condition) || [];
-    return datalog;
+type RoamBasicResult = {
+  text: string;
+  id: string;
+  order: number;
+  children: RoamBasicResult[];
+};
+const getRoamBasicResultFindSpec = ({
+  textAttr,
+}: {
+  textAttr: string;
+}): DatalogFindSpec => ({
+  type: "find-tuple",
+  elements: [
+    {
+      type: "pull-expression",
+      variable: {
+        type: "variable",
+        value: "node",
+      },
+      pattern: {
+        type: "pattern-data-literal",
+        attrSpecs: [
+          {
+            type: "as-expr",
+            name: {
+              type: "attr-name",
+              value: ":block/uid",
+            },
+            value: "id",
+          },
+          {
+            type: "as-expr",
+            name: {
+              type: "attr-name",
+              value: textAttr,
+            },
+            value: "text",
+          },
+          {
+            type: "as-expr",
+            name: {
+              type: "attr-name",
+              value: ":block/order",
+            },
+            value: "order",
+          },
+          {
+            type: "map-spec",
+            entries: [
+              {
+                key: {
+                  type: "as-expr",
+                  name: {
+                    type: "attr-name",
+                    value: ":block/children",
+                  },
+                  value: "children",
+                },
+                value: {
+                  type: "recursion-limit",
+                  value: "...",
+                },
+              },
+            ],
+          },
+          {
+            type: "as-expr",
+            name: {
+              type: "attr-name",
+              value: ":block/children",
+            },
+            value: "children",
+          },
+        ],
+      },
+    },
+  ],
+});
+const roamNodeToCondition = ({
+  children,
+  text,
+}: RoamBasicResult): NewCondition | null => {
+  if (
+    text !== "clause" &&
+    text !== "not" &&
+    text !== "and" &&
+    text !== "or" &&
+    text !== "not or"
+  ) {
+    return null;
   }
-  const type = `${con.type.toLowerCase() as "or" | "not"}-clause` as const;
-  return [{ type, clauses: con.conditions.flatMap(conditionToDatalog) }];
+  return text === "clause" || text === "and"
+    ? {
+        source: children.find((c) => /source/i.test(c.text))?.children[0]?.text,
+        target: children.find((c) => /target/i.test(c.text))?.children[0]?.text,
+        relation: children.find((c) => /relation/i.test(c.text))?.children[0]
+          ?.text,
+        type: "AND" as const,
+      }
+    : text === "not" || text === "not or"
+    ? {
+        type: "NOT" as const,
+        conditions: children.map(roamNodeToCondition).filter(Boolean),
+      }
+    : {
+        type: "OR" as const,
+        conditions: children
+          .map((node) => node.children.map(roamNodeToCondition).filter(Boolean))
+          .filter((cs) => cs.length),
+      };
 };
 
-const getWhereClauses = ({
+const getRelationTypes = async (): Promise<RelationType[]> => {
+  const query = compileDatalog({
+    type: "query",
+    findSpec: getRoamBasicResultFindSpec({ textAttr: ":block/string" }),
+    whereClauses: [
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: "config" },
+          { type: "constant", value: ":node/title" },
+          { type: "constant", value: '"roam/js/discourse-graph"' },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: "config" },
+          { type: "constant", value: ":block/children" },
+          { type: "variable", value: "grammar" },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: "grammar" },
+          { type: "constant", value: ":block/string" },
+          { type: "constant", value: '"grammar"' },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: "grammar" },
+          { type: "constant", value: ":block/children" },
+          { type: "variable", value: "node" },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: "node" },
+          { type: "constant", value: ":block/string" },
+          { type: "constant", value: '"relations"' },
+        ],
+      },
+    ],
+  });
+  const results = (await window.roamAlphaAPI.data.fast.q(query)) as [
+    RoamBasicResult
+  ][];
+  return results.map(([{ id, text, children }]): NodeType => {
+    const specificationTree = (
+      children.find((c) => /^\s*if\s*$/i.test(c.text))?.children || []
+    ).sort((a, b) => a.order - b.order);
+    const specifications = specificationTree
+      .map((c) =>
+        c.children.map((rn) => roamNodeToCondition(rn)).filter(Boolean)
+      )
+      .filter((cs) => cs.length);
+    return {
+      id,
+      backedBy: "user",
+      specification:
+        specifications.length > 1
+          ? [{ type: "OR", conditions: specifications }]
+          : specifications[0],
+      text: text.replace(/^discourse-graph\/nodes/, ""),
+    };
+  });
+};
+
+const DEFAULT_NODES: Omit<NodeType, "backedBy">[] = [
+  {
+    text: "Page",
+    id: "page-node",
+    specification: [
+      {
+        type: "AND",
+        source: "Page",
+        relation: "has title",
+        target: "/^(.*)$/",
+      },
+    ],
+  },
+  {
+    text: "Block",
+    id: "blck-node",
+    specification: [
+      {
+        type: "AND",
+        source: "Block",
+        relation: "is in page",
+        target: "_",
+      },
+    ],
+  },
+];
+
+const getNodeTypes = async (relations: RelationType[]): Promise<NodeType[]> => {
+  const query = compileDatalog({
+    type: "query",
+    findSpec: getRoamBasicResultFindSpec({ textAttr: ":node/title" }),
+    whereClauses: [
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: "node" },
+          {
+            type: "constant",
+            value: ":node/title",
+          },
+          { type: "variable", value: "title" },
+        ],
+      },
+      {
+        type: "pred-expr",
+        pred: "clojure.string/starts-with?",
+        arguments: [
+          { type: "variable", value: "title" },
+          { type: "constant", value: '"discourse-graph/nodes/"' },
+        ],
+      },
+    ],
+  });
+  const results = (await window.roamAlphaAPI.data.fast.q(query)) as [
+    RoamBasicResult
+  ][];
+  return results
+    .map(([{ id, text, children }]): NodeType => {
+      const specificationTree = (
+        (
+          children.find((c) => /^\s*scratch\s*$/i.test(c.text))?.children || []
+        ).find((c) => /^\s*condition\s*$/.test(c.text))?.children || // Legacy way
+        children.find((c) => /^\s*specification\s*$/i.test(c.text))?.children || // Direct way
+        []
+      ) // No way
+        .sort((a, b) => a.order - b.order);
+      return {
+        id,
+        backedBy: "user",
+        specification: specificationTree
+          .map(roamNodeToCondition)
+          .filter(Boolean),
+        text,
+      };
+    })
+    .concat(
+      relations.map((rel) => ({
+        id: rel.id,
+        backedBy: "relation",
+        specification: rel.specification,
+        text: rel.text,
+      }))
+    )
+    .concat(
+      DEFAULT_NODES.map((dn) => ({
+        ...dn,
+        backedBy: "default",
+      }))
+    );
+};
+
+const getWhereClauses = async ({
   conditions,
   returnNode,
 }: {
   conditions: NewCondition[];
   returnNode: string;
 }) => {
+  const relationTypes = await getRelationTypes();
+  const nodeTypes = await getNodeTypes(relationTypes);
+  const context = {
+    nodeTypes,
+    relationTypes,
+  };
+
   return conditions.length
-    ? conditions.flatMap(conditionToDatalog)
+    ? conditions.flatMap((condition) =>
+        conditionToDatalog({ condition, context })
+      )
     : conditionToDatalog({
-        type: "AND",
-        relation: "self",
-        source: returnNode,
-        target: returnNode,
+        condition: {
+          type: "AND",
+          relation: "self",
+          source: returnNode,
+          target: returnNode,
+        },
+        context,
       });
 };
 
@@ -1017,18 +1490,20 @@ const transform = (
   }
 };
 
-const getDatalogQuery = ({
+const getDatalogQuery = async ({
   conditions: _cons,
   returnNode,
   selections: _sels,
-}: SamePageQueryArgs): DatalogQuery & {
-  transformResults: (results: JSONData[][]) => JSONData[];
-} => {
+}: SamePageQueryArgs): Promise<
+  DatalogQuery & {
+    transformResults: (results: JSONData[][]) => JSONData[];
+  }
+> => {
   const conditions = _cons.map(upgradeCondition);
   const selections = _sels.map((s) => upgradeSelection(s, returnNode));
   const findSpec = getFindSpec({ selections, returnNode });
   const where = optimizeQuery(
-    getWhereClauses({ conditions, returnNode }),
+    await getWhereClauses({ conditions, returnNode }),
     new Set([])
   ) as DatalogClause[];
   const initialWhereClauses: DatalogClause[] =
@@ -1038,8 +1513,19 @@ const getDatalogQuery = ({
             type: "data-pattern" as const,
             arguments: [
               { type: "variable", value: returnNode },
-              { type: "constant", value: "block/uid" },
+              { type: "constant", value: ":block/uid" },
               { type: "underscore", value: "_" },
+            ],
+          },
+        ]
+      : where.length === 0
+      ? [
+          {
+            type: "data-pattern" as const,
+            arguments: [
+              { type: "variable", value: returnNode },
+              { type: "constant", value: ":block/uid" },
+              { type: "constant", value: ":null" },
             ],
           },
         ]

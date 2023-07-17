@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "roamjs-components": "^0.79.7",
-    "samepage": "^0.74.0"
+    "samepage": "^0.74.4"
   },
   "samepage": {
     "extends": "./node_modules/roamjs-components/package.json",

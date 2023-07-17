@@ -19,8 +19,13 @@ const apiQuery = ({
     },
     method: "POST",
     redirect: "follow",
-  }).then((res) => {
-    if (!res.ok) throw new Error(res.statusText);
+  }).then(async (res) => {
+    if (!res.ok)
+      throw new Error(
+        `Failed to query Roam (${
+          res.status
+        }): ${await res.text()}\nQuery: ${query}`
+      );
     return res.json() as Promise<{ result: JSONData[][] }>;
   });
 };
