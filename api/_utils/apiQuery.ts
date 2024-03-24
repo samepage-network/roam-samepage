@@ -1,3 +1,12 @@
+class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 import { JSONData } from "samepage/internal/types";
 
 const apiQuery = ({
@@ -20,12 +29,13 @@ const apiQuery = ({
     method: "POST",
     redirect: "follow",
   }).then(async (res) => {
-    if (!res.ok)
-      throw new Error(
-        `Failed to query Roam (${
-          res.status
-        }): ${await res.text()}\nQuery: ${query}`
-      );
+if (!res.ok)
+  throw new ApiError(
+    `Failed to query Roam (${
+      res.status
+    }): ${await res.text()}
+Query: ${query}`, res.status
+  );
     return res.json() as Promise<{ result: JSONData[][] }>;
   });
 };

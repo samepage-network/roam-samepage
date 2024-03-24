@@ -26,9 +26,16 @@ const queryRoam = async ({
   setupBackendRoamAlphaAPI({ token, graph });
   const datalogQuery = await getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
-  return apiQuery({ token, query, graph }).then(({ result }) => ({
-    results: datalogQuery.transformResults(result),
-  }));
+  try {
+    return apiQuery({ token, query, graph }).then(({ result }) => ({
+      results: datalogQuery.transformResults(result),
+    }));
+  } catch (error) {
+    if (error.status === 404) {
+      throw error;
+    }
+    // handle other errors as we currently do
+  }
 };
 
 const logic = async ({
