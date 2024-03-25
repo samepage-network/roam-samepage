@@ -12,6 +12,7 @@ import {
 } from "samepage/internal/types";
 import apiQuery from "api/_utils/apiQuery";
 import setupBackendRoamAlphaAPI from "api/_utils/setupBackendRoamAlphaAPI";
+import { z } from "zod";
 
 const queryRoam = async ({
   authorization,
@@ -31,18 +32,27 @@ const queryRoam = async ({
   }));
 };
 
+const bodySchema = notebookRequestNodeQuerySchema
+  .omit({ schema: true })
+  .merge(z.object({ label: z.string().optional() }));
+
 const logic = async ({
   authorization,
   requestId,
+  label = "datalog",
   ...body
-}: BackendRequest<typeof notebookRequestNodeQuerySchema>) => {
+}: BackendRequest<typeof bodySchema>) => {
   const targetConditions = body.conditions.filter(
     (c) => "relation" in c && c.relation === "is in notebook"
   );
   if (targetConditions.length === 0) {
     return queryRoam({
       authorization,
-      body,
+      body: {
+        conditions: body.conditions,
+        returnNode: body.returnNode,
+        selections: body.selections,
+      },
     });
   }
   // TODO - support multiple targets
@@ -55,7 +65,7 @@ const logic = async ({
       ),
       schema: "node-query",
     },
-    label: "datalog", // TODO - use alias
+    label,
     target: "target" in targetConditions[0] ? targetConditions[0].target : "",
   }).then((response) =>
     typeof response === "string" || response === null
@@ -71,6 +81,6 @@ const logic = async ({
 
 export default createAPIGatewayProxyHandler({
   logic,
-  bodySchema: notebookRequestNodeQuerySchema.omit({ schema: true }),
+  bodySchema,
   allowedOrigins: [/roamresearch\.com/],
 });

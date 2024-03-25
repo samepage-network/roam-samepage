@@ -5,6 +5,7 @@ import setupCrossNotebookRequests from "samepage/protocols/crossNotebookRequests
 import WebSocket from "ws";
 import apiClient from "samepage/internal/apiClient";
 import downloadResponse from "samepage/backend/downloadResponse";
+import ServerError from "samepage/backend/ServerError";
 // @ts-ignore - TODO enable a lighter weight samepage client that doesn't require a websocket
 global.WebSocket = WebSocket;
 
@@ -53,35 +54,39 @@ const backendCrossNotebookRequest = async <T>({
     target: targetUuid,
     request,
     label,
-  }).then(
-    async (r) =>
-      new Promise<NotebookResponse>(async (resolve, reject) => {
-        if (r.cacheHit || r.response === "pending" || r.response === null) {
-          const promises = Array(NUM_RETRIES)
-            .fill(null)
-            .map(() => () => downloadResponse(r.messageUuid));
-          const directResponse = await promises.reduce((prev, cur, index) => {
-            return prev.then((value) => {
-              if (value) return value;
-              else
-                return new Promise((inner) =>
-                  setTimeout(() => inner(cur()), 500)
-                );
-            });
-          }, Promise.resolve(""));
-          if (directResponse) resolve(JSON.parse(directResponse));
-          else {
+  })
+    .then(
+      async (r) =>
+        new Promise<NotebookResponse>(async (resolve, reject) => {
+          if (r.cacheHit || r.response === "pending" || r.response === null) {
+            const promises = Array(NUM_RETRIES)
+              .fill(null)
+              .map(() => () => downloadResponse(r.messageUuid));
+            const directResponse = await promises.reduce((prev, cur, index) => {
+              return prev.then((value) => {
+                if (value) return value;
+                else
+                  return new Promise((inner) =>
+                    setTimeout(() => inner(cur()), 500)
+                  );
+              });
+            }, Promise.resolve(""));
+            if (directResponse) resolve(JSON.parse(directResponse));
+            else {
+              resolve(r.response);
+            }
+          } else if (r.response === "rejected") {
+            reject(
+              new Error(`Request "${label}" was rejected by target notebook.`)
+            );
+          } else {
             resolve(r.response);
           }
-        } else if (r.response === "rejected") {
-          reject(
-            new Error(`Request "${label}" was rejected by target notebook.`)
-          );
-        } else {
-          resolve(r.response);
-        }
-      })
-  );
+        })
+    )
+    .catch((e) => {
+      throw new ServerError(e.message, 405);
+    });
   unload();
   return responseData;
 };
