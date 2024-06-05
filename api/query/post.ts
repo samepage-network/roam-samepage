@@ -26,9 +26,14 @@ const queryRoam = async ({
   setupBackendRoamAlphaAPI({ token, graph });
   const datalogQuery = await getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
-  return apiQuery({ token, query, graph }).then(({ result }) => ({
-    results: datalogQuery.transformResults(result),
-  }));
+  console.log(query, token, graph);
+  try {
+    const result = await apiQuery({ token, query, graph });
+    const results = datalogQuery.transformResults(result.result);
+    return { results };
+  } catch (e) {
+    console.log("ERROR", e);
+  }
 };
 
 const logic = async ({
@@ -46,6 +51,7 @@ const logic = async ({
     });
   }
   // TODO - support multiple targets
+  console.log("TARGET CONDITIONS", targetConditions);
   return backendCrossNotebookRequest<{ result: PullBlock[][] }>({
     authorization,
     request: {

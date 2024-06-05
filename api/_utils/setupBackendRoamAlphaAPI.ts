@@ -26,8 +26,8 @@ const backendRoamAlphaAPI = (args: { token: string; graph: string }) => {
           // @ts-ignore
           q: (query) => {
             if (process.env.NODE_ENV === "development")
-              console.log("Backend query", query);
-            return apiQuery({ query, ...args }).then((r) => r.result);
+              // console.log("Backend query", query);
+              return apiQuery({ query, ...args }).then((r) => r.result);
           },
         },
       },
