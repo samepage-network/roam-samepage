@@ -77,9 +77,9 @@ const compileDatalog = (
     case "pattern-name":
       return d.value;
     case "pull-expression":
-      return `${indent(level)}[pull ${compileDatalog(
+      return `${indent(level)}(pull ${compileDatalog(
         d.variable
-      )} ${compileDatalog(d.pattern)}\n${indent(level)}]`;
+      )} ${compileDatalog(d.pattern)}\n${indent(level)})`;
     case "aggregate":
       return `[${d.name} ${d.args.map((a) => compileDatalog(a)).join(" ")}]`;
     case "attr-name":

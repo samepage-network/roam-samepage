@@ -1118,6 +1118,12 @@ const roamNodeToCondition = ({
       };
 };
 
+const findChildren = (
+  children: RoamBasicResult[],
+  regex: RegExp
+): RoamBasicResult[] => {
+  return children.find((c) => regex.test(c.text))?.children || [];
+};
 const getRelationTypes = async (): Promise<RelationType[]> => {
   const query = compileDatalog({
     type: "query",
@@ -1215,11 +1221,35 @@ const DEFAULT_NODES: Omit<NodeType, "backedBy">[] = [
     ],
   },
 ];
-
+const getLegacySpecConditions = (
+  children: RoamBasicResult[]
+): RoamBasicResult[] => {
+  const scratchChildren = findChildren(children, /^\s*scratch\s*$/i);
+  const conditionChildren = findChildren(scratchChildren, /^\s*conditions\s*$/);
+  return conditionChildren;
+};
+const getDirectSpecConditions = (
+  children: RoamBasicResult[]
+): RoamBasicResult[] => {
+  const specificationChildren = findChildren(
+    children,
+    /^\s*specification\s*$/i
+  );
+  const specScratchChildren = findChildren(
+    specificationChildren,
+    /^\s*scratch\s*$/i
+  );
+  const conditionChildren = findChildren(
+    specScratchChildren,
+    /^\s*conditions\s*$/i
+  );
+  return conditionChildren;
+};
 const getNodeTypes = async (relations: RelationType[]): Promise<NodeType[]> => {
+  const findSpec = getRoamBasicResultFindSpec({ textAttr: ":block/string" });
   const query = compileDatalog({
     type: "query",
-    findSpec: getRoamBasicResultFindSpec({ textAttr: ":node/title" }),
+    findSpec,
     whereClauses: [
       {
         type: "data-pattern",
@@ -1242,42 +1272,44 @@ const getNodeTypes = async (relations: RelationType[]): Promise<NodeType[]> => {
       },
     ],
   });
-  const results = (await window.roamAlphaAPI.data.fast.q(query)) as [
-    RoamBasicResult
-  ][];
-  return results
-    .map(([{ id, text, children }]): NodeType => {
-      const specificationTree = (
-        (
-          children.find((c) => /^\s*scratch\s*$/i.test(c.text))?.children || []
-        ).find((c) => /^\s*condition\s*$/.test(c.text))?.children || // Legacy way
-        children.find((c) => /^\s*specification\s*$/i.test(c.text))?.children || // Direct way
-        []
-      ) // No way
-        .sort((a, b) => a.order - b.order);
-      return {
-        id,
-        backedBy: "user",
-        specification: specificationTree
-          .map(roamNodeToCondition)
-          .filter(Boolean),
-        text,
-      };
-    })
-    .concat(
-      relations.map((rel) => ({
-        id: rel.id,
-        backedBy: "relation",
-        specification: rel.specification,
-        text: rel.text,
-      }))
-    )
-    .concat(
-      DEFAULT_NODES.map((dn) => ({
-        ...dn,
-        backedBy: "default",
-      }))
-    );
+  const r = await window.roamAlphaAPI.data.fast.q(query);
+  const results = r as [RoamBasicResult][];
+
+  const resultsNodeTypes = results.map(([{ id, text, children }]): NodeType => {
+    // Spec = Specification
+    const legacySpecConditions = getLegacySpecConditions(children);
+    const directSpecConditions = getDirectSpecConditions(children);
+    const specConditionTree = (
+      legacySpecConditions.length ? legacySpecConditions : directSpecConditions
+    ).sort((a, b) => a.order - b.order);
+    const specification = specConditionTree
+      .map(roamNodeToCondition)
+      .filter(Boolean);
+    return {
+      id,
+      backedBy: "user" as const,
+      specification,
+      text,
+    };
+  });
+
+  const relationNodeTypes = relations.map((rel) => ({
+    id: rel.id,
+    backedBy: "relation" as const,
+    specification: rel.specification,
+    text: rel.text,
+  }));
+
+  const defaultNodeTypes = DEFAULT_NODES.map((dn) => ({
+    ...dn,
+    backedBy: "default" as const,
+  }));
+
+  const nodeTypes = resultsNodeTypes
+    .concat(relationNodeTypes)
+    .concat(defaultNodeTypes);
+
+  return nodeTypes;
 };
 
 const getWhereClauses = async ({
