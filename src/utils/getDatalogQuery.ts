@@ -1071,14 +1071,6 @@ const getRoamBasicResultFindSpec = ({
               },
             ],
           },
-          {
-            type: "as-expr",
-            name: {
-              type: "attr-name",
-              value: ":block/children",
-            },
-            value: "children",
-          },
         ],
       },
     },
@@ -1171,28 +1163,33 @@ const getRelationTypes = async (): Promise<RelationType[]> => {
       },
     ],
   });
-  const results = (await window.roamAlphaAPI.data.fast.q(query)) as [
-    RoamBasicResult
-  ][];
-  return results.map(([{ id, text, children }]): NodeType => {
-    const specificationTree = (
-      children.find((c) => /^\s*if\s*$/i.test(c.text))?.children || []
-    ).sort((a, b) => a.order - b.order);
-    const specifications = specificationTree
-      .map((c) =>
-        c.children.map((rn) => roamNodeToCondition(rn)).filter(Boolean)
-      )
-      .filter((cs) => cs.length);
-    return {
-      id,
-      backedBy: "user",
-      specification:
-        specifications.length > 1
-          ? [{ type: "OR", conditions: specifications }]
-          : specifications[0],
-      text: text.replace(/^discourse-graph\/nodes/, ""),
-    };
-  });
+  const results = await window.roamAlphaAPI.data.fast.q(query);
+  const relationsNode = results[0][0] as RoamBasicResult;
+
+  const relationTypes = relationsNode.children.map(
+    ({ id, text, children }: RoamBasicResult) => {
+      const relation = children as RoamBasicResult[];
+      const specificationTree = findChildren(relation, /^\s*if\s*$/i).sort(
+        (a, b) => a.order - b.order
+      );
+      const specificationsArray = specificationTree
+        .map((c) =>
+          c.children.map((rn) => roamNodeToCondition(rn)).filter(Boolean)
+        )
+        .filter((cs) => cs.length);
+      return {
+        id,
+        backedBy: "user",
+        specification:
+          specificationsArray.length > 1
+            ? [{ type: "OR", conditions: specificationsArray }]
+            : specificationsArray[0],
+        text: text.replace(/^discourse-graph\/nodes/, ""),
+      };
+    }
+  );
+
+  return relationTypes;
 };
 
 const DEFAULT_NODES: Omit<NodeType, "backedBy">[] = [
