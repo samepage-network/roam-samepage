@@ -20,6 +20,7 @@
     "@types/ws": "^8.5.4"
   },
   "dependencies": {
+    "nanoid": "^5.0.7",
     "roamjs-components": "^0.79.7",
     "samepage": "^0.74.4"
   },

@@ -23,6 +23,7 @@ import {
 } from "samepage/internal/types";
 import datefnsFormat from "date-fns/format";
 import compileDatalog from "./compileDatalog";
+import registerDiscourseDatalogTranslator from "./registerDiscourseDatalogTranslators";
 
 export type SamePageQueryArgs = Omit<
   z.infer<typeof notebookRequestNodeQuerySchema>,
@@ -32,7 +33,7 @@ export type SamePageQueryArgs = Omit<
 type Condition = SamePageQueryArgs["conditions"][number];
 type Selection = SamePageQueryArgs["selections"][number];
 type NewSelection = z.infer<typeof zSelection>;
-type NewCondition = z.infer<typeof zCondition>;
+export type NewCondition = z.infer<typeof zCondition>;
 
 const WILDCARD_NODE_TYPES = ["*", "Any Discourse Node"]; // Backwards compatibility with Query Builder
 
@@ -159,6 +160,7 @@ const upgradeCondition = (c: Condition): NewCondition => {
   } else if (c.type === "or") {
     return {
       type: "OR",
+      // @ts-ignore
       conditions: c.conditions.map(upgradeCondition).map((c) => [c]),
     };
   } else if (c.type === "not or") {
@@ -167,6 +169,7 @@ const upgradeCondition = (c: Condition): NewCondition => {
       conditions: [
         {
           type: "OR",
+          // @ts-ignore
           conditions: c.conditions.map(upgradeCondition).map((c) => [c]),
         },
       ],
@@ -243,24 +246,34 @@ const getFindSpec = ({
   };
 };
 
-type NodeType = {
+export type NodeType = {
   text: string;
   id: string;
   backedBy: "default" | "user" | "relation";
   specification: NewCondition[];
 };
-type RelationType = {
+export type RelationType = {
   text: string;
   id: string;
-  specification: NewCondition[];
+  relation: DiscourseRelation;
+  // specification: any; // TODO, this doesn't match NewCondition[], should it?
+  // children: RoamBasicResult[];
 };
 
-type TranslatorContext = {
+export type DiscourseRelation = {
+  label: string;
+  source: string;
+  destination: string;
+  complement: string;
+  triples: (readonly [string, string, string])[];
+};
+
+export type TranslatorContext = {
   nodeTypes: NodeType[];
   relationTypes: RelationType[];
 };
 
-type Translator = {
+export type Translator = {
   callback: (args: {
     source: string;
     target: string;
@@ -377,7 +390,7 @@ const getTitleDatalog = ({
   ];
 };
 
-const conditionToDatalog = ({
+export const conditionToDatalog = ({
   condition: con,
   context,
 }: {
@@ -499,7 +512,7 @@ const getNodeTypeDatalog = ({
   );
 };
 
-const translator: Record<string, Translator> = {
+export const translator: Record<string, Translator> = {
   self: {
     callback: ({ source }) => [
       {
@@ -1006,16 +1019,18 @@ const translator: Record<string, Translator> = {
   },
 };
 
+type RoamBasicResultTextLabel = "text" | "title";
 type RoamBasicResult = {
-  text: string;
   id: string;
   order: number;
   children: RoamBasicResult[];
+  title?: string;
+  text?: string;
 };
 const getRoamBasicResultFindSpec = ({
-  textAttr,
+  textAttrs,
 }: {
-  textAttr: string;
+  textAttrs: { label: RoamBasicResultTextLabel; attr: string }[];
 }): DatalogFindSpec => ({
   type: "find-tuple",
   elements: [
@@ -1036,14 +1051,14 @@ const getRoamBasicResultFindSpec = ({
             },
             value: "id",
           },
-          {
-            type: "as-expr",
+          ...textAttrs.map(({ label, attr }) => ({
+            type: "as-expr" as const,
             name: {
-              type: "attr-name",
-              value: textAttr,
+              type: "attr-name" as const,
+              value: attr,
             },
-            value: "text",
-          },
+            value: label,
+          })),
           {
             type: "as-expr",
             name: {
@@ -1089,6 +1104,7 @@ const roamNodeToCondition = ({
   ) {
     return null;
   }
+  // @ts-ignore
   return text === "clause" || text === "and"
     ? {
         source: children.find((c) => /source/i.test(c.text))?.children[0]?.text,
@@ -1110,16 +1126,37 @@ const roamNodeToCondition = ({
       };
 };
 
-const findChildren = (
+export const findChildren = (
   children: RoamBasicResult[],
   regex: RegExp
 ): RoamBasicResult[] => {
   return children.find((c) => regex.test(c.text))?.children || [];
 };
+const getRelationFromTree = (
+  label: string,
+  tree: RoamBasicResult[]
+): DiscourseRelation => {
+  const source = findChildren(tree, /source/i)[0].text;
+  const destination = findChildren(tree, /destination/i)[0].text;
+  const complement = findChildren(tree, /complement/i)[0].text;
+  const triples = findChildren(tree, /if/i).flatMap((node) =>
+    node.children
+      .filter((t) => !/node positions/i.test(t.text))
+      .map((t) => {
+        const target = t.children[0]?.children?.[0]?.text || "";
+        return [t.text, t.children[0]?.text, target] as const;
+      })
+  );
+  return { source, destination, complement, label, triples };
+};
+
 const getRelationTypes = async (): Promise<RelationType[]> => {
+  const findSpec = getRoamBasicResultFindSpec({
+    textAttrs: [{ label: "text", attr: ":block/string" }],
+  });
   const query = compileDatalog({
     type: "query",
-    findSpec: getRoamBasicResultFindSpec({ textAttr: ":block/string" }),
+    findSpec,
     whereClauses: [
       {
         type: "data-pattern",
@@ -1168,23 +1205,12 @@ const getRelationTypes = async (): Promise<RelationType[]> => {
 
   const relationTypes = relationsNode.children.map(
     ({ id, text, children }: RoamBasicResult) => {
-      const relation = children as RoamBasicResult[];
-      const specificationTree = findChildren(relation, /^\s*if\s*$/i).sort(
-        (a, b) => a.order - b.order
-      );
-      const specificationsArray = specificationTree
-        .map((c) =>
-          c.children.map((rn) => roamNodeToCondition(rn)).filter(Boolean)
-        )
-        .filter((cs) => cs.length);
+      const relation = getRelationFromTree(text, children);
       return {
         id,
-        backedBy: "user",
-        specification:
-          specificationsArray.length > 1
-            ? [{ type: "OR", conditions: specificationsArray }]
-            : specificationsArray[0],
-        text: text.replace(/^discourse-graph\/nodes/, ""),
+        relation,
+        text,
+        // children,
       };
     }
   );
@@ -1242,8 +1268,13 @@ const getDirectSpecConditions = (
   );
   return conditionChildren;
 };
-const getNodeTypes = async (relations: RelationType[]): Promise<NodeType[]> => {
-  const findSpec = getRoamBasicResultFindSpec({ textAttr: ":block/string" });
+const getNodeTypes = async (): Promise<NodeType[]> => {
+  const findSpec = getRoamBasicResultFindSpec({
+    textAttrs: [
+      { label: "text", attr: ":block/string" },
+      { label: "title", attr: ":node/title" },
+    ],
+  });
   const query = compileDatalog({
     type: "query",
     findSpec,
@@ -1272,30 +1303,36 @@ const getNodeTypes = async (relations: RelationType[]): Promise<NodeType[]> => {
   const r = await window.roamAlphaAPI.data.fast.q(query);
   const results = r as [RoamBasicResult][];
 
-  const resultsNodeTypes = results.map(([{ id, text, children }]): NodeType => {
-    // Spec = Specification
-    const legacySpecConditions = getLegacySpecConditions(children);
-    const directSpecConditions = getDirectSpecConditions(children);
-    const specConditionTree = (
-      legacySpecConditions.length ? legacySpecConditions : directSpecConditions
-    ).sort((a, b) => a.order - b.order);
-    const specification = specConditionTree
-      .map(roamNodeToCondition)
-      .filter(Boolean);
-    return {
-      id,
-      backedBy: "user" as const,
-      specification,
-      text,
-    };
-  });
+  const resultsNodeTypes = results.map(
+    ([{ id, text, title, children }]): NodeType => {
+      const label = text ? text : title;
+      // Spec = Specification
+      const legacySpecConditions = getLegacySpecConditions(children);
+      const directSpecConditions = getDirectSpecConditions(children);
+      const specConditionTree = (
+        legacySpecConditions.length
+          ? legacySpecConditions
+          : directSpecConditions
+      ).sort((a, b) => a.order - b.order);
+      const specification = specConditionTree
+        .map(roamNodeToCondition)
+        .filter(Boolean);
 
-  const relationNodeTypes = relations.map((rel) => ({
-    id: rel.id,
-    backedBy: "relation" as const,
-    specification: rel.specification,
-    text: rel.text,
-  }));
+      return {
+        id,
+        backedBy: "user" as const,
+        specification,
+        text: label.replace(/^discourse-graph\/nodes\//, ""),
+      };
+    }
+  );
+
+  // const relationNodeTypes = relations.map((rel) => ({
+  //   id: rel.id,
+  //   backedBy: "relation" as const,
+  //   specification: rel.specification,
+  //   text: rel.text,
+  // }));
 
   const defaultNodeTypes = DEFAULT_NODES.map((dn) => ({
     ...dn,
@@ -1303,7 +1340,7 @@ const getNodeTypes = async (relations: RelationType[]): Promise<NodeType[]> => {
   }));
 
   const nodeTypes = resultsNodeTypes
-    .concat(relationNodeTypes)
+    // .concat(relationNodeTypes)
     .concat(defaultNodeTypes);
 
   return nodeTypes;
@@ -1316,14 +1353,15 @@ const getWhereClauses = async ({
   conditions: NewCondition[];
   returnNode: string;
 }) => {
+  const nodeTypes = await getNodeTypes();
   const relationTypes = await getRelationTypes();
-  const nodeTypes = await getNodeTypes(relationTypes);
   const context = {
     nodeTypes,
     relationTypes,
   };
+  registerDiscourseDatalogTranslator(context);
 
-  return conditions.length
+  const whereClauses = conditions.length
     ? conditions.flatMap((condition) =>
         conditionToDatalog({ condition, context })
       )
@@ -1336,6 +1374,7 @@ const getWhereClauses = async ({
         },
         context,
       });
+  return whereClauses;
 };
 
 const getVariables = (clause: DatalogClause): Set<string> => {
