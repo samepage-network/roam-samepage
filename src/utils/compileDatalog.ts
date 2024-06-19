@@ -13,7 +13,7 @@ import {
 
 const indent = (n: number) => "".padStart(n * 2, " ");
 
-const toVar = (v = "undefined") => v.replace(/[\s"()[\]{}/\\]/g, "");
+const toVar = (v = "undefined") => v.replace(/[\s"()[\]{}/\\^@,~`]/g, "");
 
 // TODO - look into an edn library instead: edn.stringify(data, null, 2)
 const compileDatalog = (

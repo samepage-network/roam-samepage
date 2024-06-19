@@ -1,4 +1,8 @@
-import { DatalogClause, DatalogVariable } from "roamjs-components/types";
+import {
+  DatalogAndClause,
+  DatalogClause,
+  DatalogVariable,
+} from "roamjs-components/types";
 import {
   DiscourseRelation,
   NewCondition,
@@ -13,9 +17,36 @@ import {
 import compileDatalog from "./compileDatalog";
 import normalizePageTitle from "roamjs-components/queries/normalizePageTitle";
 import { nanoid } from "nanoid";
+import { isBlockBackend } from "./isBlock";
+import { isPageBackend } from "./isPage";
 
 const ANY_RELATION_REGEX = /Has Any Relation To/i;
-type FilteredType = RelationType & { forward: boolean };
+type ForwardType = RelationType & { forward: boolean };
+
+const collectVariables = (
+  clauses: (DatalogClause | DatalogAndClause)[]
+): Set<string> =>
+  new Set(
+    clauses.flatMap((c) => {
+      switch (c.type) {
+        case "data-pattern":
+        case "fn-expr":
+        case "pred-expr":
+        case "rule-expr":
+          return [...c.arguments]
+            .filter((a) => a.type === "variable")
+            .map((a) => a.value);
+        case "not-join-clause":
+        case "or-join-clause":
+        case "not-clause":
+        case "or-clause":
+        case "and-clause":
+          return Array.from(collectVariables(c.clauses));
+        default:
+          return [];
+      }
+    })
+  );
 
 const replaceDatalogVariables = (
   replacements: (
@@ -90,44 +121,45 @@ const replaceDatalogVariables = (
   });
 };
 
-const checkRelationCondition = ({
-  type,
-  condition,
-  label,
-  context,
-}: {
-  type: RelationType;
-  condition: { source: string; target: string };
-  label: string;
-  context: TranslatorContext;
-}): FilteredType | undefined => {
-  const isLabelEqual = type.text === label;
-  const isLabelComplement = type.relation.complement === label;
-  const isAnyRelationMatch = ANY_RELATION_REGEX.test(label);
-  const relation = {
-    source: type.relation.source,
-    destination: type.relation.destination,
-  };
-  const relationFlipped = {
-    source: type.relation.destination,
-    destination: type.relation.source,
-  };
+// const checkRelationCondition = ({
+//   type,
+//   condition,
+//   label,
+//   context,
+// }: {
+//   type: RelationType;
+//   condition: { source: string; target: string };
+//   label: string;
+//   context: TranslatorContext;
+// }): ForwardType | undefined => {
+//   const isLabelEqual = type.text === label;
+//   const isLabelComplement = type.relation.complement === label;
+//   const isAnyRelationMatch = ANY_RELATION_REGEX.test(label);
+//   const relation = {
+//     source: type.relation.source,
+//     destination: type.relation.destination,
+//   };
+//   const relationFlipped = {
+//     source: type.relation.destination,
+//     destination: type.relation.source,
+//   };
 
-  const labelMatch =
-    (isLabelEqual || isAnyRelationMatch) &&
-    doesDiscourseRelationMatchCondition({ relation, condition, context });
-  const complementMatch =
-    (isLabelComplement || isAnyRelationMatch) &&
-    doesDiscourseRelationMatchCondition({
-      relation: relationFlipped,
-      condition,
-      context,
-    });
+//   const labelMatch =
+//     (isLabelEqual || isAnyRelationMatch) &&
+//     doesDiscourseRelationMatchCondition({ relation, condition, context });
+//   if (labelMatch) return { ...type, forward: true };
 
-  if (labelMatch) return { ...type, forward: true };
-  if (complementMatch) return { ...type, forward: false };
-  return undefined;
-};
+//   const complementMatch =
+//     (isLabelComplement || isAnyRelationMatch) &&
+//     doesDiscourseRelationMatchCondition({
+//       relation: relationFlipped,
+//       condition,
+//       context,
+//     });
+//   if (complementMatch) return { ...type, forward: false };
+
+//   return undefined;
+// };
 
 type MatchNode = {
   specification: NewCondition[];
@@ -152,9 +184,10 @@ const matchDiscourseNode = ({
           rest.title
         )}"] [?node :block/string "${normalizePageTitle(rest.title)}"]]`
       : `[?node :block/uid "${rest.uid}"]`;
-  return !!window.roamAlphaAPI.data.fast.q(
-    `[:find ?node :where ${firstClause} ${where.join(" ")}]`
-  ).length;
+
+  const query = `[:find ?node :where ${firstClause} ${where.join(" ")}]`;
+  return !!window.roamAlphaAPI.data.fast.q(query).length;
+
   // const title = "title" in rest ? rest.title : getPageTitleByPageUid(rest.uid);
   // return getDiscourseNodeFormatExpression(format).test(title);
 };
@@ -220,46 +253,46 @@ const doesDiscourseRelationMatchCondition = ({
   return false; // !nodeLabelByType[condition.source] && !nodeLabelByType[condition.target]
 };
 
-const filterRelation = ({
-  label,
-  source,
-  target,
-  context,
-}: {
-  label: string;
-  source: string;
-  target: string;
-  context: TranslatorContext;
-}): FilteredType[] => {
-  const { relationTypes } = context;
-  const condition = { source, target };
-  const filterRelations = relationTypes
-    .map((type) => checkRelationCondition({ type, condition, label, context }))
-    .filter((relation): relation is FilteredType => !!relation);
-  return filterRelations;
-};
+// const filterRelation = ({
+//   label,
+//   source,
+//   target,
+//   context,
+// }: {
+//   label: string;
+//   source: string;
+//   target: string;
+//   context: TranslatorContext;
+// }): ForwardType[] => {
+//   const { relationTypes } = context;
+//   const condition = { source, target };
+//   const filterRelations = relationTypes
+//     .map((type) => checkRelationCondition({ type, condition, label, context }))
+//     .filter((relation): relation is ForwardType => !!relation);
+//   return filterRelations;
+// };
 
 const computeEdgeTriple = ({
   nodeType,
   value,
   triple,
   context,
-}: // uid,
-{
+  uid,
+}: {
   nodeType: string;
   value: string;
   triple: readonly [string, string, string];
   context: TranslatorContext;
-  // uid: string;
+  uid: string;
 }): DatalogClause[] => {
   const { nodeTypes } = context;
   const nodeTypeByLabel = Object.fromEntries(
     nodeTypes.map((n) => [n.text.toLowerCase(), n.id])
   );
   const possibleNodeType = nodeTypeByLabel[value.toLowerCase()];
-
+  const isBlock = isBlockBackend(value);
   if (possibleNodeType) {
-    return conditionToDatalog({
+    const condition = conditionToDatalog({
       // uid,
       condition: {
         target: possibleNodeType,
@@ -269,8 +302,8 @@ const computeEdgeTriple = ({
       },
       context,
     });
-  } else if (!!window.roamAlphaAPI.pull("[:db/id]", [":block/uid", value])) {
-    // not a function TODO: fix this
+    return condition;
+  } else if (isBlockBackend(value).then((isBlock) => isBlock)) {
     return [
       {
         type: "data-pattern",
@@ -281,9 +314,8 @@ const computeEdgeTriple = ({
         ],
       },
     ];
-  } else if (!!window.roamAlphaAPI.pull("[:db/id]", [":node/title", value])) {
-    // not a function TODO: fix this
-    return conditionToDatalog({
+  } else if (isPageBackend(value).then((isPage) => isPage)) {
+    const condition = conditionToDatalog({
       // uid,
       condition: {
         target: value,
@@ -293,8 +325,9 @@ const computeEdgeTriple = ({
       },
       context,
     });
+    return condition;
   } else {
-    return conditionToDatalog({
+    const condition = conditionToDatalog({
       // uid,
       condition: {
         target: nodeType,
@@ -304,6 +337,7 @@ const computeEdgeTriple = ({
       },
       context,
     });
+    return condition;
   }
 };
 const generateEdgeTriples = ({
@@ -315,8 +349,8 @@ const generateEdgeTriples = ({
   relationSource,
   relationTarget,
   context,
-}: // uid,
-{
+  uid,
+}: {
   forward: boolean;
   source: string;
   target: string;
@@ -325,123 +359,72 @@ const generateEdgeTriples = ({
   relationSource: string;
   relationTarget: string;
   context: TranslatorContext;
-  // uid: string;
+  uid: string;
 }): DatalogClause[] => {
-  if (forward) {
-    return computeEdgeTriple({
-      value: source,
-      triple: sourceTriple,
-      nodeType: relationSource,
-      context,
-      // uid
-    })
-      .concat(
-        computeEdgeTriple({
-          value: target,
-          triple: targetTriple,
-          nodeType: relationTarget,
-          context,
-          // uid,
-        })
-      )
-      .concat([
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: sourceTriple[0] },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${source}-uid` },
-          ],
-        },
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: source },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${source}-uid` },
-          ],
-        },
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: targetTriple[0] },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${target}-uid` },
-          ],
-        },
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: target },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${target}-uid` },
-          ],
-        },
-      ]);
-  } else {
-    return computeEdgeTriple({
-      value: target,
-      triple: sourceTriple,
-      nodeType: relationSource,
-      context,
-      // uid,
-    })
-      .concat(
-        computeEdgeTriple({
-          value: source,
-          triple: targetTriple,
-          nodeType: relationTarget,
-          context,
-          // uid,
-        })
-      )
-      .concat([
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: targetTriple[0] },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${source}-uid` },
-          ],
-        },
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: source },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${source}-uid` },
-          ],
-        },
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: sourceTriple[0] },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${target}-uid` },
-          ],
-        },
-        {
-          type: "data-pattern",
-          arguments: [
-            { type: "variable", value: target },
-            { type: "constant", value: ":block/uid" },
-            { type: "variable", value: `${target}-uid` },
-          ],
-        },
-      ]);
-  }
+  const firstDataPatternVariable = forward ? sourceTriple[0] : targetTriple[0];
+  const secondDataPatternVariable = forward ? targetTriple[0] : sourceTriple[0];
+  return computeEdgeTriple({
+    value: forward ? source : target,
+    triple: sourceTriple,
+    nodeType: relationSource,
+    context,
+    uid,
+  })
+    .concat(
+      computeEdgeTriple({
+        value: forward ? target : source,
+        triple: targetTriple,
+        nodeType: relationTarget,
+        context,
+        uid,
+      })
+    )
+    .concat([
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: firstDataPatternVariable },
+          { type: "constant", value: ":block/uid" },
+          { type: "variable", value: `${source}-uid` },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: source },
+          { type: "constant", value: ":block/uid" },
+          { type: "variable", value: `${source}-uid` },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: secondDataPatternVariable },
+          { type: "constant", value: ":block/uid" },
+          { type: "variable", value: `${target}-uid` },
+        ],
+      },
+      {
+        type: "data-pattern",
+        arguments: [
+          { type: "variable", value: target },
+          { type: "constant", value: ":block/uid" },
+          { type: "variable", value: `${target}-uid` },
+        ],
+      },
+    ]);
 };
 const generateAndParts = ({
   filteredRelations,
   source,
   target,
-  // uid,
+  uid,
   context,
 }: {
-  filteredRelations: FilteredType[];
+  filteredRelations: ForwardType[];
   source: string;
   target: string;
-  // uid: string;
+  uid: string;
   context: TranslatorContext;
 }) => {
   return filteredRelations.map(({ relation, forward }) => {
@@ -465,7 +448,7 @@ const generateAndParts = ({
       relationSource,
       relationTarget,
       context,
-      // uid,
+      uid,
     });
     const subQuery = triples
       .filter((t) => t !== sourceTriple && t !== targetTriple)
@@ -480,16 +463,11 @@ const generateAndParts = ({
           context,
         })
       );
-    // we were passing uid all the way down to here
-    // but I'm not sure if we need it anymore or not, as it's not part
-    // of the current callback definition
-    // so putting this here to see if it just needs a static reference
-    const id = nanoid();
     return replaceDatalogVariables(
       [
         { from: source, to: source },
         { from: target, to: target },
-        { from: true, to: (v) => `${id}-${v}` },
+        { from: true, to: (v) => `${uid}-${v}` },
       ],
       edgeTriples.concat(subQuery)
     );
@@ -502,44 +480,78 @@ const register = ({ key, ...translation }: Translator & { key: string }) => {
 const registerDiscourseDatalogTranslator = (
   context: TranslatorContext
 ): null => {
-  const { relationTypes } = context;
+  const { relationTypes, relationsInQuery } = context;
 
-  const relationLabelsAndComplements = new Set(
-    relationTypes.flatMap((r) =>
-      [r.text, r.relation.complement].filter(Boolean)
-    )
+  const relationTypesWithComplementTypes = new Set(
+    relationTypes.flatMap((relationType) => {
+      const { ...rest } = relationType;
+      const relation: RelationType = {
+        ...rest,
+        isComplement: false,
+      };
+      const swappedRelation: RelationType = {
+        ...rest,
+        text: relationType.relation.complement,
+        isComplement: true,
+      };
+      return [relation, swappedRelation];
+    })
+  );
+  const requiredRelations = Array.from(relationTypesWithComplementTypes).filter(
+    ({ id }) => relationsInQuery?.some((r) => r.id === id)
   );
 
-  relationLabelsAndComplements.forEach((label) => {
-    const isRelationInTranslator = !!translator[label];
+  requiredRelations.forEach((r) => {
+    const { text, isComplement } = r;
+    const isRelationInTranslator = !!translator[text];
     if (isRelationInTranslator) return null;
 
     register({
-      key: label.toLowerCase(),
+      key: text.toLowerCase(),
       callback: ({
         source,
         target,
         context,
+        uid,
       }: {
         source: string;
         target: string;
         context: TranslatorContext;
+        uid: string;
       }) => {
-        const filteredRelations = filterRelation({
-          label,
-          source,
-          target,
-          context,
-        });
-        if (!filteredRelations.length) return [];
+        const forwardType = {
+          ...r,
+          forward: !isComplement,
+        };
         const andParts = generateAndParts({
-          filteredRelations,
+          filteredRelations: [forwardType],
           source,
           target,
-          // uid,
+          uid,
           context,
         });
-        return [];
+        if (andParts.length === 1) return andParts[0];
+
+        const orJoinedVars = collectVariables(andParts[0]);
+        andParts.slice(1).forEach((a) => {
+          const freeVars = collectVariables(a);
+          Array.from(orJoinedVars).forEach((v) => {
+            if (!freeVars.has(v)) orJoinedVars.delete(v);
+          });
+        });
+        return [
+          {
+            type: "or-join-clause",
+            variables: Array.from(orJoinedVars).map((v) => ({
+              type: "variable",
+              value: v,
+            })),
+            clauses: andParts.map((a) => ({
+              type: "and-clause",
+              clauses: a,
+            })),
+          },
+        ];
       },
     });
   });

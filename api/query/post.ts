@@ -12,6 +12,7 @@ import {
 } from "samepage/internal/types";
 import apiQuery from "api/_utils/apiQuery";
 import setupBackendRoamAlphaAPI from "api/_utils/setupBackendRoamAlphaAPI";
+import { z } from "zod";
 
 const queryRoam = async ({
   authorization,
@@ -23,10 +24,12 @@ const queryRoam = async ({
   const { accessToken: token, workspace: graph } = await getAccessToken({
     authorization,
   });
+  // console.log("token", token);
+  // console.log("graph", graph);
   setupBackendRoamAlphaAPI({ token, graph });
   const datalogQuery = await getDatalogQuery(body);
   const query = compileDatalog(datalogQuery);
-  console.log(query, token, graph);
+  // console.log(query, token, graph);
   try {
     const result = await apiQuery({ token, query, graph });
     const results = datalogQuery.transformResults(result.result);
@@ -47,7 +50,7 @@ const logic = async ({
   if (targetConditions.length === 0) {
     return queryRoam({
       authorization,
-      body,
+      body: { ...body },
     });
   }
   // TODO - support multiple targets
@@ -75,8 +78,19 @@ const logic = async ({
   );
 };
 
+const dgraphSchema = notebookRequestNodeQuerySchema.extend({
+  context: z
+    .object({
+      relationsInQuery: z.array(z.any()).optional().default([]),
+      customNodes: z.array(z.any()).optional().default([]),
+      customRelations: z.array(z.any()).optional().default([]),
+    })
+    .optional()
+    .default({}),
+});
+
 export default createAPIGatewayProxyHandler({
   logic,
-  bodySchema: notebookRequestNodeQuerySchema.omit({ schema: true }),
+  bodySchema: dgraphSchema.omit({ schema: true }),
   allowedOrigins: [/roamresearch\.com/],
 });
