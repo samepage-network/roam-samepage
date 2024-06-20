@@ -161,97 +161,97 @@ const replaceDatalogVariables = (
 //   return undefined;
 // };
 
-type MatchNode = {
-  specification: NewCondition[];
-  text: string;
-  context: TranslatorContext;
-} & ({ title: string } | { uid: string });
+// type MatchNode = {
+//   specification: NewCondition[];
+//   text: string;
+//   context: TranslatorContext;
+// } & ({ title: string } | { uid: string });
 
-const matchDiscourseNode = ({
-  specification,
-  text,
-  context,
-  ...rest
-}: MatchNode): boolean => {
-  if (!specification.length) return false;
-  const where = replaceDatalogVariables(
-    [{ from: text, to: "node" }],
-    specification.flatMap((c) => conditionToDatalog({ condition: c, context }))
-  ).map((c) => compileDatalog(c, 0));
-  const firstClause =
-    "title" in rest
-      ? `[or-join [?node] [?node :node/title "${normalizePageTitle(
-          rest.title
-        )}"] [?node :block/string "${normalizePageTitle(rest.title)}"]]`
-      : `[?node :block/uid "${rest.uid}"]`;
+// const matchDiscourseNode = ({
+//   specification,
+//   text,
+//   context,
+//   ...rest
+// }: MatchNode): boolean => {
+//   if (!specification.length) return false;
+//   const where = replaceDatalogVariables(
+//     [{ from: text, to: "node" }],
+//     specification.flatMap((c) => conditionToDatalog({ condition: c, context }))
+//   ).map((c) => compileDatalog(c, 0));
+//   const firstClause =
+//     "title" in rest
+//       ? `[or-join [?node] [?node :node/title "${normalizePageTitle(
+//           rest.title
+//         )}"] [?node :block/string "${normalizePageTitle(rest.title)}"]]`
+//       : `[?node :block/uid "${rest.uid}"]`;
 
-  const query = `[:find ?node :where ${firstClause} ${where.join(" ")}]`;
-  return !!window.roamAlphaAPI.data.fast.q(query).length;
+//   const query = `[:find ?node :where ${firstClause} ${where.join(" ")}]`;
+//   return !!window.roamAlphaAPI.data.fast.q(query).length;
 
-  // const title = "title" in rest ? rest.title : getPageTitleByPageUid(rest.uid);
-  // return getDiscourseNodeFormatExpression(format).test(title);
-};
+//   // const title = "title" in rest ? rest.title : getPageTitleByPageUid(rest.uid);
+//   // return getDiscourseNodeFormatExpression(format).test(title);
+// };
 
-const doesDiscourseRelationMatchCondition = ({
-  relation,
-  condition,
-  context,
-}: {
-  relation: { source: string; destination: string };
-  condition: { source: string; target: string };
-  context: TranslatorContext;
-}) => {
-  const { nodeTypes } = context;
-  const nodeLabelById = Object.fromEntries(
-    nodeTypes.map((n) => [n.id, n.text])
-  );
-  const nodeById = Object.fromEntries(nodeTypes.map((n) => [n.id, n]));
-  const nodeIdByLabel = Object.fromEntries(
-    nodeTypes.map((n) => [n.text.toLowerCase(), n.id])
-  );
-  const sourceType = nodeLabelById[relation.source];
-  const targetType = nodeLabelById[relation.destination];
-  const sourceMatches =
-    sourceType === condition.source || relation.source === "*";
-  const targetNode = nodeById[relation.destination];
-  const targetMatches =
-    targetType === condition.target ||
-    relation.destination === "*" ||
-    matchDiscourseNode({
-      ...targetNode,
-      title: condition.target,
-      context,
-    }) ||
-    matchDiscourseNode({
-      ...targetNode,
-      uid: condition.target,
-      context,
-    });
-  if (sourceMatches) {
-    return (
-      targetMatches ||
-      (!nodeIdByLabel[condition.target.toLowerCase()] &&
-        !Object.values(nodeById).some(
-          (node) =>
-            matchDiscourseNode({
-              ...node,
-              title: condition.target,
-              context,
-            }) ||
-            matchDiscourseNode({
-              ...node,
-              uid: condition.target,
-              context,
-            })
-        ))
-    );
-  }
-  if (targetMatches) {
-    return sourceMatches || !nodeIdByLabel[condition.source.toLowerCase()];
-  }
-  // if both are placeholders, sourceType and targetType will both be null, meaning we could match any condition
-  return false; // !nodeLabelByType[condition.source] && !nodeLabelByType[condition.target]
-};
+// const doesDiscourseRelationMatchCondition = ({
+//   relation,
+//   condition,
+//   context,
+// }: {
+//   relation: { source: string; destination: string };
+//   condition: { source: string; target: string };
+//   context: TranslatorContext;
+// }) => {
+//   const { nodeTypes } = context;
+//   const nodeLabelById = Object.fromEntries(
+//     nodeTypes.map((n) => [n.id, n.text])
+//   );
+//   const nodeById = Object.fromEntries(nodeTypes.map((n) => [n.id, n]));
+//   const nodeIdByLabel = Object.fromEntries(
+//     nodeTypes.map((n) => [n.text.toLowerCase(), n.id])
+//   );
+//   const sourceType = nodeLabelById[relation.source];
+//   const targetType = nodeLabelById[relation.destination];
+//   const sourceMatches =
+//     sourceType === condition.source || relation.source === "*";
+//   const targetNode = nodeById[relation.destination];
+//   const targetMatches =
+//     targetType === condition.target ||
+//     relation.destination === "*" ||
+//     matchDiscourseNode({
+//       ...targetNode,
+//       title: condition.target,
+//       context,
+//     }) ||
+//     matchDiscourseNode({
+//       ...targetNode,
+//       uid: condition.target,
+//       context,
+//     });
+//   if (sourceMatches) {
+//     return (
+//       targetMatches ||
+//       (!nodeIdByLabel[condition.target.toLowerCase()] &&
+//         !Object.values(nodeById).some(
+//           (node) =>
+//             matchDiscourseNode({
+//               ...node,
+//               title: condition.target,
+//               context,
+//             }) ||
+//             matchDiscourseNode({
+//               ...node,
+//               uid: condition.target,
+//               context,
+//             })
+//         ))
+//     );
+//   }
+//   if (targetMatches) {
+//     return sourceMatches || !nodeIdByLabel[condition.source.toLowerCase()];
+//   }
+//   // if both are placeholders, sourceType and targetType will both be null, meaning we could match any condition
+//   return false; // !nodeLabelByType[condition.source] && !nodeLabelByType[condition.target]
+// };
 
 // const filterRelation = ({
 //   label,
