@@ -277,23 +277,19 @@ const computeEdgeTriple = ({
   value,
   triple,
   context,
-  uid,
 }: {
   nodeType: string;
   value: string;
   triple: readonly [string, string, string];
   context: TranslatorContext;
-  uid: string;
 }): DatalogClause[] => {
   const { nodeTypes } = context;
   const nodeTypeByLabel = Object.fromEntries(
     nodeTypes.map((n) => [n.text.toLowerCase(), n.id])
   );
   const possibleNodeType = nodeTypeByLabel[value.toLowerCase()];
-  const isBlock = isBlockBackend(value);
   if (possibleNodeType) {
     const condition = conditionToDatalog({
-      // uid,
       condition: {
         target: possibleNodeType,
         relation: "is a",
@@ -316,7 +312,6 @@ const computeEdgeTriple = ({
     ];
   } else if (isPageBackend(value).then((isPage) => isPage)) {
     const condition = conditionToDatalog({
-      // uid,
       condition: {
         target: value,
         relation: "has title",
@@ -328,7 +323,6 @@ const computeEdgeTriple = ({
     return condition;
   } else {
     const condition = conditionToDatalog({
-      // uid,
       condition: {
         target: nodeType,
         relation: "is a",
@@ -349,7 +343,6 @@ const generateEdgeTriples = ({
   relationSource,
   relationTarget,
   context,
-  uid,
 }: {
   forward: boolean;
   source: string;
@@ -359,7 +352,6 @@ const generateEdgeTriples = ({
   relationSource: string;
   relationTarget: string;
   context: TranslatorContext;
-  uid: string;
 }): DatalogClause[] => {
   const firstDataPatternVariable = forward ? sourceTriple[0] : targetTriple[0];
   const secondDataPatternVariable = forward ? targetTriple[0] : sourceTriple[0];
@@ -368,7 +360,6 @@ const generateEdgeTriples = ({
     triple: sourceTriple,
     nodeType: relationSource,
     context,
-    uid,
   })
     .concat(
       computeEdgeTriple({
@@ -376,7 +367,6 @@ const generateEdgeTriples = ({
         triple: targetTriple,
         nodeType: relationTarget,
         context,
-        uid,
       })
     )
     .concat([
@@ -418,13 +408,11 @@ const generateAndParts = ({
   filteredRelations,
   source,
   target,
-  uid,
   context,
 }: {
   filteredRelations: ForwardType[];
   source: string;
   target: string;
-  uid: string;
   context: TranslatorContext;
 }) => {
   return filteredRelations.map(({ relation, forward }) => {
@@ -448,7 +436,6 @@ const generateAndParts = ({
       relationSource,
       relationTarget,
       context,
-      uid,
     });
     const subQuery = triples
       .filter((t) => t !== sourceTriple && t !== targetTriple)
@@ -463,11 +450,12 @@ const generateAndParts = ({
           context,
         })
       );
+    const id = nanoid(9);
     return replaceDatalogVariables(
       [
         { from: source, to: source },
         { from: target, to: target },
-        { from: true, to: (v) => `${uid}-${v}` },
+        { from: true, to: (v) => `${id}-${v}` },
       ],
       edgeTriples.concat(subQuery)
     );
@@ -527,7 +515,6 @@ const registerDiscourseDatalogTranslator = (
           filteredRelations: [forwardType],
           source,
           target,
-          uid,
           context,
         });
         if (andParts.length === 1) return andParts[0];
