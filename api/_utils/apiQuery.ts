@@ -10,7 +10,8 @@ const apiQuery = async ({
   query: string;
   graph: string;
 }) => {
-  console.log("query", { query });
+  console.log("query");
+  console.log(query);
   const Authorization = `Bearer ${token.replace(/^Bearer /, "")}`;
   try {
     const url = `https://api.roamresearch.com/api/graph/${graph}/q`;
