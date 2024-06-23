@@ -48,11 +48,7 @@ const logic = async ({
   if (targetConditions.length === 0) {
     return queryRoam({
       authorization,
-      body: {
-        conditions: body.conditions,
-        returnNode: body.returnNode,
-        selections: body.selections,
-      },
+      body: { ...body }, // TODO type fix
     });
   }
   // TODO - support multiple targets
@@ -79,8 +75,19 @@ const logic = async ({
   );
 };
 
+const dgraphSchema = notebookRequestNodeQuerySchema.extend({
+  context: z
+    .object({
+      relationsInQuery: z.array(z.any()).optional().default([]),
+      customNodes: z.array(z.any()).optional().default([]),
+      customRelations: z.array(z.any()).optional().default([]),
+    })
+    .optional()
+    .default({}),
+});
+
 export default createAPIGatewayProxyHandler({
   logic,
-  bodySchema,
+  bodySchema: dgraphSchema.omit({ schema: true }),
   allowedOrigins: [/roamresearch\.com/],
 });
