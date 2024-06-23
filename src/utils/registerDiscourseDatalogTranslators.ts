@@ -21,7 +21,13 @@ import { isBlockBackend } from "./isBlock";
 import { isPageBackend } from "./isPage";
 
 const ANY_RELATION_REGEX = /Has Any Relation To/i;
-type ForwardType = RelationType & { forward: boolean };
+type CombinedRelationType = {
+  text: string;
+  id: string;
+  relation: DiscourseRelation[];
+  isComplement?: boolean;
+};
+type ForwardType = DiscourseRelation & { forward: boolean };
 
 const collectVariables = (
   clauses: (DatalogClause | DatalogAndClause)[]
@@ -415,11 +421,12 @@ const generateAndParts = ({
   target: string;
   context: TranslatorContext;
 }) => {
-  return filteredRelations.map(({ relation, forward }) => {
+  return filteredRelations.map((relation) => {
     const {
       triples,
       source: relationSource,
       destination: relationTarget,
+      forward,
     } = relation;
     const sourceTriple = triples.find((t) => t[2] === "source");
     const targetTriple = triples.find(
@@ -485,8 +492,33 @@ const registerDiscourseDatalogTranslator = (
       return [relation, swappedRelation];
     })
   );
-  const requiredRelations = Array.from(relationTypesWithComplementTypes).filter(
-    ({ id }) => relationsInQuery?.some((r) => r.id === id)
+
+  const groupRelations = (
+    relations: RelationType[]
+  ): CombinedRelationType[] => {
+    const grouped: { [key: string]: CombinedRelationType } = {};
+
+    relations.forEach((relation) => {
+      const key = `${relation.id}-${relation.isComplement}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          text: relation.text,
+          id: relation.id,
+          relation: [relation.relation],
+          isComplement: relation.isComplement,
+        };
+      } else {
+        grouped[key].relation.push(relation.relation);
+      }
+    });
+
+    return Object.values(grouped);
+  };
+
+  const requiredRelations = groupRelations(
+    Array.from(relationTypesWithComplementTypes).filter(({ id }) =>
+      relationsInQuery.some((r) => r.id === id)
+    )
   );
 
   requiredRelations.forEach((r) => {
@@ -500,19 +532,18 @@ const registerDiscourseDatalogTranslator = (
         source,
         target,
         context,
-        uid,
       }: {
         source: string;
         target: string;
         context: TranslatorContext;
-        uid: string;
       }) => {
-        const forwardType = {
-          ...r,
-          forward: !isComplement,
-        };
+        const forwardType = r.relation.map((rel) => ({
+          ...rel,
+          forward: !r.isComplement,
+        }));
+
         const andParts = generateAndParts({
-          filteredRelations: [forwardType],
+          filteredRelations: forwardType,
           source,
           target,
           context,
