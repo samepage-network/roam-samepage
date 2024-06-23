@@ -508,6 +508,9 @@ const getNodeTypeDatalog = ({
   freeVar: string;
   context: TranslatorContext;
 }): DatalogClause[] => {
+  if (nodeType.specification.length === 0) {
+    throw new Error(`Node type ${nodeType.text} has no specification`);
+  }
   const clauses = nodeType.specification.flatMap((condition) =>
     conditionToDatalog({ condition, context })
   );
