@@ -34,7 +34,17 @@ const queryRoam = async ({
 
 const bodySchema = notebookRequestNodeQuerySchema
   .omit({ schema: true })
-  .merge(z.object({ label: z.string().optional() }));
+  .extend({
+    label: z.string().optional(),
+    context: z
+      .object({
+        relationsInQuery: z.array(z.any()).optional().default([]),
+        customNodes: z.array(z.any()).optional().default([]),
+        customRelations: z.array(z.any()).optional().default([]),
+      })
+      .optional()
+      .default({}),
+  });
 
 const logic = async ({
   authorization,
@@ -48,7 +58,12 @@ const logic = async ({
   if (targetConditions.length === 0) {
     return queryRoam({
       authorization,
-      body: { ...body }, // TODO type fix
+      body: {
+        conditions: body.conditions,
+        returnNode: body.returnNode,
+        selections: body.selections,
+        ...body,
+      },
     });
   }
   // TODO - support multiple targets
@@ -75,19 +90,8 @@ const logic = async ({
   );
 };
 
-const dgraphSchema = notebookRequestNodeQuerySchema.extend({
-  context: z
-    .object({
-      relationsInQuery: z.array(z.any()).optional().default([]),
-      customNodes: z.array(z.any()).optional().default([]),
-      customRelations: z.array(z.any()).optional().default([]),
-    })
-    .optional()
-    .default({}),
-});
-
 export default createAPIGatewayProxyHandler({
   logic,
-  bodySchema: dgraphSchema.omit({ schema: true }),
+  bodySchema,
   allowedOrigins: [/roamresearch\.com/],
 });
