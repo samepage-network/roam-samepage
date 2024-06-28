@@ -34,7 +34,17 @@ const queryRoam = async ({
 
 const bodySchema = notebookRequestNodeQuerySchema
   .omit({ schema: true })
-  .merge(z.object({ label: z.string().optional() }));
+  .extend({
+    label: z.string().optional(),
+    context: z
+      .object({
+        relationsInQuery: z.array(z.any()).optional().default([]),
+        customNodes: z.array(z.any()).optional().default([]),
+        customRelations: z.array(z.any()).optional().default([]),
+      })
+      .optional()
+      .default({}),
+  });
 
 const logic = async ({
   authorization,
@@ -52,6 +62,7 @@ const logic = async ({
         conditions: body.conditions,
         returnNode: body.returnNode,
         selections: body.selections,
+        ...body,
       },
     });
   }

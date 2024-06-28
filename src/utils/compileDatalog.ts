@@ -13,7 +13,7 @@ import {
 
 const indent = (n: number) => "".padStart(n * 2, " ");
 
-const toVar = (v = "undefined") => v.replace(/[\s"()[\]{}/\\]/g, "");
+const toVar = (v = "undefined") => v.replace(/[\s"()[\]{}/\\^@,~`]/g, "");
 
 // TODO - look into an edn library instead: edn.stringify(data, null, 2)
 const compileDatalog = (
@@ -77,9 +77,9 @@ const compileDatalog = (
     case "pattern-name":
       return d.value;
     case "pull-expression":
-      return `${indent(level)}[pull ${compileDatalog(
+      return `${indent(level)}(pull ${compileDatalog(
         d.variable
-      )} ${compileDatalog(d.pattern)}\n${indent(level)}]`;
+      )} ${compileDatalog(d.pattern)}\n${indent(level)})`;
     case "aggregate":
       return `[${d.name} ${d.args.map((a) => compileDatalog(a)).join(" ")}]`;
     case "attr-name":
